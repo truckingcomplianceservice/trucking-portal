@@ -5,7 +5,7 @@ Non-superusers only see data for the companies listed on their profile,
 so a person from one company can't see another's drivers or loads.
 """
 from django.contrib import admin
-from .models import Company, Profile, Driver, Vehicle, Load
+from .models import Company, Profile, Driver, Vehicle, Load, Expense, Settlement
 
 admin.site.site_header = "Trucking Operations Portal"
 admin.site.site_title = "Trucking Portal"
@@ -79,4 +79,30 @@ class LoadAdmin(CompanyScopedAdmin):
     list_filter = ("company", "status", "payment_status")
     search_fields = ("reference", "customer", "origin", "destination")
     date_hierarchy = "pickup_date"
-    autocomplete_fields = ()
+    fieldsets = (
+        (None, {"fields": ("company", "reference", "customer", ("origin", "destination"),
+                           ("pickup_date", "delivery_date"), ("rate", "miles"),
+                           ("driver", "vehicle"), ("status", "payment_status"), "notes")}),
+        ("Documents & billing", {"fields": ("invoice_number", "bill_of_lading",
+                           "proof_of_delivery", "rate_confirmation")}),
+    )
+
+
+@admin.register(Expense)
+class ExpenseAdmin(CompanyScopedAdmin):
+    list_display = ("date", "company", "category", "amount", "vendor", "driver", "vehicle", "load")
+    list_filter = ("company", "category")
+    search_fields = ("vendor", "notes")
+    date_hierarchy = "date"
+
+
+@admin.register(Settlement)
+class SettlementAdmin(CompanyScopedAdmin):
+    list_display = ("driver", "company", "period_start", "period_end",
+                    "gross_pay", "deductions", "net_pay_display")
+    list_filter = ("company", "driver")
+    date_hierarchy = "period_end"
+
+    @admin.display(description="Net pay")
+    def net_pay_display(self, obj):
+        return f"${obj.net_pay:,.2f}"

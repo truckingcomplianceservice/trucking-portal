@@ -149,6 +149,10 @@ class Load(models.Model):
     payment_status = models.CharField(max_length=18, choices=PAYMENT_CHOICES, default="unpaid")
     driver = models.ForeignKey(Driver, on_delete=models.SET_NULL, null=True, blank=True)
     vehicle = models.ForeignKey(Vehicle, on_delete=models.SET_NULL, null=True, blank=True)
+    invoice_number = models.CharField(max_length=40, blank=True)
+    bill_of_lading = models.FileField("Bill of Lading (BOL)", upload_to="loads/bol/", blank=True)
+    proof_of_delivery = models.FileField("Proof of Delivery (POD)", upload_to="loads/pod/", blank=True)
+    rate_confirmation = models.FileField(upload_to="loads/ratecon/", blank=True)
     notes = models.TextField(blank=True)
 
     class Meta:
@@ -156,3 +160,51 @@ class Load(models.Model):
 
     def __str__(self):
         return f"Load {self.reference}: {self.origin} -> {self.destination}"
+
+
+class Expense(models.Model):
+    CATEGORY_CHOICES = [
+        ("fuel", "Fuel"),
+        ("maintenance", "Maintenance / repair"),
+        ("insurance", "Insurance"),
+        ("tolls", "Tolls"),
+        ("permits", "Permits / licensing"),
+        ("other", "Other"),
+    ]
+    company = models.ForeignKey(Company, on_delete=models.PROTECT, related_name="expenses")
+    date = models.DateField()
+    category = models.CharField(max_length=12, choices=CATEGORY_CHOICES, default="fuel")
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    vendor = models.CharField(max_length=120, blank=True)
+    driver = models.ForeignKey(Driver, on_delete=models.SET_NULL, null=True, blank=True)
+    vehicle = models.ForeignKey(Vehicle, on_delete=models.SET_NULL, null=True, blank=True)
+    load = models.ForeignKey(Load, on_delete=models.SET_NULL, null=True, blank=True)
+    receipt = models.FileField(upload_to="expenses/", blank=True)
+    notes = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ["-date"]
+
+    def __str__(self):
+        return f"{self.get_category_display()} - ${self.amount} ({self.date})"
+
+
+class Settlement(models.Model):
+    """Driver wages for a pay period. Wages live here, not in Expense, to keep P&L clean."""
+    company = models.ForeignKey(Company, on_delete=models.PROTECT, related_name="settlements")
+    driver = models.ForeignKey(Driver, on_delete=models.CASCADE, related_name="settlements")
+    period_start = models.DateField()
+    period_end = models.DateField()
+    gross_pay = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    deductions = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    notes = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ["-period_end"]
+
+    @property
+    def net_pay(self):
+        return self.gross_pay - self.deductions
+
+    def __str__(self):
+        return f"{self.driver} · {self.period_start} to {self.period_end}"

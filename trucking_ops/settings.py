@@ -127,3 +127,7 @@ STORAGES = {
     "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
     "staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"},
 }
+
+# Uploaded documents (BOL, POD, receipts). MEDIA_DIR points to the Railway volume in production.
+MEDIA_URL = 'media/'
+MEDIA_ROOT = os.environ.get('MEDIA_DIR') or (BASE_DIR / 'media')

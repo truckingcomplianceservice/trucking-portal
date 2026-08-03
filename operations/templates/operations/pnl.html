@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>Profit &amp; Loss by Company</title>
+<style>
+ body{font-family:system-ui,sans-serif;background:#f5f6f9;color:#161c2b;margin:0;padding:32px}
+ .wrap{max-width:860px;margin:0 auto}
+ h1{font-size:22px;margin:0 0 4px}
+ .sub{color:#727c93;font-size:13px;margin-bottom:22px}
+ a.back{color:#2e6be6;text-decoration:none;font-size:13px}
+ table{width:100%;border-collapse:collapse;background:#fff;border:1px solid #e6e9f0;border-radius:12px;overflow:hidden}
+ th,td{padding:13px 16px;text-align:left;border-bottom:1px solid #f1f3f7;font-size:14px}
+ th{background:#fafbfc;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#727c93}
+ td.num,th.num{text-align:right}
+ tr:last-child td{border-bottom:none}
+ .total td{font-weight:700;background:#fafbfc}
+ .net{color:#1f9d6b;font-weight:600}
+</style></head><body><div class="wrap">
+ <a class="back" href="/admin/">&larr; Back to portal</a>
+ <h1>Profit &amp; Loss by company</h1>
+ <div class="sub">Revenue (loads) &minus; expenses &minus; driver wages. Year to date.</div>
+ <table>
+  <thead><tr><th>Company</th><th class="num">Revenue</th><th class="num">Expenses</th><th class="num">Driver wages</th><th class="num">Net profit</th></tr></thead>
+  <tbody>
+   {% for r in rows %}
+   <tr><td><b>{{ r.name }}</b><br><span style="color:#727c93;font-size:12px">{{ r.mc }}</span></td>
+    <td class="num">${{ r.rev|floatformat:2 }}</td>
+    <td class="num">${{ r.exp|floatformat:2 }}</td>
+    <td class="num">${{ r.wag|floatformat:2 }}</td>
+    <td class="num net">${{ r.net|floatformat:2 }}</td></tr>
+   {% endfor %}
+   <tr class="total"><td>All companies</td>
+    <td class="num">${{ totals.rev|floatformat:2 }}</td>
+    <td class="num">${{ totals.exp|floatformat:2 }}</td>
+    <td class="num">${{ totals.wag|floatformat:2 }}</td>
+    <td class="num">${{ totals.net|floatformat:2 }}</td></tr>
+  </tbody>
+ </table>
+</div></body></html>
