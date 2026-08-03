@@ -7,7 +7,8 @@ so a person from one company can't see another's drivers or loads.
 from django import forms
 from django.contrib import admin
 from django.utils.safestring import mark_safe
-from .models import Company, Profile, Driver, Vehicle, Load, Expense, Settlement
+from .models import (Company, Profile, Driver, Vehicle, Load, Expense,
+                     Settlement, Applicant, ComplianceDocument)
 
 
 class CategoryTextInput(forms.TextInput):
@@ -53,6 +54,14 @@ class CompanyAdmin(admin.ModelAdmin):
     list_display = ("name", "mc_number", "dot_number", "ca_number", "factor", "active")
     list_filter = ("factor", "active")
     search_fields = ("name", "mc_number", "dot_number", "ca_number")
+    readonly_fields = ("application_link",)
+
+    @admin.display(description="Driver application link")
+    def application_link(self, obj):
+        if not obj.apply_token:
+            return "(save first to generate)"
+        return mark_safe(f'<code>/apply/{obj.apply_token}/</code> '
+                         f'&mdash; add your domain in front. See Hiring &rarr; links page.')
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
@@ -126,3 +135,45 @@ class SettlementAdmin(CompanyScopedAdmin):
     @admin.display(description="Net pay")
     def net_pay_display(self, obj):
         return f"${obj.net_pay:,.2f}"
+
+
+@admin.register(Applicant)
+class ApplicantAdmin(CompanyScopedAdmin):
+    list_display = ("first_name", "last_name", "company", "stage", "phone",
+                    "cdl_class", "created_at")
+    list_filter = ("company", "stage")
+    search_fields = ("first_name", "last_name", "phone", "email")
+    readonly_fields = ("created_at",)
+    date_hierarchy = "created_at"
+    actions = ["hire_selected", "decline_selected"]
+
+    @admin.action(description="Hire selected applicants (create driver + DQ file)")
+    def hire_selected(self, request, queryset):
+        created = 0
+        for a in queryset.exclude(stage="cleared"):
+            driver = Driver.objects.create(
+                company=a.company, first_name=a.first_name, last_name=a.last_name,
+                phone=a.phone, email=a.email, cdl_number=a.cdl_number,
+                cdl_class=a.cdl_class or "", status="active",
+                driver_type="company", tax_status="w2",
+            )
+            ComplianceDocument.objects.create(
+                company=a.company, driver=driver, doc_type="application",
+                issued_date=a.created_at.date(), verified=False,
+                notes="Created from online application.")
+            a.stage = "cleared"; a.save()
+            created += 1
+        self.message_user(request, f"Hired {created} applicant(s) and created their driver records.")
+
+    @admin.action(description="Decline selected applicants")
+    def decline_selected(self, request, queryset):
+        n = queryset.update(stage="declined")
+        self.message_user(request, f"Declined {n} applicant(s).")
+
+
+@admin.register(ComplianceDocument)
+class ComplianceDocumentAdmin(CompanyScopedAdmin):
+    list_display = ("driver", "company", "doc_type", "issued_date", "expiry_date", "verified")
+    list_filter = ("company", "doc_type", "verified")
+    search_fields = ("driver__first_name", "driver__last_name")
+    date_hierarchy = "expiry_date"

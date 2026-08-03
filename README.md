@@ -1,33 +1,38 @@
 # Trucking Operations Portal
 
-Companies, drivers, vehicles, loads, expenses, driver settlements, load
-documents (BOL/POD), and a live Profit & Loss report per company.
-Django app, deploys on Railway.
+Multi-company operations: companies, drivers, vehicles, loads (with BOL/POD &
+factoring), expenses, settlements, P&L, online driver hiring, and compliance
+document-expiry tracking. Django app on Railway.
 
-## Deploying an update (Phase 2)
+## Deploying an update
 
-You're replacing the code in your existing repo, so Railway redeploys automatically.
+Same repo, so Railway redeploys automatically:
+1. In your `trucking-portal` GitHub repo: **Add file -> Upload files**.
+2. Unzip this download and drag in ALL the contents (overwrites changed files).
+3. Commit. Railway redeploys on its own.
 
-1. In your `trucking-portal` GitHub repo, click **Add file -> Upload files**.
-2. Unzip this download and drag in ALL the contents (overwrites the changed files).
-3. Commit. Railway sees the change and redeploys on its own.
+No new Railway steps this time (the media volume from Phase 2 already handles
+the applicant & compliance file uploads).
 
-## One new step: persistent file storage (for BOL/POD/receipts)
+## Phase 3 — what's new
 
-Uploaded files need a permanent home, or they vanish on each redeploy. Add a
-Railway volume:
+### Online driver hiring
+- Each company has a unique, private application link. Find them at:
+  **`your-app.up.railway.app/hiring/links/`** (copy button included).
+- Send a link to a driver. They fill out the application and upload their CDL,
+  medical certificate, etc. from their phone — no login needed.
+- New applications appear under **Applicants** in the admin.
+- Select applicants and use the **"Hire"** action to create their driver record
+  and open a DQ file automatically, or **"Decline"**.
 
-1. In Railway, click the **web** service -> **Settings** -> **Volumes** (or **+ Volume**).
-2. Create a volume and set the **mount path** to:  `/app/media`
-3. Go to **Variables** and add:  `MEDIA_DIR` = `/app/media`
-4. Deploy. Uploaded documents now persist across every future deploy.
+### Compliance & expiry tracking
+- **Compliance documents** — add DQ-file documents per driver (application, MVR,
+  medical, Clearinghouse, drug test, ELDT, etc.) each with an expiry date.
+- Live dashboard at **`your-app.up.railway.app/reports/compliance/`** shows
+  everything **overdue** and **expiring within 30 days** — pulling from driver
+  CDL/medical dates, vehicle inspections, and compliance documents.
 
-(If you skip this for now, the app still works — files just won't survive a redeploy. Add the volume before you rely on stored documents.)
-
-## Using Phase 2
-
-- **Loads** now have a "Documents & billing" section: invoice number, BOL, POD, rate con.
-- **Expenses** — log fuel, maintenance, tolls, etc., linked to a company/driver/truck/load.
-- **Settlements** — driver wages per period (net = gross − deductions).
-- **Profit & Loss** — visit **/reports/pnl/** on your site for revenue − expenses −
-  wages, per company and combined. (e.g. `your-app.up.railway.app/reports/pnl/`)
+### Handy links
+- P&L: `/reports/pnl/`
+- Compliance: `/reports/compliance/`
+- Hiring links: `/hiring/links/`

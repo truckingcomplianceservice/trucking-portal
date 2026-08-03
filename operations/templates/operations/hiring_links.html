@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>Driver application links</title>
+<style>
+ body{font-family:system-ui,sans-serif;background:#f5f6f9;color:#161c2b;margin:0;padding:32px}
+ .wrap{max-width:760px;margin:0 auto}
+ a.back{color:#2e6be6;text-decoration:none;font-size:13px}
+ h1{font-size:22px;margin:6px 0 2px}.sub{color:#727c93;font-size:13px;margin-bottom:22px}
+ .card{background:#fff;border:1px solid #e6e9f0;border-radius:12px;padding:18px;margin-bottom:14px}
+ .card b{font-size:15px}
+ .row{display:flex;gap:8px;margin-top:10px}
+ input{flex:1;padding:10px 12px;border:1px solid #e6e9f0;border-radius:9px;font-size:13px;font-family:ui-monospace,monospace;background:#f5f6f9}
+ button{background:#131e36;color:#fff;border:none;padding:10px 14px;border-radius:9px;font-size:13px;font-weight:600;cursor:pointer}
+ .hint{font-size:12.5px;color:#727c93;margin-top:8px}
+</style></head><body><div class="wrap">
+ <a class="back" href="/admin/">&larr; Back to portal</a>
+ <h1>Driver application links</h1>
+ <div class="sub">Send a company's link to a driver by text or email. They apply and upload documents from their phone &mdash; no login needed. Submissions appear under <b>Applicants</b>.</div>
+ {% for r in rows %}
+ <div class="card">
+   <b>{{ r.name }}</b>
+   <div class="row"><input id="u{{ forloop.counter }}" readonly value="{{ r.url }}">
+     <button onclick="navigator.clipboard.writeText(document.getElementById('u{{ forloop.counter }}').value);this.textContent='Copied'">Copy</button></div>
+ </div>
+ {% endfor %}
+ <div class="hint">Tip: each link is unique and unguessable. If you ever need to invalidate one, we can regenerate it.</div>
+</div></body></html>

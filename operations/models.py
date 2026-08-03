@@ -5,6 +5,7 @@ Companies (each with its own MC/DOT/CA and factor), Drivers, Vehicles,
 Loads, and user Profiles that control role and which companies a person
 can access.
 """
+import secrets
 from django.db import models
 from django.contrib.auth.models import User
 from django.db.models.signals import post_save
@@ -24,10 +25,17 @@ class Company(models.Model):
     ca_number = models.CharField("CA number", max_length=30, blank=True)
     factor = models.CharField(max_length=10, choices=FACTOR_CHOICES, default="None")
     active = models.BooleanField(default=True)
+    apply_token = models.CharField(max_length=32, blank=True, db_index=True,
+        help_text="Used to build this company's public driver-application link.")
 
     class Meta:
         verbose_name_plural = "Companies"
         ordering = ["name"]
+
+    def save(self, *args, **kwargs):
+        if not self.apply_token:
+            self.apply_token = secrets.token_urlsafe(12)
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return self.name
@@ -209,3 +217,83 @@ class Settlement(models.Model):
 
     def __str__(self):
         return f"{self.driver} · {self.period_start} to {self.period_end}"
+
+
+class Applicant(models.Model):
+    """A driver who applied online via the company's hiring link."""
+    STAGE_CHOICES = [
+        ("applied", "Applied"),
+        ("screening", "Screening (MVR / PSP)"),
+        ("dq_file", "DQ file"),
+        ("cleared", "Cleared / hired"),
+        ("declined", "Declined"),
+    ]
+    CDL_CLASS_CHOICES = [("A", "Class A"), ("B", "Class B"), ("C", "Class C")]
+
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name="applicants")
+    first_name = models.CharField(max_length=50)
+    last_name = models.CharField(max_length=50)
+    phone = models.CharField(max_length=30)
+    email = models.EmailField(blank=True)
+    current_address = models.CharField("Current address", max_length=200, blank=True)
+    address_history = models.TextField("Address history (last 3 years)", blank=True)
+    cdl_number = models.CharField("CDL number", max_length=40, blank=True)
+    cdl_class = models.CharField("CDL class", max_length=1, choices=CDL_CLASS_CHOICES, blank=True)
+    cdl_state = models.CharField("CDL state", max_length=20, blank=True)
+    years_experience = models.PositiveIntegerField("Years of experience", null=True, blank=True)
+    employment_history = models.TextField("Employment history (last 10 years)", blank=True)
+    accidents = models.TextField("Accident / violation history", blank=True)
+
+    cdl_file = models.FileField("CDL (front & back)", upload_to="applicants/cdl/", blank=True)
+    medical_file = models.FileField("Medical certificate", upload_to="applicants/medical/", blank=True)
+    other_file = models.FileField("Other document", upload_to="applicants/other/", blank=True)
+
+    consent = models.BooleanField(
+        "Authorizes MVR, PSP, drug/alcohol & Clearinghouse checks", default=False)
+    signature = models.CharField("Signature (typed full name)", max_length=100, blank=True)
+
+    stage = models.CharField(max_length=12, choices=STAGE_CHOICES, default="applied")
+    created_at = models.DateTimeField(auto_now_add=True)
+    notes = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.first_name} {self.last_name} ({self.get_stage_display()})"
+
+
+class ComplianceDocument(models.Model):
+    """A document in a driver's qualification file, tracked with an expiry date."""
+    DOC_TYPE_CHOICES = [
+        ("application", "Employment application"),
+        ("mvr", "Motor Vehicle Record (MVR)"),
+        ("medical", "Medical certificate"),
+        ("clearinghouse", "Clearinghouse query"),
+        ("drug_test", "Drug / alcohol test"),
+        ("eldt", "ELDT certificate"),
+        ("road_test", "Road test / CDL equivalency"),
+        ("safety_history", "Safety performance history"),
+        ("w9", "W-9 (contractor)"),
+        ("other", "Other"),
+    ]
+    company = models.ForeignKey(Company, on_delete=models.PROTECT, related_name="documents")
+    driver = models.ForeignKey(Driver, on_delete=models.CASCADE, related_name="documents")
+    doc_type = models.CharField(max_length=20, choices=DOC_TYPE_CHOICES)
+    issued_date = models.DateField(null=True, blank=True)
+    expiry_date = models.DateField(null=True, blank=True,
+        help_text="Leave blank if this document does not expire.")
+    file = models.FileField(upload_to="compliance/", blank=True)
+    verified = models.BooleanField(default=False)
+    notes = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ["expiry_date"]
+
+    def save(self, *args, **kwargs):
+        if not self.company_id and self.driver_id:
+            self.company = self.driver.company
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.driver} - {self.get_doc_type_display()}"
