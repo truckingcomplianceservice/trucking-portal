@@ -4,8 +4,26 @@ Admin configuration — the working interface for Phase 1.
 Non-superusers only see data for the companies listed on their profile,
 so a person from one company can't see another's drivers or loads.
 """
+from django import forms
 from django.contrib import admin
 from .models import Company, Profile, Driver, Vehicle, Load, Expense, Settlement
+
+
+class CategoryTextInput(forms.TextInput):
+    """A text box with a dropdown of common categories (still lets you type anything)."""
+    def render(self, name, value, attrs=None, renderer=None):
+        attrs = attrs or {}
+        attrs["list"] = "expense-categories"
+        html = super().render(name, value, attrs, renderer)
+        options = "".join(f'<option value="{c}">' for c in Expense.COMMON_CATEGORIES)
+        return html + f'<datalist id="expense-categories">{options}</datalist>'
+
+
+class ExpenseForm(forms.ModelForm):
+    class Meta:
+        model = Expense
+        fields = "__all__"
+        widgets = {"category": CategoryTextInput()}
 
 admin.site.site_header = "Trucking Operations Portal"
 admin.site.site_title = "Trucking Portal"
@@ -90,9 +108,10 @@ class LoadAdmin(CompanyScopedAdmin):
 
 @admin.register(Expense)
 class ExpenseAdmin(CompanyScopedAdmin):
+    form = ExpenseForm
     list_display = ("date", "company", "category", "amount", "vendor", "driver", "vehicle", "load")
     list_filter = ("company", "category")
-    search_fields = ("vendor", "notes")
+    search_fields = ("vendor", "notes", "category")
     date_hierarchy = "date"
 
 

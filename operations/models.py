@@ -163,17 +163,18 @@ class Load(models.Model):
 
 
 class Expense(models.Model):
-    CATEGORY_CHOICES = [
-        ("fuel", "Fuel"),
-        ("maintenance", "Maintenance / repair"),
-        ("insurance", "Insurance"),
-        ("tolls", "Tolls"),
-        ("permits", "Permits / licensing"),
-        ("other", "Other"),
+    # Common categories offered as suggestions, but you can type any category.
+    COMMON_CATEGORIES = [
+        "Fuel", "Maintenance / repair", "Insurance", "Tolls",
+        "Permits / licensing", "Truck wash", "Parking", "Broker fee",
+        "ELD / subscription", "Office", "Other",
     ]
     company = models.ForeignKey(Company, on_delete=models.PROTECT, related_name="expenses")
     date = models.DateField()
-    category = models.CharField(max_length=12, choices=CATEGORY_CHOICES, default="fuel")
+    category = models.CharField(
+        max_length=60, default="Fuel",
+        help_text="Pick a suggestion or type your own category.",
+    )
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     vendor = models.CharField(max_length=120, blank=True)
     driver = models.ForeignKey(Driver, on_delete=models.SET_NULL, null=True, blank=True)
