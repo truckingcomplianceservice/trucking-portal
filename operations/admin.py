@@ -6,6 +6,7 @@ so a person from one company can't see another's drivers or loads.
 """
 from django import forms
 from django.contrib import admin
+from django.utils.safestring import mark_safe
 from .models import Company, Profile, Driver, Vehicle, Load, Expense, Settlement
 
 
@@ -16,7 +17,7 @@ class CategoryTextInput(forms.TextInput):
         attrs["list"] = "expense-categories"
         html = super().render(name, value, attrs, renderer)
         options = "".join(f'<option value="{c}">' for c in Expense.COMMON_CATEGORIES)
-        return html + f'<datalist id="expense-categories">{options}</datalist>'
+        return mark_safe(f'{html}<datalist id="expense-categories">{options}</datalist>')
 
 
 class ExpenseForm(forms.ModelForm):
