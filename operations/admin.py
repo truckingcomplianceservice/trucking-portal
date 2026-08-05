@@ -8,7 +8,7 @@ from django import forms
 from django.contrib import admin
 from django.utils.safestring import mark_safe
 from .models import (Company, Profile, Driver, Vehicle, Load, Expense,
-                     Settlement, Applicant, ComplianceDocument)
+                     Settlement, Applicant, ComplianceDocument, ActivityLog, NotificationRule)
 
 
 class CategoryTextInput(forms.TextInput):
@@ -177,3 +177,26 @@ class ComplianceDocumentAdmin(CompanyScopedAdmin):
     list_filter = ("company", "doc_type", "verified")
     search_fields = ("driver__first_name", "driver__last_name")
     date_hierarchy = "expiry_date"
+
+
+@admin.register(NotificationRule)
+class NotificationRuleAdmin(admin.ModelAdmin):
+    list_display = ("__str__", "in_app", "email", "sms")
+    list_editable = ("in_app", "email", "sms")
+
+    def has_add_permission(self, request):
+        return False  # rules are seeded; you just toggle them
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(ActivityLog)
+class ActivityLogAdmin(admin.ModelAdmin):
+    list_display = ("created_at", "company", "category", "text")
+    list_filter = ("company", "category")
+    search_fields = ("text",)
+    date_hierarchy = "created_at"
+
+    def has_add_permission(self, request):
+        return False

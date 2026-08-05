@@ -114,3 +114,75 @@ def hiring_links(request):
     rows = [{"name": c.name,
              "url": request.build_absolute_uri(f"/apply/{c.apply_token}/")} for c in companies]
     return render(request, "operations/hiring_links.html", {"rows": rows})
+
+
+# ---------------- Phase 4: reports index, tax, 1099, factoring, activity ----------------
+import datetime as _dt
+from django.http import Http404
+from .models import ActivityLog
+
+
+def _scoped_companies(request):
+    companies = Company.objects.all()
+    if not request.user.is_superuser:
+        companies = companies.filter(pk__in=request.user.profile.companies.all())
+    return companies
+
+
+@login_required
+def reports_index(request):
+    return render(request, "operations/reports_index.html")
+
+
+@login_required
+def tax_report(request):
+    companies = _scoped_companies(request)
+    year = int(request.GET.get("year", _dt.date.today().year))
+    summary, contractors = [], []
+    for c in companies:
+        rev = Load.objects.filter(company=c, pickup_date__year=year).aggregate(s=Sum("rate"))["s"] or 0
+        exp = Expense.objects.filter(company=c, date__year=year).aggregate(s=Sum("amount"))["s"] or 0
+        summary.append({"name": c.name, "ein": c.ein, "rev": rev, "exp": exp, "net": rev - exp})
+    for d in Driver.objects.filter(company__in=companies, tax_status="1099"):
+        paid = Settlement.objects.filter(driver=d, period_end__year=year).aggregate(s=Sum("gross_pay"))["s"] or 0
+        contractors.append({"id": d.id, "name": f"{d.first_name} {d.last_name}",
+                            "company": d.company.name, "paid": paid,
+                            "over": paid >= 600, "w9": bool(d.tax_id)})
+    years = list(range(_dt.date.today().year, _dt.date.today().year - 4, -1))
+    return render(request, "operations/tax.html",
+                  {"summary": summary, "contractors": contractors, "year": year, "years": years})
+
+
+@login_required
+def generate_1099(request, driver_id):
+    year = int(request.GET.get("year", _dt.date.today().year))
+    companies = _scoped_companies(request)
+    try:
+        d = Driver.objects.get(pk=driver_id, company__in=companies)
+    except Driver.DoesNotExist:
+        raise Http404
+    paid = Settlement.objects.filter(driver=d, period_end__year=year).aggregate(s=Sum("gross_pay"))["s"] or 0
+    return render(request, "operations/form_1099.html",
+                  {"d": d, "company": d.company, "paid": paid, "year": year})
+
+
+@login_required
+def factoring_report(request):
+    companies = _scoped_companies(request)
+    groups = []
+    for c in companies:
+        loads = Load.objects.filter(company=c).exclude(payment_status__in=["closed"])
+        outstanding = loads.exclude(payment_status="unpaid").aggregate(s=Sum("rate"))["s"] or 0
+        rows = [{"ref": l.reference, "customer": l.customer, "rate": l.rate,
+                 "status": l.get_payment_status_display(), "code": l.payment_status}
+                for l in loads.order_by("payment_status")]
+        groups.append({"name": c.name, "factor": c.factor, "outstanding": outstanding, "rows": rows})
+    return render(request, "operations/factoring.html", {"groups": groups})
+
+
+@login_required
+def activity_feed(request):
+    companies = _scoped_companies(request)
+    logs = ActivityLog.objects.filter(company__in=companies)[:200] if not request.user.is_superuser \
+        else ActivityLog.objects.all()[:200]
+    return render(request, "operations/activity.html", {"logs": logs})

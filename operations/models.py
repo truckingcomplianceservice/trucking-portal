@@ -23,6 +23,8 @@ class Company(models.Model):
     mc_number = models.CharField("MC number", max_length=30, blank=True)
     dot_number = models.CharField("DOT number", max_length=30, blank=True)
     ca_number = models.CharField("CA number", max_length=30, blank=True)
+    ein = models.CharField("EIN (federal tax ID)", max_length=20, blank=True)
+    address = models.CharField("Mailing address", max_length=250, blank=True)
     factor = models.CharField(max_length=10, choices=FACTOR_CHOICES, default="None")
     active = models.BooleanField(default=True)
     apply_token = models.CharField(max_length=32, blank=True, db_index=True,
@@ -105,6 +107,8 @@ class Driver(models.Model):
     pay_type = models.CharField(max_length=12, choices=PAY_TYPE_CHOICES, default="per_mile")
     pay_rate = models.DecimalField(max_digits=10, decimal_places=2, default=0,
         help_text="Cents per mile, percent (e.g. 25), or weekly salary amount.")
+    tax_id = models.CharField("Tax ID (SSN/EIN, for 1099)", max_length=20, blank=True)
+    address = models.CharField("Mailing address", max_length=250, blank=True)
     notes = models.TextField(blank=True)
 
     class Meta:
@@ -297,3 +301,98 @@ class ComplianceDocument(models.Model):
 
     def __str__(self):
         return f"{self.driver} - {self.get_doc_type_display()}"
+
+
+class ActivityLog(models.Model):
+    """A running record of activity in the system (the in-app notification feed)."""
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, null=True, blank=True,
+                                related_name="activity")
+    category = models.CharField(max_length=20, blank=True)
+    text = models.CharField(max_length=300)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return self.text
+
+
+class NotificationRule(models.Model):
+    """Which events notify you, and how. You control these in the admin."""
+    EVENT_CHOICES = [
+        ("load_created", "Load booked"),
+        ("payment_updated", "Load payment status changed"),
+        ("application_received", "New driver application"),
+        ("expense_added", "Expense added"),
+        ("settlement_created", "Driver settlement created"),
+        ("doc_expiring", "Document expiring soon"),
+    ]
+    event = models.CharField(max_length=40, choices=EVENT_CHOICES, unique=True)
+    in_app = models.BooleanField("In-app", default=True)
+    email = models.BooleanField("Email", default=False)
+    sms = models.BooleanField("Text (coming soon)", default=False)
+
+    class Meta:
+        ordering = ["event"]
+
+    def __str__(self):
+        return self.get_event_display()
+
+
+def notify(event, text, company=None):
+    """Record an in-app activity and, if enabled + configured, send an email."""
+    from django.conf import settings
+    from django.core.mail import send_mail
+    try:
+        rule = NotificationRule.objects.filter(event=event).first()
+    except Exception:
+        rule = None
+    if rule is None or rule.in_app:
+        ActivityLog.objects.create(company=company, category=event, text=text)
+    if rule and rule.email and getattr(settings, "EMAIL_HOST", ""):
+        admins = list(User.objects.filter(is_superuser=True)
+                      .exclude(email="").values_list("email", flat=True))
+        if admins:
+            send_mail(f"[Fleetline] {rule.get_event_display()}", text,
+                      settings.DEFAULT_FROM_EMAIL, admins, fail_silently=True)
+
+
+# ---- auto-logging signals ----
+from django.db.models.signals import pre_save
+
+@receiver(post_save, sender=Load)
+def _log_load(sender, instance, created, **kwargs):
+    if created:
+        notify("load_created",
+               f"Load {instance.reference} booked ({instance.origin} -> {instance.destination})",
+               instance.company)
+    elif getattr(instance, "_old_payment", None) and instance._old_payment != instance.payment_status:
+        notify("payment_updated",
+               f"Load {instance.reference} payment: {instance.get_payment_status_display()}",
+               instance.company)
+
+@receiver(pre_save, sender=Load)
+def _stash_payment(sender, instance, **kwargs):
+    if instance.pk:
+        old = Load.objects.filter(pk=instance.pk).values_list("payment_status", flat=True).first()
+        instance._old_payment = old
+
+@receiver(post_save, sender=Applicant)
+def _log_applicant(sender, instance, created, **kwargs):
+    if created:
+        notify("application_received",
+               f"New driver application from {instance.first_name} {instance.last_name}",
+               instance.company)
+
+@receiver(post_save, sender=Expense)
+def _log_expense(sender, instance, created, **kwargs):
+    if created:
+        notify("expense_added",
+               f"{instance.category} expense ${instance.amount} added", instance.company)
+
+@receiver(post_save, sender=Settlement)
+def _log_settlement(sender, instance, created, **kwargs):
+    if created:
+        notify("settlement_created",
+               f"Settlement for {instance.driver}: ${instance.net_pay}", instance.company)

@@ -1,38 +1,40 @@
 # Trucking Operations Portal
 
-Multi-company operations: companies, drivers, vehicles, loads (with BOL/POD &
-factoring), expenses, settlements, P&L, online driver hiring, and compliance
-document-expiry tracking. Django app on Railway.
+Full multi-company TMS: companies, drivers, vehicles, loads (documents +
+factoring), expenses, settlements, P&L, online hiring, compliance tracking,
+tax & 1099s, and activity/notifications. Django on Railway.
 
 ## Deploying an update
-
-Same repo, so Railway redeploys automatically:
 1. In your `trucking-portal` GitHub repo: **Add file -> Upload files**.
 2. Unzip this download and drag in ALL the contents (overwrites changed files).
-3. Commit. Railway redeploys on its own.
+3. Commit. Railway redeploys on its own. No new Railway steps required.
 
-No new Railway steps this time (the media volume from Phase 2 already handles
-the applicant & compliance file uploads).
+## Phase 4 — what's new
 
-## Phase 3 — what's new
+### One place for everything: /reports/
+Visit **`app.pure99inc.com/reports/`** for a menu linking to every report.
 
-### Online driver hiring
-- Each company has a unique, private application link. Find them at:
-  **`your-app.up.railway.app/hiring/links/`** (copy button included).
-- Send a link to a driver. They fill out the application and upload their CDL,
-  medical certificate, etc. from their phone — no login needed.
-- New applications appear under **Applicants** in the admin.
-- Select applicants and use the **"Hire"** action to create their driver record
-  and open a DQ file automatically, or **"Decline"**.
+### Tax & 1099s  (/reports/tax/)
+- Per-company income & expense totals for any year.
+- 1099-NEC contractors listed with year-to-date pay and a $600 flag.
+- Click **Generate 1099** for a printable 1099-NEC summary (Print / Save as PDF)
+  to hand to your accountant or enter into an e-file service.
+- Add your **EIN + address** on each Company, and a **Tax ID + address** on each
+  1099 driver (new fields) so the 1099 is complete.
 
-### Compliance & expiry tracking
-- **Compliance documents** — add DQ-file documents per driver (application, MVR,
-  medical, Clearinghouse, drug test, ELDT, etc.) each with an expiry date.
-- Live dashboard at **`your-app.up.railway.app/reports/compliance/`** shows
-  everything **overdue** and **expiring within 30 days** — pulling from driver
-  CDL/medical dates, vehicle inspections, and compliance documents.
+### Factoring  (/reports/factoring/)
+- Outstanding invoices per company/factor (RTS / Bobtail), with totals.
+  Closed loads are hidden so you see only what's awaiting payment.
 
-### Handy links
-- P&L: `/reports/pnl/`
-- Compliance: `/reports/compliance/`
-- Hiring links: `/hiring/links/`
+### Notifications & activity
+- **Activity feed** (/reports/activity/) — a running log: loads booked, payment
+  changes, new applications, expenses, settlements.
+- **Notification rules** (in the admin) — toggle, per event, whether it shows
+  in-app / emails you / texts you. Text is a later add.
+- **Email (optional):** to turn on email alerts, set `EMAIL_HOST`,
+  `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD` (and optionally `DEFAULT_FROM_EMAIL`)
+  in Railway Variables. Until then, notifications stay in-app (no errors).
+
+### All report links
+/reports/ · /reports/pnl/ · /reports/tax/ · /reports/factoring/ ·
+/reports/compliance/ · /reports/activity/ · /hiring/links/
