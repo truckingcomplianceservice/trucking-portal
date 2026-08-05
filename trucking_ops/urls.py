@@ -5,6 +5,7 @@ from operations import views
 
 urlpatterns = [
     path("admin/", admin.site.urls),
+    path("dashboard/", views.dashboard, name="dashboard"),
     path("reports/", views.reports_index, name="reports"),
     path("reports/pnl/", views.pnl_report, name="pnl"),
     path("reports/tax/", views.tax_report, name="tax"),
@@ -16,5 +17,5 @@ urlpatterns = [
     path("apply/done/", views.apply_thanks, name="apply_thanks"),
     path("apply/<str:token>/", views.apply_view, name="apply"),
     path("media/<path:path>", views.protected_media, name="protected_media"),
-    path("", RedirectView.as_view(url="/admin/", permanent=False)),
+    path("", RedirectView.as_view(url="/dashboard/", permanent=False)),
 ]

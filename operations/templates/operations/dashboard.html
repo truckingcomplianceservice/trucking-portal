@@ -1,0 +1,111 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dashboard — Fleetline</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+ :root{--navy:#131e36;--navy2:#1b2a49;--amber:#f2a81d;--ink:#161c2b;--muted:#727c93;--line:#e6e9f0;--bg:#f5f6f9;
+   --green:#1f9d6b;--red:#d8443c;--warn:#b9791a;--blue:#2e6be6}
+ *{box-sizing:border-box;margin:0;padding:0}
+ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--ink)}
+ h1,h2,h3,.wm,.kn{font-family:'Space Grotesk',sans-serif}
+ a{text-decoration:none;color:inherit}
+ .top{background:var(--navy);color:#fff;padding:14px 28px;display:flex;align-items:center;gap:14px}
+ .top .mark{background:linear-gradient(140deg,var(--amber),#c9860b);width:34px;height:34px;border-radius:9px;display:grid;place-items:center;color:#241803;font-weight:800}
+ .top .wm{font-weight:700;font-size:19px;letter-spacing:.3px}
+ .top nav{display:flex;gap:4px;margin-left:16px}
+ .top nav a{color:#c7d0e4;font-size:13.5px;padding:7px 13px;border-radius:8px}
+ .top nav a:hover,.top nav a.on{background:var(--navy2);color:#fff}
+ .top .right{margin-left:auto;display:flex;align-items:center;gap:14px;font-size:13px;color:#c7d0e4}
+ .top .right a:hover{color:#fff}
+ .wrap{max-width:1140px;margin:0 auto;padding:26px}
+ .hi{font-size:22px;margin-bottom:2px}.hi span{color:var(--muted);font-size:14px;font-weight:400;font-family:'Inter'}
+ .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin:20px 0}
+ @media(max-width:820px){.kpis{grid-template-columns:repeat(2,1fr)}}
+ .kpi{background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px 18px;box-shadow:0 1px 3px rgba(20,28,43,.05)}
+ .kpi .l{font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:600}
+ .kpi .n{font-family:'Space Grotesk';font-size:28px;font-weight:700;margin-top:8px;letter-spacing:-.5px}
+ .kpi .s{font-size:11.5px;color:var(--muted);margin-top:2px}
+ .actions{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px}
+ .btn{padding:9px 15px;border-radius:9px;font-size:13.5px;font-weight:600}
+ .btn.amber{background:var(--amber);color:#241803}.btn.amber:hover{background:#c9860b;color:#fff}
+ .btn.ghost{background:#fff;border:1px solid var(--line);color:#3a4256}.btn.ghost:hover{border-color:var(--blue)}
+ .grid{display:grid;grid-template-columns:1.5fr 1fr;gap:16px}
+ @media(max-width:900px){.grid{grid-template-columns:1fr}}
+ .card{background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 1px 3px rgba(20,28,43,.05)}
+ .card-h{padding:14px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between}
+ .card-h h3{font-size:14.5px}.card-h a{font-size:12px;color:var(--blue);font-weight:600}
+ table{width:100%;border-collapse:collapse}
+ td,th{padding:11px 18px;text-align:left;font-size:13px;border-bottom:1px solid #f4f5f8}
+ th{font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);background:#fafbfc}
+ tr:last-child td{border-bottom:none}
+ .mono{font-family:'Space Grotesk';font-weight:600;font-size:12.5px}
+ .sub{font-size:11.5px;color:var(--muted)}
+ .chip{display:inline-block;font-size:11px;font-weight:700;padding:2px 9px;border-radius:20px}
+ .c-blue{background:#e7eefc;color:#1d54c4}.c-gray{background:#eef0f4;color:#5b6478}.c-green{background:#e4f4ec;color:#137a51}.c-warn{background:#fbefd6;color:#b9791a}
+ .arow{display:flex;align-items:center;gap:12px;padding:11px 18px;border-bottom:1px solid #f4f5f8}.arow:last-child{border-bottom:none}
+ .arow .cd{text-align:right;margin-left:auto}.arow .cd .n{font-family:'Space Grotesk';font-weight:700}
+ .act{display:flex;gap:11px;padding:10px 18px;border-bottom:1px solid #f4f5f8;font-size:12.5px}.act:last-child{border-bottom:none}
+ .dot{width:8px;height:8px;border-radius:50%;margin-top:5px;flex:none;background:var(--blue)}
+ .empty{padding:16px 18px;color:var(--muted);font-size:13px}
+</style></head><body>
+ <div class="top">
+   <span class="mark">F</span><span class="wm">Fleetline</span>
+   <nav>
+     <a class="on" href="/dashboard/">Dashboard</a>
+     <a href="/admin/operations/load/">Loads</a>
+     <a href="/admin/operations/driver/">Drivers</a>
+     <a href="/admin/operations/applicant/">Applicants</a>
+     <a href="/reports/">Reports</a>
+   </nav>
+   <div class="right"><a href="/admin/">Admin</a><span>·</span><a href="/admin/logout/">Log out</a></div>
+ </div>
+ <div class="wrap">
+   <h1 class="hi">Welcome back <span>· {{ company_count }} compan{{ company_count|pluralize:"y,ies" }} · here's today at a glance</span></h1>
+
+   <div class="kpis">
+     <div class="kpi"><div class="l">Active loads</div><div class="n">{{ active_loads }}</div><div class="s">booked, dispatched, in transit</div></div>
+     <div class="kpi"><div class="l">Active drivers</div><div class="n">{{ driver_count }}</div><div class="s">across your companies</div></div>
+     <div class="kpi"><div class="l">Outstanding</div><div class="n">${{ outstanding|floatformat:0 }}</div><div class="s">awaiting factor payment</div></div>
+     <div class="kpi"><div class="l">Doc alerts</div><div class="n" style="color:{% if alert_count %}var(--red){% else %}var(--green){% endif %}">{{ alert_count }}</div><div class="s">expiring within 30 days</div></div>
+   </div>
+
+   <div class="actions">
+     <a class="btn amber" href="/admin/operations/load/add/">+ New load</a>
+     <a class="btn ghost" href="/admin/operations/driver/add/">+ Add driver</a>
+     <a class="btn ghost" href="/admin/operations/expense/add/">+ Add expense</a>
+     <a class="btn ghost" href="/reports/">View reports</a>
+     <a class="btn ghost" href="/hiring/links/">Hiring links</a>
+   </div>
+
+   <div class="grid">
+     <div class="card">
+       <div class="card-h"><h3>Recent loads</h3><a href="/admin/operations/load/">Manage loads →</a></div>
+       {% if recent_loads %}<table><thead><tr><th>Load</th><th>Route</th><th>Status</th><th>Payment</th></tr></thead><tbody>
+       {% for l in recent_loads %}<tr>
+         <td><a href="/admin/operations/load/{{ l.id }}/change/"><span class="mono">{{ l.reference }}</span></a><div class="sub">{{ l.company.name }}</div></td>
+         <td>{{ l.origin }} <span class="sub">→</span> {{ l.destination }}<div class="sub">${{ l.rate|floatformat:0 }} · {{ l.miles }} mi</div></td>
+         <td><span class="chip c-gray">{{ l.get_status_display }}</span></td>
+         <td><span class="chip c-blue">{{ l.get_payment_status_display }}</span></td>
+       </tr>{% endfor %}</tbody></table>
+       {% else %}<div class="empty">No loads yet. <a href="/admin/operations/load/add/" style="color:var(--blue)">Add your first load →</a></div>{% endif %}
+     </div>
+
+     <div class="card">
+       <div class="card-h"><h3>Expiring documents</h3><a href="/reports/compliance/">All →</a></div>
+       {% if alerts %}{% for a in alerts %}
+       <div class="arow">
+         <div><div style="font-weight:600;font-size:13px">{{ a.holder }}</div><div class="sub">{{ a.kind }}</div></div>
+         <div class="cd"><div class="n" style="color:{% if a.days < 0 %}var(--red){% else %}var(--warn){% endif %}">{{ a.days }}</div><div class="sub">days</div></div>
+       </div>{% endfor %}
+       {% else %}<div class="empty">Nothing expiring soon. Add expiry dates to drivers, vehicles, and documents to track them.</div>{% endif %}
+     </div>
+   </div>
+
+   <div class="card" style="margin-top:16px">
+     <div class="card-h"><h3>Recent activity</h3><a href="/reports/activity/">Full feed →</a></div>
+     {% if recent_activity %}{% for a in recent_activity %}
+     <div class="act"><span class="dot"></span><div><div>{{ a.text }}</div><div class="sub">{% if a.company %}{{ a.company.name }} · {% endif %}{{ a.created_at|date:"M j, g:i A" }}</div></div></div>
+     {% endfor %}{% else %}<div class="empty">No activity yet.</div>{% endif %}
+   </div>
+ </div>
+</body></html>

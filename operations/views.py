@@ -186,3 +186,45 @@ def activity_feed(request):
     logs = ActivityLog.objects.filter(company__in=companies)[:200] if not request.user.is_superuser \
         else ActivityLog.objects.all()[:200]
     return render(request, "operations/activity.html", {"logs": logs})
+
+
+# ---------------- Phase 5: branded dashboard ----------------
+def _expiring_items(companies):
+    today = _dt.date.today()
+    items = []
+    def add(holder, kind, expiry):
+        if expiry:
+            items.append({"holder": holder, "kind": kind, "expiry": expiry,
+                          "days": (expiry - today).days})
+    for d in Driver.objects.filter(company__in=companies):
+        add(f"{d.first_name} {d.last_name}", "CDL", d.cdl_expiry)
+        add(f"{d.first_name} {d.last_name}", "Medical card", d.medical_expiry)
+    for v in Vehicle.objects.filter(company__in=companies):
+        add(f"Unit {v.unit_number}", "Inspection", v.inspection_expiry)
+    for doc in ComplianceDocument.objects.filter(company__in=companies):
+        add(str(doc.driver), doc.get_doc_type_display(), doc.expiry_date)
+    items.sort(key=lambda x: x["days"])
+    return items
+
+
+@login_required
+def dashboard(request):
+    companies = _scoped_companies(request)
+    active_loads = Load.objects.filter(
+        company__in=companies, status__in=["booked", "dispatched", "in_transit"]).count()
+    driver_count = Driver.objects.filter(company__in=companies, status="active").count()
+    outstanding = Load.objects.filter(
+        company__in=companies,
+        payment_status__in=["submitted", "advanced", "reserve_released"]
+    ).aggregate(s=Sum("rate"))["s"] or 0
+    exp_items = _expiring_items(companies)
+    alerts = [i for i in exp_items if i["days"] <= 30]
+    recent_loads = Load.objects.filter(company__in=companies).select_related("company", "driver")[:6]
+    recent_activity = (ActivityLog.objects.all()[:8] if request.user.is_superuser
+                       else ActivityLog.objects.filter(company__in=companies)[:8])
+    return render(request, "operations/dashboard.html", {
+        "active_loads": active_loads, "driver_count": driver_count,
+        "outstanding": outstanding, "alert_count": len(alerts),
+        "alerts": alerts[:6], "recent_loads": recent_loads,
+        "recent_activity": recent_activity, "company_count": companies.count(),
+    })

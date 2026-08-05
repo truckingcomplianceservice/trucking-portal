@@ -1,0 +1,42 @@
+{% extends "admin/base.html" %}
+
+{% block title %}{{ title }} | Fleetline{% endblock %}
+
+{% block branding %}
+<div id="site-name" style="display:flex;align-items:center;gap:12px">
+  <a href="/dashboard/" style="display:flex;align-items:center;gap:10px;text-decoration:none">
+    <span style="background:linear-gradient(140deg,#f2a81d,#c9860b);width:30px;height:30px;border-radius:8px;display:inline-grid;place-items:center;color:#241803;font-weight:800">F</span>
+    <span style="font-family:'Space Grotesk',system-ui,sans-serif;font-weight:700;color:#fff;font-size:19px;letter-spacing:.3px">Fleetline</span>
+  </a>
+  <nav style="display:flex;gap:6px;margin-left:18px">
+    <a href="/dashboard/" style="color:#c7d0e4;font-size:13px;padding:5px 11px;border-radius:7px;text-decoration:none">Dashboard</a>
+    <a href="/reports/" style="color:#c7d0e4;font-size:13px;padding:5px 11px;border-radius:7px;text-decoration:none">Reports</a>
+  </nav>
+</div>
+{% endblock %}
+
+{% block extrastyle %}{{ block.super }}
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --primary:#131e36; --secondary:#1b2a49; --accent:#f2a81d; --primary-fg:#ffffff;
+  --header-color:#ffffff; --header-branding-color:#f2a81d; --header-bg:#131e36; --header-link-color:#ffffff;
+  --breadcrumbs-bg:#1b2a49; --breadcrumbs-fg:#c7d0e4; --breadcrumbs-link-fg:#ffffff;
+  --link-fg:#2e6be6; --link-hover-color:#1d54c4; --link-selected-fg:#1b2a49;
+  --button-bg:#131e36; --button-fg:#ffffff; --button-hover-bg:#1b2a49;
+  --default-button-bg:#f2a81d; --default-button-hover-bg:#c9860b;
+  --object-tools-bg:#1b2a49; --object-tools-hover-bg:#131e36;
+}
+#header{padding:12px 40px}
+.module h2, .module caption, .inline-group h2{background:var(--primary);letter-spacing:.02em}
+div.breadcrumbs{padding:10px 40px}
+#site-name a:hover nav a{}
+#header nav a:hover{background:#22345b;color:#fff}
+.button.default, input[type=submit].default, [type=submit].default{background:var(--default-button-bg);color:#241803;font-weight:600}
+.button.default:hover{background:var(--default-button-hover-bg);color:#fff}
+a.addlink, a.addlink:link{color:#137a51}
+.object-tools a{border-radius:7px}
+#content-main .module{border-radius:10px;overflow:hidden;box-shadow:0 1px 3px rgba(20,28,43,.06)}
+</style>
+{% endblock %}
