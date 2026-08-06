@@ -1,0 +1,50 @@
+{% extends "operations/app_base.html" %}
+{% block title %}Report builder — Fleetline{% endblock %}
+{% block page_title %}Report builder{% endblock %}
+{% block extra_css %}
+ .filters{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;align-items:end}
+ @media(max-width:900px){.filters{grid-template-columns:1fr 1fr}}
+ .filters label{display:block;font-size:11.5px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:5px}
+ .filters input,.filters select{width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:9px;font-size:13.5px;font-family:inherit;background:#fff}
+ .runbar{display:flex;gap:10px;margin-top:14px}
+ .tot{background:var(--navy);color:#fff;border-radius:12px;padding:14px 18px;display:flex;align-items:center;justify-content:space-between;margin:16px 0}
+ .tot .l{font-size:12px;color:#c7d0e4;text-transform:uppercase;letter-spacing:.05em}
+ .tot .v{font-family:'Space Grotesk';font-size:22px;font-weight:700}
+ @media print{.fl-side,.fl-topbar,.filters,.runbar,.card-h a{display:none}body{padding-left:0}}
+{% endblock %}
+{% load humanize %}
+{% block content %}
+<div class="card" style="margin-bottom:16px"><div class="card-h"><h3>Filters</h3></div>
+ <form method="get" style="padding:16px 18px">
+  <div class="filters">
+   <div><label>Report</label><select name="kind">
+     <option value="loads" {% if kind == 'loads' %}selected{% endif %}>Loads</option>
+     <option value="settlements" {% if kind == 'settlements' %}selected{% endif %}>Driver settlements</option>
+     <option value="expenses" {% if kind == 'expenses' %}selected{% endif %}>Expenses</option>
+   </select></div>
+   <div><label>From date</label><input type="date" name="start" value="{{ start }}"></div>
+   <div><label>To date</label><input type="date" name="end" value="{{ end }}"></div>
+   <div><label>Company</label><select name="company">
+     <option value="">All companies</option>
+     {% for c in all_companies %}<option value="{{ c.id }}" {% if company_sel|stringformat:'s' == c.id|stringformat:'s' %}selected{% endif %}>{{ c.name }}</option>{% endfor %}
+   </select></div>
+   <div><label>Driver name or phone</label><input type="text" name="q" value="{{ q }}" placeholder="e.g. Mazhar or 555…"></div>
+  </div>
+  <div class="runbar"><button class="btn amber" type="submit">Run report</button>
+   <a class="btn ghost" href="/reports/builder/">Reset</a>
+   {% if submitted %}<a class="btn ghost" href="#" onclick="window.print();return false">Print / PDF</a>{% endif %}</div>
+ </form>
+</div>
+
+{% if submitted %}
+<div class="tot"><span class="l">{{ total_label }} · {{ count }} record{{ count|pluralize }}</span><span class="v">${{ total|floatformat:2|intcomma }}</span></div>
+<div class="card"><div class="card-h"><h3>Results</h3></div>
+{% if rows %}<table><thead><tr>{% for h in headers %}<th{% if h == 'Rate' or h == 'Amount' or h == 'Net' or h == 'Gross' or h == 'Deductions' %} style="text-align:right"{% endif %}>{{ h }}</th>{% endfor %}</tr></thead><tbody>
+{% for row in rows %}<tr>{% for cell in row %}<td{% if '$' in cell %} style="text-align:right"{% endif %}>{{ cell }}</td>{% endfor %}</tr>{% endfor %}
+</tbody></table>
+{% else %}<div class="empty">No records match those filters. Try widening the date range or clearing the driver search.</div>{% endif %}
+</div>
+{% else %}
+<div class="empty" style="background:#fff;border:1px solid var(--line);border-radius:12px">Pick your filters above and click <b>Run report</b>. Leave a field blank to include everything.</div>
+{% endif %}
+{% endblock %}

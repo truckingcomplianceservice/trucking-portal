@@ -1,0 +1,33 @@
+{% extends "operations/app_base.html" %}
+{% block title %}Load {{ l.reference }} — Fleetline{% endblock %}
+{% block page_title %}Load {{ l.reference }}{% endblock %}
+{% block content %}
+<a href="/app/loads/" class="sub" style="color:var(--blue)">&larr; All loads</a>
+<div class="grid2" style="margin-top:12px">
+ <div class="card"><div class="card-h"><h3>Load details</h3><a href="/admin/operations/load/{{ l.id }}/change/">Edit</a></div>
+  <div style="padding:6px 18px 14px">
+   <div class="field"><span class="k">Company</span><span class="v">{{ l.company.name }}</span></div>
+   <div class="field"><span class="k">Customer / broker</span><span class="v">{{ l.customer|default:"—" }}</span></div>
+   <div class="field"><span class="k">Route</span><span class="v">{{ l.origin }} → {{ l.destination }}</span></div>
+   <div class="field"><span class="k">Pickup</span><span class="v">{{ l.pickup_date|default:"—" }}</span></div>
+   <div class="field"><span class="k">Delivery</span><span class="v">{{ l.delivery_date|default:"—" }}</span></div>
+   <div class="field"><span class="k">Rate</span><span class="v">${{ l.rate|floatformat:2 }}</span></div>
+   <div class="field"><span class="k">Miles</span><span class="v">{{ l.miles }}</span></div>
+   <div class="field"><span class="k">Driver</span><span class="v">{{ l.driver|default:"—" }}</span></div>
+   <div class="field"><span class="k">Truck</span><span class="v">{{ l.vehicle|default:"—" }}</span></div>
+   <div class="field"><span class="k">Status</span><span class="v"><span class="chip {{ sc }}"><span class="d"></span>{{ l.get_status_display }}</span></span></div>
+  </div>
+ </div>
+ <div class="card"><div class="card-h"><h3>Documents &amp; billing</h3></div>
+  <div style="padding:6px 18px 14px">
+   <div class="field"><span class="k">Invoice #</span><span class="v">{{ l.invoice_number|default:"—" }}</span></div>
+   <div class="field"><span class="k">Factor</span><span class="v">{{ l.company.get_factor_display }}</span></div>
+   <div class="field"><span class="k">Payment</span><span class="v"><span class="chip {{ pc }}"><span class="d"></span>{{ l.get_payment_status_display }}</span></span></div>
+   <div class="sec-t">Files</div>
+   <div class="field"><span class="k">Bill of Lading</span><span class="v">{% if l.bill_of_lading %}<a href="{{ l.bill_of_lading.url }}" style="color:var(--blue)">View</a>{% else %}—{% endif %}</span></div>
+   <div class="field"><span class="k">Proof of Delivery</span><span class="v">{% if l.proof_of_delivery %}<a href="{{ l.proof_of_delivery.url }}" style="color:var(--blue)">View</a>{% else %}—{% endif %}</span></div>
+   <div class="field"><span class="k">Rate confirmation</span><span class="v">{% if l.rate_confirmation %}<a href="{{ l.rate_confirmation.url }}" style="color:var(--blue)">View</a>{% else %}—{% endif %}</span></div>
+   <div style="margin-top:16px"><a class="btn navy" href="/admin/operations/load/{{ l.id }}/change/">Edit / upload documents</a></div>
+  </div>
+ </div>
+</div>{% endblock %}

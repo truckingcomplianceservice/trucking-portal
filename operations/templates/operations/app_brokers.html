@@ -1,0 +1,21 @@
+{% extends "operations/app_base.html" %}
+{% block title %}Brokers — Fleetline{% endblock %}
+{% block page_title %}Brokers{% endblock %}
+{% block content %}
+<div class="toolbar"><div class="sub">Track brokers you haul for and how many loads each runs with each company.</div><div class="spacer"></div><a class="btn amber" href="/admin/operations/broker/add/">+ Add broker</a></div>
+<div class="kpis" style="grid-template-columns:repeat(3,1fr)">
+{% for c in per_company %}
+ <div class="kpi"><div class="l">{{ c.name }}</div><div class="n">{{ c.brokers }}</div><div class="s">brokers · {{ c.loads }} loads · ${{ c.rev|floatformat:0 }}</div></div>
+{% endfor %}
+</div>
+<div class="card"><div class="card-h"><h3>Brokers by volume</h3><a href="/admin/operations/broker/">Manage</a></div>
+{% if brokers %}<table><thead><tr><th>Broker</th><th>MC #</th><th>Companies served</th><th style="text-align:right">Loads</th><th style="text-align:right">Revenue</th></tr></thead><tbody>
+{% for b in brokers %}<tr>
+ <td><b>{{ b.o.name }}</b>{% if b.o.phone %}<div class="sub">{{ b.o.phone }}</div>{% endif %}</td>
+ <td>{{ b.o.mc_number|default:"—" }}</td>
+ <td>{{ b.companies }}</td>
+ <td style="text-align:right;font-weight:600">{{ b.loads }}</td>
+ <td style="text-align:right">${{ b.rev|floatformat:2 }}</td>
+</tr>{% endfor %}</tbody></table>
+{% else %}<div class="empty">No brokers linked to loads yet. Add a broker, then pick it on a load (the "Broker" field), and counts will appear here.</div>{% endif %}
+</div>{% endblock %}

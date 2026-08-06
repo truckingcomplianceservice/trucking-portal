@@ -1,0 +1,16 @@
+{% extends "operations/app_base.html" %}
+{% block title %}Accounting — Fleetline{% endblock %}
+{% block page_title %}Accounting{% endblock %}
+{% block content %}
+<div class="toolbar"><div class="spacer"></div><a class="btn ghost" href="/admin/operations/expense/add/">+ Expense</a><a class="btn amber" href="/admin/operations/settlement/add/">+ Settlement</a></div>
+<div class="card" style="margin-bottom:16px"><div class="card-h"><h3>Profit &amp; Loss by company</h3><a href="/reports/pnl/">Full report</a></div>
+<table><thead><tr><th>Company</th><th style="text-align:right">Revenue</th><th style="text-align:right">Expenses</th><th style="text-align:right">Wages</th><th style="text-align:right">Net</th></tr></thead><tbody>
+{% for r in rows %}<tr><td><b>{{ r.name }}</b></td><td style="text-align:right">${{ r.rev|floatformat:2 }}</td><td style="text-align:right">${{ r.exp|floatformat:2 }}</td><td style="text-align:right">${{ r.wag|floatformat:2 }}</td><td style="text-align:right;color:#1f9d6b;font-weight:700">${{ r.net|floatformat:2 }}</td></tr>{% endfor %}
+<tr style="background:#fafbfc;font-weight:700"><td>All companies</td><td style="text-align:right">${{ totals.rev|floatformat:2 }}</td><td style="text-align:right">${{ totals.exp|floatformat:2 }}</td><td style="text-align:right">${{ totals.wag|floatformat:2 }}</td><td style="text-align:right">${{ totals.net|floatformat:2 }}</td></tr>
+</tbody></table></div>
+<div class="grid2">
+ <div class="card"><div class="card-h"><h3>Recent expenses</h3><a href="/admin/operations/expense/">All</a></div>
+ {% if expenses %}<table><tbody>{% for e in expenses %}<tr><td>{{ e.category }}<div class="sub">{{ e.company.name }} · {{ e.date }}</div></td><td style="text-align:right;font-weight:600">${{ e.amount|floatformat:2 }}</td></tr>{% endfor %}</tbody></table>{% else %}<div class="empty">No expenses yet.</div>{% endif %}</div>
+ <div class="card"><div class="card-h"><h3>Recent settlements</h3><a href="/admin/operations/settlement/">All</a></div>
+ {% if settlements %}<table><tbody>{% for s in settlements %}<tr><td>{{ s.driver }}<div class="sub">{{ s.company.name }} · {{ s.period_end }}</div></td><td style="text-align:right;font-weight:600">${{ s.net_pay|floatformat:2 }}</td></tr>{% endfor %}</tbody></table>{% else %}<div class="empty">No settlements yet.</div>{% endif %}</div>
+</div>{% endblock %}

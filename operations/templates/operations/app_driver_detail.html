@@ -1,0 +1,26 @@
+{% extends "operations/app_base.html" %}
+{% block title %}{{ d.first_name }} {{ d.last_name }} — Fleetline{% endblock %}
+{% block page_title %}{{ d.first_name }} {{ d.last_name }}{% endblock %}
+{% block content %}
+<a href="/app/drivers/" class="sub" style="color:var(--blue)">&larr; All drivers</a>
+<div class="grid2" style="margin-top:12px">
+ <div class="card"><div class="card-h"><h3>Driver</h3><a href="/admin/operations/driver/{{ d.id }}/change/">Edit</a></div>
+  <div style="padding:6px 18px 14px">
+   <div class="field"><span class="k">Company</span><span class="v">{{ d.company.name }}</span></div>
+   <div class="field"><span class="k">Phone</span><span class="v">{{ d.phone|default:"—" }}</span></div>
+   <div class="field"><span class="k">Email</span><span class="v">{{ d.email|default:"—" }}</span></div>
+   <div class="field"><span class="k">Type</span><span class="v">{{ d.get_driver_type_display }}</span></div>
+   <div class="field"><span class="k">Tax status</span><span class="v">{{ d.get_tax_status_display }}</span></div>
+   <div class="field"><span class="k">Pay</span><span class="v">{{ d.get_pay_type_display }} · {{ d.pay_rate }}</span></div>
+  </div>
+ </div>
+ <div class="card"><div class="card-h"><h3>License &amp; compliance</h3></div>
+  <div style="padding:6px 18px 14px">
+   <div class="field"><span class="k">CDL number</span><span class="v">{{ d.cdl_number|default:"—" }}</span></div>
+   <div class="field"><span class="k">CDL class</span><span class="v">{{ d.get_cdl_class_display|default:"—" }}</span></div>
+   <div class="field"><span class="k">CDL expiry</span><span class="v"><span class="chip {{ cdl.cls }}"><span class="d"></span>{{ cdl.label }}</span> {{ d.cdl_expiry|default:"" }}</span></div>
+   <div class="field"><span class="k">Medical card</span><span class="v"><span class="chip {{ med.cls }}"><span class="d"></span>{{ med.label }}</span> {{ d.medical_expiry|default:"" }}</span></div>
+   <div style="margin-top:16px"><a class="btn navy" href="/admin/operations/compliancedocument/add/">+ Add compliance document</a></div>
+  </div>
+ </div>
+</div>{% endblock %}

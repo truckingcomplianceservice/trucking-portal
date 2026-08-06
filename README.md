@@ -1,29 +1,30 @@
 # Fleetline — Trucking Operations Portal
 
-Full multi-company TMS with a branded dashboard, operations, hiring, compliance,
-factoring, tax/1099s, and notifications. Django on Railway.
+Custom multi-company TMS with Brokers and Fuel tracking added.
 
-## Deploying this update (Phase 5 — polish)
+## Deploying this update
 1. In your `trucking-portal` repo: **Add file -> Upload files**.
 2. Unzip and drag in ALL the contents (overwrites changed files).
-3. Commit. Railway redeploys automatically. No new Railway steps.
+3. Commit. Railway redeploys automatically.
 
-## Phase 5 — what's new (the polish layer)
+## New
 
-### Branded dashboard (the new front door)
-- Visiting **app.pure99inc.com** now opens a clean **Fleetline dashboard**, not
-  the raw admin. It shows live KPIs (active loads, drivers, outstanding factoring,
-  document alerts), quick-action buttons, recent loads, expiring documents, and a
-  recent-activity feed — all pulled from your real data.
-- A top navigation bar links to Loads, Drivers, Applicants, and Reports.
+### Brokers  (/app/brokers/)
+- Add brokers (name, MC #, phone). On any load, pick the **Broker**.
+- The Brokers page shows, per company, **how many brokers** you run with, plus a
+  table of brokers by load volume, revenue, and which companies they serve.
 
-### Rebranded interface
-- The whole admin is restyled in Fleetline's navy + amber with the logo, so every
-  screen your team uses looks like a real product instead of a default backend.
+### Fuel + CSV import  (/app/fuel/ , /app/fuel/import/)
+- Import a CSV export from your fuel-card portal (WEX, Comdata, EFS, etc.).
+- The importer auto-detects columns (date, amount, gallons, location, card,
+  unit) regardless of exact header names, strips $ and commas, and links a
+  transaction to a vehicle when the unit number matches.
+- Fuel page shows total spend, gallons, and every transaction.
 
-Your team can start here: **app.pure99inc.com** (they log in, land on the dashboard).
-
-## Note on further polish
-This makes the app presentable and team-ready. Individual screens (e.g. a custom
-drag-and-drop load board, driver self-service views) can be rebuilt as bespoke
-custom pages later, one at a time, on top of this same foundation.
+## Integrations still pending credentials
+- **TRCeLog ELD (live tracking):** send TRCeLog's API docs + an API token, or we
+  can use an ELD aggregator (e.g. TruckerCloud). Then we wire live GPS/HOS.
+- **WEX API (auto fuel sync):** send your WEX API token and we switch fuel from
+  CSV upload to automatic sync.
+- **Highway:** needs a partner/API agreement with Highway; the Brokers feature
+  covers "brokers per company" natively in the meantime.

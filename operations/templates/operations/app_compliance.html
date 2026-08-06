@@ -1,0 +1,20 @@
+{% extends "operations/app_base.html" %}
+{% block title %}Compliance — Fleetline{% endblock %}
+{% block page_title %}Compliance{% endblock %}
+{% block content %}
+<div class="sub" style="margin-bottom:14px">{{ count }} item(s) need attention — CDLs, medical cards, inspections, and DQ documents.</div>
+<div class="card" style="margin-bottom:16px"><div class="card-h"><h3 style="color:#b02b24">Overdue</h3></div>
+{% if overdue %}<table><thead><tr><th>Holder</th><th>Company</th><th>Document</th><th>Expired</th><th style="text-align:right">Days over</th></tr></thead><tbody>
+{% for i in overdue %}<tr><td><b>{{ i.holder }}</b></td><td>{{ i.company }}</td><td>{{ i.kind }}</td><td>{{ i.expiry }}</td><td style="text-align:right;color:#b02b24;font-weight:700">{{ i.days }}</td></tr>{% endfor %}
+</tbody></table>{% else %}<div class="empty">Nothing overdue.</div>{% endif %}</div>
+
+<div class="card" style="margin-bottom:16px"><div class="card-h"><h3 style="color:#b9791a">Expiring within 30 days</h3></div>
+{% if soon %}<table><thead><tr><th>Holder</th><th>Company</th><th>Document</th><th>Expires</th><th style="text-align:right">Days left</th></tr></thead><tbody>
+{% for i in soon %}<tr><td><b>{{ i.holder }}</b></td><td>{{ i.company }}</td><td>{{ i.kind }}</td><td>{{ i.expiry }}</td><td style="text-align:right;color:#b9791a;font-weight:700">{{ i.days }}</td></tr>{% endfor %}
+</tbody></table>{% else %}<div class="empty">Nothing expiring in the next 30 days.</div>{% endif %}</div>
+
+<div class="card"><div class="card-h"><h3 style="color:#137a51">Valid</h3></div>
+{% if ok %}<table><thead><tr><th>Holder</th><th>Company</th><th>Document</th><th>Expires</th><th style="text-align:right">Days left</th></tr></thead><tbody>
+{% for i in ok %}<tr><td>{{ i.holder }}</td><td>{{ i.company }}</td><td>{{ i.kind }}</td><td>{{ i.expiry }}</td><td style="text-align:right;color:#137a51;font-weight:700">{{ i.days }}</td></tr>{% endfor %}
+</tbody></table>{% else %}<div class="empty">No documents with expiry dates yet.</div>{% endif %}</div>
+{% endblock %}

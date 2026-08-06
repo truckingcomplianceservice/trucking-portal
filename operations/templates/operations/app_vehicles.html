@@ -1,0 +1,16 @@
+{% extends "operations/app_base.html" %}
+{% block title %}Vehicles — Fleetline{% endblock %}
+{% block page_title %}Vehicles{% endblock %}
+{% block content %}
+<div class="toolbar"><div class="spacer"></div><a class="btn amber" href="/admin/operations/vehicle/add/">+ Add vehicle</a></div>
+<div class="card"><div class="card-h"><h3>Fleet</h3></div>
+{% if rows %}<table><thead><tr><th>Unit</th><th>Vehicle</th><th>Plate</th><th>DOT inspection</th><th>Status</th></tr></thead><tbody>
+{% for r in rows %}<tr onclick="location.href='/app/vehicles/{{ r.o.id }}/'">
+ <td><span class="mono">Unit {{ r.o.unit_number }}</span><div class="sub">{{ r.o.company.name }}</div></td>
+ <td>{{ r.o.year }} {{ r.o.make }} {{ r.o.model }}</td>
+ <td>{{ r.o.plate|default:"—" }}</td>
+ <td><span class="chip {{ r.insp.cls }}"><span class="d"></span>{{ r.insp.label }}</span></td>
+ <td><span class="chip {% if r.o.status == 'active' %}c-green{% elif r.o.status == 'shop' %}c-warn{% else %}c-gray{% endif %}"><span class="d"></span>{{ r.o.get_status_display }}</span></td>
+</tr>{% endfor %}</tbody></table>
+{% else %}<div class="empty">No vehicles yet. <a href="/admin/operations/vehicle/add/" style="color:var(--blue)">Add a vehicle →</a></div>{% endif %}
+</div>{% endblock %}

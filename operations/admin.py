@@ -8,7 +8,8 @@ from django import forms
 from django.contrib import admin
 from django.utils.safestring import mark_safe
 from .models import (Company, Profile, Driver, Vehicle, Load, Expense,
-                     Settlement, Applicant, ComplianceDocument, ActivityLog, NotificationRule)
+                     Settlement, Applicant, ComplianceDocument, ActivityLog, NotificationRule,
+                     Broker, FuelTransaction)
 
 
 class CategoryTextInput(forms.TextInput):
@@ -200,3 +201,17 @@ class ActivityLogAdmin(admin.ModelAdmin):
 
     def has_add_permission(self, request):
         return False
+
+
+@admin.register(Broker)
+class BrokerAdmin(admin.ModelAdmin):
+    list_display = ("name", "mc_number", "phone", "email")
+    search_fields = ("name", "mc_number")
+
+
+@admin.register(FuelTransaction)
+class FuelTransactionAdmin(CompanyScopedAdmin):
+    list_display = ("date", "company", "vehicle", "driver", "location", "gallons", "amount", "source")
+    list_filter = ("company", "source")
+    search_fields = ("location", "card_last4")
+    date_hierarchy = "date"

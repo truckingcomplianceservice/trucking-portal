@@ -151,6 +151,7 @@ class Load(models.Model):
     company = models.ForeignKey(Company, on_delete=models.PROTECT, related_name="loads")
     reference = models.CharField("Load / reference #", max_length=40)
     customer = models.CharField("Broker / customer", max_length=120, blank=True)
+    broker = models.ForeignKey("Broker", on_delete=models.SET_NULL, null=True, blank=True, related_name="loads")
     origin = models.CharField(max_length=120)
     destination = models.CharField(max_length=120)
     pickup_date = models.DateField(null=True, blank=True)
@@ -396,3 +397,38 @@ def _log_settlement(sender, instance, created, **kwargs):
     if created:
         notify("settlement_created",
                f"Settlement for {instance.driver}: ${instance.net_pay}", instance.company)
+
+
+class Broker(models.Model):
+    """A broker/customer you haul for. Loads link to a broker; works across companies."""
+    name = models.CharField(max_length=140)
+    mc_number = models.CharField("MC number", max_length=30, blank=True)
+    phone = models.CharField(max_length=30, blank=True)
+    email = models.EmailField(blank=True)
+    notes = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+
+class FuelTransaction(models.Model):
+    """A fuel-card purchase. Imported from a CSV export, or later via the WEX API."""
+    company = models.ForeignKey(Company, on_delete=models.PROTECT, related_name="fuel")
+    date = models.DateField(null=True, blank=True)
+    driver = models.ForeignKey(Driver, on_delete=models.SET_NULL, null=True, blank=True)
+    vehicle = models.ForeignKey(Vehicle, on_delete=models.SET_NULL, null=True, blank=True)
+    card_last4 = models.CharField("Card (last 4)", max_length=8, blank=True)
+    location = models.CharField(max_length=160, blank=True)
+    gallons = models.DecimalField(max_digits=8, decimal_places=2, default=0)
+    amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    source = models.CharField(max_length=20, default="csv")
+    notes = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ["-date"]
+
+    def __str__(self):
+        return f"Fuel ${self.amount} on {self.date}"

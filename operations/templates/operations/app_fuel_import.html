@@ -1,0 +1,27 @@
+{% extends "operations/app_base.html" %}
+{% block title %}Import fuel CSV — Fleetline{% endblock %}
+{% block page_title %}Import fuel CSV{% endblock %}
+{% block content %}
+<a href="/app/fuel/" class="sub" style="color:var(--blue)">&larr; Fuel</a>
+{% if result %}
+<div class="card" style="margin:12px 0;border-color:#bfe6cf"><div style="padding:16px 18px">
+ <b style="color:#137a51">Imported {{ result.created }} transaction(s)</b> into {{ result.company }}.{% if result.skipped %} Skipped {{ result.skipped }} blank/zero rows.{% endif %}
+ <div class="sub" style="margin-top:6px">Matched columns: {{ result.matched }}</div>
+ <div style="margin-top:12px"><a class="btn navy" href="/app/fuel/">View fuel transactions</a></div>
+</div></div>
+{% endif %}
+<div class="card" style="margin-top:12px;max-width:620px"><div class="card-h"><h3>Upload a fuel-card export</h3></div>
+ <form method="post" enctype="multipart/form-data" style="padding:18px">
+  {% csrf_token %}
+  <div style="margin-bottom:14px"><label style="display:block;font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;margin-bottom:6px">Company</label>
+   <select name="company" required style="width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:9px;font-size:14px">
+    {% for c in companies %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}</select></div>
+  <div style="margin-bottom:14px"><label style="display:block;font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;margin-bottom:6px">CSV file</label>
+   <input type="file" name="file" accept=".csv" required></div>
+  <button class="btn amber" type="submit">Import</button>
+ </form>
+</div>
+<div class="card" style="margin-top:14px;max-width:620px"><div style="padding:16px 18px">
+ <b style="font-size:13px">How it works</b>
+ <div class="sub" style="margin-top:8px;line-height:1.6">Export your transactions from your fuel-card portal (WEX, Comdata, EFS, etc.) as a CSV, then upload it here. The importer automatically finds common columns — date, amount, gallons, location, card, and unit/vehicle — no matter the exact header names. If a unit number matches one of your vehicles, it links automatically. Later, when you have your WEX API token, we can switch this to sync automatically instead of by upload.</div>
+</div></div>{% endblock %}

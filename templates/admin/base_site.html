@@ -1,42 +1,53 @@
 {% extends "admin/base.html" %}
-
+{% load static %}
 {% block title %}{{ title }} | Fleetline{% endblock %}
-
-{% block branding %}
-<div id="site-name" style="display:flex;align-items:center;gap:12px">
-  <a href="/dashboard/" style="display:flex;align-items:center;gap:10px;text-decoration:none">
-    <span style="background:linear-gradient(140deg,#f2a81d,#c9860b);width:30px;height:30px;border-radius:8px;display:inline-grid;place-items:center;color:#241803;font-weight:800">F</span>
-    <span style="font-family:'Space Grotesk',system-ui,sans-serif;font-weight:700;color:#fff;font-size:19px;letter-spacing:.3px">Fleetline</span>
-  </a>
-  <nav style="display:flex;gap:6px;margin-left:18px">
-    <a href="/dashboard/" style="color:#c7d0e4;font-size:13px;padding:5px 11px;border-radius:7px;text-decoration:none">Dashboard</a>
-    <a href="/reports/" style="color:#c7d0e4;font-size:13px;padding:5px 11px;border-radius:7px;text-decoration:none">Reports</a>
-  </nav>
-</div>
-{% endblock %}
-
 {% block extrastyle %}{{ block.super }}
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
 <style>
-:root{
-  --primary:#131e36; --secondary:#1b2a49; --accent:#f2a81d; --primary-fg:#ffffff;
-  --header-color:#ffffff; --header-branding-color:#f2a81d; --header-bg:#131e36; --header-link-color:#ffffff;
-  --breadcrumbs-bg:#1b2a49; --breadcrumbs-fg:#c7d0e4; --breadcrumbs-link-fg:#ffffff;
-  --link-fg:#2e6be6; --link-hover-color:#1d54c4; --link-selected-fg:#1b2a49;
-  --button-bg:#131e36; --button-fg:#ffffff; --button-hover-bg:#1b2a49;
-  --default-button-bg:#f2a81d; --default-button-hover-bg:#c9860b;
-  --object-tools-bg:#1b2a49; --object-tools-hover-bg:#131e36;
-}
-#header{padding:12px 40px}
-.module h2, .module caption, .inline-group h2{background:var(--primary);letter-spacing:.02em}
-div.breadcrumbs{padding:10px 40px}
-#site-name a:hover nav a{}
-#header nav a:hover{background:#22345b;color:#fff}
-.button.default, input[type=submit].default, [type=submit].default{background:var(--default-button-bg);color:#241803;font-weight:600}
-.button.default:hover{background:var(--default-button-hover-bg);color:#fff}
-a.addlink, a.addlink:link{color:#137a51}
-.object-tools a{border-radius:7px}
+:root{--primary:#1e2d45;--secondary:#2a3a55;--accent:#b39a6d;--primary-fg:#fff;--header-color:#fff;--header-branding-color:#b39a6d;--header-bg:#1e2d45;--header-link-color:#fff;--breadcrumbs-bg:#2a3a55;--breadcrumbs-fg:#c7d0e4;--breadcrumbs-link-fg:#fff;--link-fg:#2e6be6;--link-hover-color:#9c8358;--button-bg:#1e2d45;--button-fg:#fff;--button-hover-bg:#2a3a55;--default-button-bg:#b39a6d;--default-button-hover-bg:#9c8358;--object-tools-bg:#2a3a55;}
+
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=Inter:wght@400;500;600&display=swap');
+.fl-side{position:fixed;top:0;left:0;bottom:0;width:216px;background:#1e2d45;color:#c7d0e4;padding:16px 12px;overflow-y:auto;z-index:2000;font-family:'Inter',system-ui,sans-serif;display:flex;flex-direction:column}
+.fl-brand{display:block;padding:4px 4px 14px;text-decoration:none}.fl-logo{background:#fff;border-radius:10px;padding:9px 11px;display:block}.fl-logo img{display:block;width:100%;height:auto}
+.fl-mark{background:linear-gradient(140deg,#b39a6d,#9c8358);width:32px;height:32px;border-radius:9px;display:grid;place-items:center;color:#ffffff;font-weight:800;font-family:'Space Grotesk';flex:none}
+.fl-wm{font-family:'Space Grotesk';font-weight:700;color:#fff;font-size:18px;letter-spacing:.3px}
+.fl-nav{display:flex;flex-direction:column;gap:3px}
+.fl-nav a{display:flex;align-items:center;gap:11px;padding:9px 12px;border-radius:9px;color:#c1cbe0;font-size:13.5px;font-weight:500;text-decoration:none;white-space:nowrap}
+.fl-nav a svg{width:17px;height:17px;flex:none;opacity:.85}
+.fl-nav a:hover{background:#2a3a55;color:#fff}
+.fl-nav a.active{background:linear-gradient(90deg,#34455f,#2a3a55);color:#fff}
+.fl-nav a.active svg{color:#b39a6d;opacity:1}
+@media(max-width:900px){.fl-side{width:60px}.fl-label,.fl-wm{display:none}.fl-brand{justify-content:center}}
+
+body:not(.popup){padding-left:216px}
+@media(max-width:900px){body:not(.popup){padding-left:60px}}
+body.popup .fl-side{display:none}
+#nav-sidebar,.toggle-nav-sidebar{display:none!important}
+.module h2,.module caption,.inline-group h2{background:var(--primary)}
+#header{padding:14px 40px}
+.button.default,input[type=submit].default{background:var(--default-button-bg);color:#1e2d45;font-weight:600}
+.button.default:hover,input[type=submit].default:hover{background:var(--default-button-hover-bg);color:#1e2d45}
+a.addlink{color:#137a51}
 #content-main .module{border-radius:10px;overflow:hidden;box-shadow:0 1px 3px rgba(20,28,43,.06)}
-</style>
+</style>{% endblock %}
+{% block header %}
+  <aside class="fl-side">
+    <a class="fl-brand" href="/dashboard/"><span class="fl-logo"><img src="{% static 'logo.png' %}" alt="Trucking Compliance Services"></span></a>
+    <nav class="fl-nav">
+      <a href="/dashboard/" data-match="/dashboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M4 13h6V4H4zM14 20h6V4h-6zM4 20h6v-5H4z"/></svg><span class="fl-label">Dashboard</span></a>
+      <a href="/app/loads/" data-match="/app/loads"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span class="fl-label">Dispatch</span></a>
+      <a href="/app/brokers/" data-match="/app/brokers"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M3 21V8l6-4 6 4v13M9 21v-5h3v5M17 21V11l4 2v8"/></svg><span class="fl-label">Brokers</span></a>
+      <a href="/app/drivers/" data-match="/app/drivers"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="9" cy="8" r="3.5"/><path d="M3 20a6 6 0 0 1 12 0"/></svg><span class="fl-label">Drivers</span></a>
+      <a href="/app/hiring/" data-match="/app/hiring"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="9" cy="8" r="3.5"/><path d="M3 20a6 6 0 0 1 12 0M17 11l2 2 4-4"/></svg><span class="fl-label">Hiring</span></a>
+      <a href="/app/vehicles/" data-match="/app/vehicles"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M2 8h11v8H2zM13 11h5l3 3v2h-8z"/><circle cx="6.5" cy="17" r="1.6"/><circle cx="17" cy="17" r="1.6"/></svg><span class="fl-label">Vehicles</span></a>
+      <a href="/app/fuel/" data-match="/app/fuel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M4 21V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v16M3 21h13M14 9h3l3 3v6a2 2 0 0 1-4 0v-4M7 8h4"/></svg><span class="fl-label">Fuel</span></a>
+      <a href="/app/compliance/" data-match="/app/compliance"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M12 3l7 3v6c0 4-3 7-7 9-4-2-7-5-7-9V6z"/><path d="M9 12l2 2 4-4"/></svg><span class="fl-label">Compliance</span></a>
+      <a href="/app/accounting/" data-match="/app/accounting"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg><span class="fl-label">Accounting</span></a>
+      <a href="/reports/tax/" data-match="/reports/tax"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h4"/></svg><span class="fl-label">Tax & 1099s</span></a>
+      <a href="/reports/" data-match="/reports/"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M4 20V4M4 20h16M8 16v-5M13 16V8M18 16v-8"/></svg><span class="fl-label">Reports</span></a>
+      <a href="/admin/operations/company/" data-match="/admin/operations/company"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg><span class="fl-label">Settings</span></a>
+    </nav>
+  </aside>
+  {{ block.super }}
+  <script>(function(){var p=location.pathname,best=null,bl=-1;document.querySelectorAll('.fl-nav a').forEach(function(a){var m=a.getAttribute('data-match');if(m&&p.indexOf(m)===0&&m.length>bl){best=a;bl=m.length;}});if(best)best.classList.add('active');})();</script>
 {% endblock %}
+{% block branding %}<div id="site-name"><a href="/dashboard/" style="color:#fff;text-decoration:none;font-family:'Space Grotesk';font-weight:700;font-size:16px">Trucking Compliance Services</a></div>{% endblock %}

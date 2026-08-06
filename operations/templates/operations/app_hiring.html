@@ -1,0 +1,17 @@
+{% extends "operations/app_base.html" %}
+{% block title %}Hiring — Fleetline{% endblock %}
+{% block page_title %}Driver Hiring{% endblock %}
+{% block content %}
+<div class="toolbar"><div class="sub">Applicants move Applied → Screening → DQ file → Cleared. Send links from <a href="/hiring/links/" style="color:var(--blue)">Hiring links</a>.</div><div class="spacer"></div><a class="btn amber" href="/hiring/links/">Application links</a></div>
+<div class="pipe">
+{% for col in cols %}
+<div class="col"><h4>{{ col.label }}<span>{{ col.count }}</span></h4>
+ {% for a in col.apps %}
+ <a class="appcard" href="/admin/operations/applicant/{{ a.id }}/change/">
+   <div class="nm">{{ a.first_name }} {{ a.last_name }}</div>
+   <div class="mt">{{ a.company.name }}{% if a.cdl_class %} · Class {{ a.cdl_class }}{% endif %}</div>
+ </a>
+ {% empty %}<div class="sub" style="padding:6px 2px">None</div>{% endfor %}
+</div>
+{% endfor %}
+</div>{% endblock %}

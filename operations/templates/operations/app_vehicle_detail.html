@@ -1,0 +1,15 @@
+{% extends "operations/app_base.html" %}
+{% block title %}Unit {{ v.unit_number }} — Fleetline{% endblock %}
+{% block page_title %}Unit {{ v.unit_number }}{% endblock %}
+{% block content %}
+<a href="/app/vehicles/" class="sub" style="color:var(--blue)">&larr; All vehicles</a>
+<div class="card" style="margin-top:12px;max-width:560px"><div class="card-h"><h3>Vehicle</h3><a href="/admin/operations/vehicle/{{ v.id }}/change/">Edit</a></div>
+ <div style="padding:6px 18px 14px">
+  <div class="field"><span class="k">Company</span><span class="v">{{ v.company.name }}</span></div>
+  <div class="field"><span class="k">Vehicle</span><span class="v">{{ v.year }} {{ v.make }} {{ v.model }}</span></div>
+  <div class="field"><span class="k">VIN</span><span class="v">{{ v.vin|default:"—" }}</span></div>
+  <div class="field"><span class="k">Plate</span><span class="v">{{ v.plate|default:"—" }}</span></div>
+  <div class="field"><span class="k">DOT inspection</span><span class="v"><span class="chip {{ insp.cls }}"><span class="d"></span>{{ insp.label }}</span> {{ v.inspection_expiry|default:"" }}</span></div>
+  <div class="field"><span class="k">Status</span><span class="v">{{ v.get_status_display }}</span></div>
+ </div>
+</div>{% endblock %}
