@@ -1,0 +1,33 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Upload documents — {{ d.first_name }} {{ d.last_name }}</title>
+<style>
+ :root{--navy:#1e2d45;--gold:#b39a6d;--line:#e6e9f0;--muted:#727c93;--ink:#161c2b}
+ *{box-sizing:border-box}body{font-family:system-ui,-apple-system,sans-serif;background:#f5f6f9;color:var(--ink);margin:0}
+ .wrap{max-width:520px;margin:0 auto;padding:0 0 40px}
+ .head{background:var(--navy);color:#fff;padding:22px}
+ .head h1{font-size:18px;margin:6px 0 2px}.head p{margin:0;color:#aab4c8;font-size:13px}
+ .sec{padding:18px}
+ .chk{background:#fff;border:1px solid var(--line);border-radius:12px;overflow:hidden;margin-bottom:16px}
+ .chk .r{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid #f4f5f8;font-size:13.5px}
+ .chk .r:last-child{border-bottom:none}
+ .chip{font-size:11px;font-weight:700;padding:2px 9px;border-radius:20px}
+ .c-green{background:#e4f4ec;color:#137a51}.c-red{background:#fbe7e5;color:#b02b24}.c-warn{background:#faeeda;color:#854f0b}
+ form.up{background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px}
+ label{display:block;font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;margin:0 0 6px}
+ select,input[type=date],input[type=file]{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:9px;font-size:14px;margin-bottom:14px;font-family:inherit}
+ button{width:100%;background:var(--gold);color:var(--navy);border:none;padding:13px;border-radius:10px;font-size:16px;font-weight:700;cursor:pointer}
+ .ok{background:#e4f4ec;color:#137a51;border-radius:10px;padding:12px 14px;font-size:13.5px;margin-bottom:16px}
+</style></head><body><div class="wrap">
+ <div class="head"><h1>Upload your documents</h1><p>{{ d.first_name }} {{ d.last_name }} · {{ d.company.name }}</p></div>
+ <div class="sec">
+  {% if msg %}<div class="ok">{{ msg }}</div>{% endif %}
+  <div class="chk">{% for i in items %}<div class="r"><span>{{ i.label_name }}</span><span class="chip {{ i.cls }}">{{ i.label }}</span></div>{% endfor %}</div>
+  <form class="up" method="post" enctype="multipart/form-data">{% csrf_token %}
+   <label>Document type</label>
+   <select name="doc_type">{% for code,label in doc_types %}<option value="{{ code }}">{{ label }}</option>{% endfor %}</select>
+   <label>Expiry date (if any)</label><input type="date" name="expiry_date">
+   <label>File (photo or PDF)</label><input type="file" name="file" required>
+   <button type="submit">Upload document</button>
+  </form>
+ </div>
+</div></body></html>

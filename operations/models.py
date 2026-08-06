@@ -111,10 +111,17 @@ class Driver(models.Model):
         help_text="Cents per mile, percent (e.g. 25), or weekly salary amount.")
     tax_id = models.CharField("Tax ID (SSN/EIN, for 1099)", max_length=20, blank=True)
     address = models.CharField("Mailing address", max_length=250, blank=True)
+    upload_token = models.CharField(max_length=32, blank=True, db_index=True,
+        help_text="Used for this driver's private document-upload link.")
     notes = models.TextField(blank=True)
 
     class Meta:
         ordering = ["first_name", "last_name"]
+
+    def save(self, *args, **kwargs):
+        if not self.upload_token:
+            self.upload_token = secrets.token_urlsafe(12)
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.first_name} {self.last_name}"
@@ -273,14 +280,17 @@ class Applicant(models.Model):
 class ComplianceDocument(models.Model):
     """A document in a driver's qualification file, tracked with an expiry date."""
     DOC_TYPE_CHOICES = [
+        ("cdl", "CDL license"),
         ("application", "Employment application"),
-        ("mvr", "Motor Vehicle Record (MVR)"),
         ("medical", "Medical certificate"),
+        ("mvr", "Motor Vehicle Record (MVR)"),
+        ("annual_review", "Annual review of driving record"),
+        ("psp", "PSP report"),
         ("clearinghouse", "Clearinghouse query"),
         ("drug_test", "Drug / alcohol test"),
-        ("eldt", "ELDT certificate"),
         ("road_test", "Road test / CDL equivalency"),
         ("safety_history", "Safety performance history"),
+        ("eldt", "ELDT certificate"),
         ("w9", "W-9 (contractor)"),
         ("other", "Other"),
     ]

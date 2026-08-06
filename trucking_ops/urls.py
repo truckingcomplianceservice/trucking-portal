@@ -11,6 +11,11 @@ urlpatterns = [
     path("app/loads/<int:pk>/", views.app_load_detail, name="app_load_detail"),
     path("app/drivers/", views.app_drivers, name="app_drivers"),
     path("app/drivers/<int:pk>/", views.app_driver_detail, name="app_driver_detail"),
+    path("app/drivers/<int:pk>/dqf/", views.app_driver_dqf, name="app_driver_dqf"),
+    path("dqf/<int:doc_id>/approve/", views.dqf_approve, name="dqf_approve"),
+    path("dqf/<int:doc_id>/reject/", views.dqf_reject, name="dqf_reject"),
+    path("driver/<str:token>/", views.driver_upload, name="driver_upload"),
+
     path("app/vehicles/", views.app_vehicles, name="app_vehicles"),
     path("app/vehicles/<int:pk>/", views.app_vehicle_detail, name="app_vehicle_detail"),
     path("app/hiring/", views.app_hiring, name="app_hiring"),

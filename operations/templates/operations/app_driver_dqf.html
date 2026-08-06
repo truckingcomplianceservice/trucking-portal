@@ -1,0 +1,48 @@
+{% extends "operations/app_base.html" %}
+{% block title %}DQF — {{ d.first_name }} {{ d.last_name }}{% endblock %}
+{% block page_title %}Driver Qualification File{% endblock %}
+{% block extra_css %}
+ .dqf-head{display:flex;align-items:center;gap:14px;background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin-bottom:16px}
+ .prog{height:7px;background:#eef0f4;border-radius:20px;overflow:hidden;flex:1;max-width:260px}
+ .prog>span{display:block;height:100%;background:var(--navy)}
+ .linkbox{display:flex;gap:8px;margin-top:6px}
+ .linkbox input{flex:1;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-size:12px;font-family:ui-monospace,monospace;background:#f5f6f9}
+ .approve{background:#e4f4ec;color:#137a51;border:none;padding:5px 10px;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer}
+ .reject{background:#fbe7e5;color:#b02b24;border:none;padding:5px 10px;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer}
+{% endblock %}
+{% block content %}
+<a href="/app/drivers/" class="sub" style="color:var(--blue)">&larr; Drivers</a>
+<div class="dqf-head" style="margin-top:12px">
+ <span class="avatar" style="width:44px;height:44px;background:#e7eefc;color:#1d54c4;font-size:15px">{{ d.first_name|slice:":1" }}{{ d.last_name|slice:":1" }}</span>
+ <div style="flex:1">
+   <div style="font-size:17px;font-weight:700;font-family:'Space Grotesk'">{{ d.first_name }} {{ d.last_name }}</div>
+   <div class="sub">{{ d.company.name }} · {{ d.get_driver_type_display }}</div>
+   <div style="display:flex;align-items:center;gap:10px;margin-top:8px"><div class="prog"><span style="width:{% widthratio complete total 100 %}%"></span></div><span class="sub">{{ complete }}/{{ total }} complete</span></div>
+ </div>
+ <span class="chip {{ overall.cls }}" style="font-size:13px;padding:5px 12px"><span class="d"></span>{{ overall.label }}</span>
+</div>
+
+<div class="grid2">
+ <div class="card"><div class="card-h"><h3>Qualification checklist</h3><a href="/admin/operations/compliancedocument/add/?driver__id__exact={{ d.id }}">+ Add document</a></div>
+ <table><tbody>
+ {% for i in items %}<tr>
+   <td><b>{{ i.label_name }}</b>{% if i.expiry %}<div class="sub">Expires {{ i.expiry }}</div>{% endif %}</td>
+   <td style="text-align:right"><span class="chip {{ i.cls }}"><span class="d"></span>{{ i.label }}</span></td>
+   <td style="text-align:right;width:150px">
+     {% if i.state == 'pending' and i.doc %}
+       <form method="post" action="/dqf/{{ i.doc.id }}/approve/" style="display:inline">{% csrf_token %}<button class="approve">Approve</button></form>
+       <form method="post" action="/dqf/{{ i.doc.id }}/reject/" style="display:inline">{% csrf_token %}<button class="reject">Reject</button></form>
+     {% elif i.doc and i.doc.file %}<a href="{{ i.doc.file.url }}" class="sub" style="color:var(--blue)">View file</a>{% endif %}
+   </td>
+ </tr>{% endfor %}
+ </tbody></table>
+ </div>
+
+ <div class="card" style="align-self:start"><div class="card-h"><h3>Driver upload link</h3></div>
+  <div style="padding:14px 18px">
+   <div class="sub">Send this private link to {{ d.first_name }}. They can upload documents (medical card, MVR, etc.) from their phone — no login. Uploads arrive here as <b>Pending review</b> for you to approve.</div>
+   <div class="linkbox"><input id="ul" readonly value="{{ upload_url }}"><button class="btn navy" style="padding:8px 12px" onclick="navigator.clipboard.writeText(document.getElementById('ul').value);this.textContent='Copied'">Copy</button></div>
+  </div>
+ </div>
+</div>
+{% endblock %}

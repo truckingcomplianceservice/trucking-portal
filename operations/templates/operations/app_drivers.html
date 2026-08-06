@@ -4,13 +4,14 @@
 {% block content %}
 <div class="toolbar"><div class="spacer"></div><a class="btn amber" href="/admin/operations/driver/add/">+ Add driver</a></div>
 <div class="card"><div class="card-h"><h3>Drivers</h3></div>
-{% if rows %}<table><thead><tr><th>Driver</th><th>Type / tax</th><th>CDL</th><th>Medical card</th><th>Status</th></tr></thead><tbody>
+{% if rows %}<table><thead><tr><th>Driver</th><th>Type / tax</th><th>CDL</th><th>Medical card</th><th>DQF file</th><th>Status</th></tr></thead><tbody>
 {% for r in rows %}<tr onclick="location.href='/app/drivers/{{ r.o.id }}/'">
  <td><div style="display:flex;align-items:center;gap:10px"><span class="avatar" style="background:#e7eefc;color:#9c8358">{{ r.initials }}</span>
    <div><b>{{ r.o.first_name }} {{ r.o.last_name }}</b><div class="sub">{{ r.o.company.name }}</div></div></div></td>
  <td>{{ r.o.get_driver_type_display }}<div class="sub">{{ r.o.get_tax_status_display }}</div></td>
  <td><span class="chip {{ r.cdl.cls }}"><span class="d"></span>{{ r.cdl.label }}</span></td>
  <td><span class="chip {{ r.med.cls }}"><span class="d"></span>{{ r.med.label }}</span></td>
+ <td><a href="/app/drivers/{{ r.o.id }}/dqf/" onclick="event.stopPropagation()"><span class="chip {{ r.dqf.cls }}"><span class="d"></span>{{ r.dqf.label }}</span></a></td>
  <td><span class="chip {% if r.o.status == 'active' %}c-green{% else %}c-gray{% endif %}"><span class="d"></span>{{ r.o.get_status_display }}</span></td>
 </tr>{% endfor %}</tbody></table>
 {% else %}<div class="empty">No drivers yet. <a href="/admin/operations/driver/add/" style="color:var(--blue)">Add a driver →</a></div>{% endif %}

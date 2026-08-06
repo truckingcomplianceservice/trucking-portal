@@ -7,7 +7,7 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.views.static import serve
 from django.conf import settings
 from .models import (Company, Load, Expense, Settlement, Driver, Vehicle, Applicant,
-                     ComplianceDocument, Broker, FuelTransaction)
+                     ComplianceDocument, Broker, FuelTransaction, notify)
 
 
 # ---------------- P&L ----------------
@@ -290,6 +290,7 @@ def app_drivers(request):
     cs = _companies(request)
     drivers = Driver.objects.filter(company__in=cs).select_related("company")
     rows = [{"o": d, "cdl": _exp_chip(d.cdl_expiry), "med": _exp_chip(d.medical_expiry),
+             "dqf": _dqf_overall(d),
              "initials": (d.first_name[:1] + d.last_name[:1]).upper()} for d in drivers]
     return render(request, "operations/app_drivers.html", {"rows": rows})
 
@@ -709,3 +710,119 @@ def app_timesheet(request):
 def go_home(request, exception=None):
     """Any unknown/broken link → send the person to the home page (login/dashboard)."""
     return redirect("/")
+
+
+# ================= Driver Qualification File (DQF) — like a DQF portal =================
+# FMCSA-style required items, in order. (label, doc_type)
+DQF_CHECKLIST = [
+    ("CDL license", "cdl"),
+    ("Employment application", "application"),
+    ("Medical examiner's certificate", "medical"),
+    ("Motor Vehicle Record (MVR)", "mvr"),
+    ("Annual review of driving record", "annual_review"),
+    ("Road test / CDL equivalency", "road_test"),
+    ("PSP report", "psp"),
+    ("Pre-employment drug test", "drug_test"),
+    ("Clearinghouse query", "clearinghouse"),
+    ("Safety performance history", "safety_history"),
+]
+
+
+def _dqf_item_status(driver, doc_type):
+    """Compute status for one checklist item from the driver's documents/fields."""
+    doc = ComplianceDocument.objects.filter(driver=driver, doc_type=doc_type)\
+        .order_by("-expiry_date", "-id").first()
+    expiry = doc.expiry_date if doc else None
+    if not doc:  # fall back to fields we already capture on the driver
+        if doc_type == "cdl":
+            expiry = driver.cdl_expiry
+        elif doc_type == "medical":
+            expiry = driver.medical_expiry
+    present = bool(doc) or (expiry is not None)
+    if not present:
+        return {"cls": "c-red", "label": "Missing", "state": "missing", "doc": None, "expiry": None}
+    if doc and not doc.verified:
+        return {"cls": "c-warn", "label": "Pending review", "state": "pending", "doc": doc, "expiry": expiry}
+    if expiry:
+        days = (expiry - _dt.date.today()).days
+        if days < 0:
+            return {"cls": "c-red", "label": f"Expired {abs(days)}d", "state": "expired", "doc": doc, "expiry": expiry}
+        if days <= 30:
+            return {"cls": "c-warn", "label": f"Expiring {days}d", "state": "expiring", "doc": doc, "expiry": expiry}
+    return {"cls": "c-green", "label": "Complete", "state": "complete", "doc": doc, "expiry": expiry}
+
+
+def _dqf_overall(driver):
+    states = [_dqf_item_status(driver, dt)["state"] for _, dt in DQF_CHECKLIST]
+    if any(s in ("missing", "expired") for s in states):
+        return {"cls": "c-red", "label": "Action needed"}
+    if any(s in ("pending", "expiring") for s in states):
+        return {"cls": "c-warn", "label": "Attention"}
+    return {"cls": "c-green", "label": "Qualified"}
+
+
+@login_required
+def app_driver_dqf(request, pk):
+    d = _get(Driver, pk=pk, company__in=_companies_all(request))
+    items = []
+    for label, dt in DQF_CHECKLIST:
+        st = _dqf_item_status(d, dt)
+        st.update({"label_name": label, "doc_type": dt})
+        items.append(st)
+    overall = _dqf_overall(d)
+    upload_url = request.build_absolute_uri(f"/driver/{d.upload_token}/")
+    complete = sum(1 for i in items if i["state"] == "complete")
+    return render(request, "operations/app_driver_dqf.html", {
+        "d": d, "items": items, "overall": overall, "upload_url": upload_url,
+        "complete": complete, "total": len(items),
+        "doc_types": ComplianceDocument.DOC_TYPE_CHOICES,
+    })
+
+
+@login_required
+def dqf_approve(request, doc_id):
+    if request.method == "POST":
+        doc = _get(ComplianceDocument, pk=doc_id, company__in=_companies_all(request))
+        doc.verified = True
+        doc.save()
+        ActivityLog.objects.create(category="compliance", user=request.user, company=doc.company,
+            text=f"Approved {doc.get_doc_type_display()} for {doc.driver}")
+        return redirect("app_driver_dqf", pk=doc.driver_id)
+    return redirect("app_drivers")
+
+
+@login_required
+def dqf_reject(request, doc_id):
+    if request.method == "POST":
+        doc = _get(ComplianceDocument, pk=doc_id, company__in=_companies_all(request))
+        drv = doc.driver_id
+        doc.delete()
+        return redirect("app_driver_dqf", pk=drv)
+    return redirect("app_drivers")
+
+
+# ---- public driver self-upload portal (no login) ----
+def driver_upload(request, token):
+    d = _get(Driver, upload_token=token)
+    msg = None
+    if request.method == "POST" and request.FILES.get("file"):
+        doc_type = request.POST.get("doc_type", "other")
+        expiry = request.POST.get("expiry_date") or None
+        exp = None
+        if expiry:
+            try:
+                exp = _dt.date.fromisoformat(expiry)
+            except ValueError:
+                exp = None
+        ComplianceDocument.objects.create(
+            company=d.company, driver=d, doc_type=doc_type, file=request.FILES["file"],
+            expiry_date=exp, verified=False, notes="Uploaded by driver")
+        notify("application_received", f"{d} uploaded a {doc_type} document (pending review)", d.company)
+        msg = "Uploaded! Your carrier will review and approve it."
+    items = []
+    for label, dt in DQF_CHECKLIST:
+        st = _dqf_item_status(d, dt)
+        items.append({"label_name": label, "cls": st["cls"], "label": st["label"]})
+    return render(request, "operations/driver_upload.html",
+                  {"d": d, "items": items, "msg": msg,
+                   "doc_types": ComplianceDocument.DOC_TYPE_CHOICES})

@@ -4,7 +4,7 @@
 {% block content %}
 <a href="/app/drivers/" class="sub" style="color:var(--blue)">&larr; All drivers</a>
 <div class="grid2" style="margin-top:12px">
- <div class="card"><div class="card-h"><h3>Driver</h3><a href="/admin/operations/driver/{{ d.id }}/change/">Edit</a></div>
+ <div class="card"><div class="card-h"><h3>Driver</h3><a href="/app/drivers/{{ d.id }}/dqf/">DQF file</a> &nbsp; <a href="/admin/operations/driver/{{ d.id }}/change/">Edit</a></div>
   <div style="padding:6px 18px 14px">
    <div class="field"><span class="k">Company</span><span class="v">{{ d.company.name }}</span></div>
    <div class="field"><span class="k">Phone</span><span class="v">{{ d.phone|default:"—" }}</span></div>

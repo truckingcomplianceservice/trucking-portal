@@ -1,39 +1,32 @@
 # Trucking Compliance Services — Operations Portal
 
-Multi-company TMS with a full team management system, time clock, branded UI,
-operations, hiring, compliance, factoring, tax/1099s, brokers, and fuel.
+Now with a full Driver Qualification File (DQF) workflow, team management, and
+the whole TMS (operations, hiring, compliance, factoring, tax, brokers, fuel).
 
 ## Deploying this update
 1. In your `trucking-portal` repo: **Add file -> Upload files**.
-2. Unzip and drag in ALL the contents, including `operations/static/logo.png`.
+2. Unzip and drag in ALL the contents (including operations/static/logo.png).
 3. Commit. Railway redeploys automatically.
 
-## New in this update
+## New: Driver Qualification File (DQF) — like a DQF portal
 
-### Logo fixed
-The logo now displays on white (the black-box bug is gone).
+### Per-driver DQF file  (Drivers -> a driver -> "DQF file")
+- A checklist of the FMCSA-style required documents (CDL, application, medical,
+  MVR, annual review, road test, PSP, drug test, Clearinghouse, safety history),
+  each with a **red / yellow / green** status:
+  - Green = complete, Yellow = pending review or expiring soon, Red = missing or expired.
+- A progress bar and an overall badge: **Qualified / Attention / Action needed**.
+- The Drivers list shows each driver's DQF status at a glance.
 
-### Team management  (sidebar: Team)
-- **Roster** of everyone with role, companies, active status, and today's hours.
-- **Add team member** (managers only): name, username, temp password, role
-  (Dispatcher, Compliance manager, Safety officer, Accountant, Billing, Manager,
-  Admin, Driver), and which companies they can access. Creates their login and
-  sets role-based permissions automatically.
-- **Deactivate / reactivate** members (this is how you "remove" access).
+### Drivers upload their own documents, you approve
+- Each driver has a **private upload link** (shown on their DQF page, with a Copy
+  button). Send it by text/email.
+- The driver opens it on their phone, sees their checklist, and uploads documents
+  (medical card, MVR, etc.) — **no login**.
+- Uploads arrive as **Pending review**. You **Approve** or **Reject** them from the
+  DQF page with one click. Approved items turn green and start expiry tracking.
 
-### Time clock
-- Each person clocks **in/out** from the Team page.
-- Roster shows who's **on the clock** and their **hours today**.
-- **Timesheet** page: full check-in / check-out history with hours.
-
-### Who's doing what
-- Activity now records **which user** did each action (booked a load, added an
-  expense, clocked in, added a team member, etc.), shown on the Team page and the
-  full activity feed.
-
-## Role permissions (starting point)
-- Dispatcher: loads, drivers, vehicles, brokers
-- Compliance / Safety: compliance documents, applicants, drivers, vehicles
-- Accountant / Billing: expenses, settlements, fuel
-- Manager / Admin: everything
-Everyone can view; these can be fine-tuned later.
+## Not included (would need extra services)
+DOT-style AI license scanning (OCR auto-fill), e-signatures, and built-in MVR/PSP
+ordering require third-party AI/e-sign/screening providers + credentials. The
+manual upload + approve workflow above covers the core DQF process today.
