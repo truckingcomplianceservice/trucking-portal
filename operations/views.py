@@ -556,3 +556,156 @@ def fuel_import(request):
                       "matched": ", ".join(f"{k}={header[v]}" for k, v in ix.items() if v is not None)}
     return render(request, "operations/app_fuel_import.html",
                   {"companies": companies, "result": result})
+
+
+# ================= Team management, time clock, who-did-what =================
+from django.contrib.auth.models import User as _User, Group, Permission
+from django.contrib.auth.decorators import user_passes_test
+from django.utils import timezone as _tz
+from django.utils.crypto import get_random_string as _rand
+from django.contrib import messages as _messages
+from .models import Profile, TimeEntry, ActivityLog
+
+# role -> which operations models they can add/change/view
+ROLE_PERMS = {
+    "admin": "ALL", "manager": "ALL",
+    "dispatcher": ["load", "driver", "vehicle", "broker"],
+    "compliance": ["compliancedocument", "applicant", "driver", "vehicle"],
+    "safety": ["compliancedocument", "driver", "vehicle"],
+    "accountant": ["expense", "settlement", "fueltransaction"],
+    "billing": ["expense", "settlement", "load"],
+    "driver": [],
+}
+
+
+def _apply_role(user, role):
+    """Give a team member a Django group with permissions matching their role."""
+    user.is_staff = True
+    user.save()
+    group, _ = Group.objects.get_or_create(name=f"role_{role}")
+    perms = Permission.objects.filter(content_type__app_label="operations")
+    models_allowed = ROLE_PERMS.get(role, [])
+    if models_allowed != "ALL":
+        keep = []
+        for p in perms:
+            model = p.content_type.model
+            action = p.codename.split("_")[0]
+            if model in models_allowed and action in ("add", "change", "view"):
+                keep.append(p.id)
+            elif action == "view":
+                keep.append(p.id)  # everyone can view
+        perms = Permission.objects.filter(id__in=keep)
+    group.permissions.set(list(perms))
+    user.groups.clear()
+    user.groups.add(group)
+
+
+def _is_manager(user):
+    if user.is_superuser:
+        return True
+    try:
+        return user.profile.role in ("admin", "manager")
+    except Exception:
+        return False
+
+
+@login_required
+def app_team(request):
+    users = _User.objects.select_related("profile").order_by("-is_active", "first_name", "username")
+    today = _tz.localdate()
+    roster = []
+    for u in users:
+        try:
+            prof = u.profile
+        except Profile.DoesNotExist:
+            prof = None
+        open_entry = TimeEntry.objects.filter(user=u, clock_out__isnull=True).first()
+        todays = TimeEntry.objects.filter(user=u, clock_in__date=today)
+        hrs = round(sum(t.hours for t in todays), 2)
+        roster.append({
+            "u": u, "prof": prof,
+            "role": prof.get_role_display() if prof else "—",
+            "companies": ", ".join(c.name for c in prof.companies.all()) if prof else "",
+            "on_clock": bool(open_entry), "today_hours": hrs,
+            "initials": ((u.first_name[:1] + u.last_name[:1]).upper() or u.username[:2].upper()),
+        })
+    my_open = TimeEntry.objects.filter(user=request.user, clock_out__isnull=True).first()
+    recent = ActivityLog.objects.select_related("user", "company")[:12]
+    return render(request, "operations/app_team.html", {
+        "roster": roster, "roles": Profile.ROLE_CHOICES,
+        "all_companies": _companies_all(request), "my_open": my_open,
+        "recent": recent, "can_manage": _is_manager(request.user),
+    })
+
+
+@login_required
+def clock_toggle(request):
+    if request.method == "POST":
+        who = request.user.get_full_name() or request.user.username
+        open_entry = TimeEntry.objects.filter(user=request.user, clock_out__isnull=True).first()
+        if open_entry:
+            open_entry.clock_out = _tz.now()
+            open_entry.save()
+            ActivityLog.objects.create(category="clock", user=request.user,
+                text=f"{who} clocked out ({open_entry.hours}h)")
+        else:
+            TimeEntry.objects.create(user=request.user, clock_in=_tz.now())
+            ActivityLog.objects.create(category="clock", user=request.user,
+                text=f"{who} clocked in")
+    return redirect("app_team")
+
+
+@login_required
+def team_add(request):
+    if not _is_manager(request.user):
+        _messages.error(request, "Only managers can add team members.")
+        return redirect("app_team")
+    if request.method == "POST":
+        username = request.POST.get("username", "").strip()
+        if not username or _User.objects.filter(username=username).exists():
+            _messages.error(request, "That username is missing or already taken.")
+            return redirect("app_team")
+        u = _User.objects.create_user(
+            username=username,
+            email=request.POST.get("email", "").strip(),
+            password=request.POST.get("password", "").strip() or _rand(10),
+            first_name=request.POST.get("first_name", "").strip(),
+            last_name=request.POST.get("last_name", "").strip(),
+        )
+        role = request.POST.get("role", "dispatcher")
+        prof, _ = Profile.objects.get_or_create(user=u)
+        prof.role = role
+        prof.phone = request.POST.get("phone", "").strip()
+        prof.save()
+        prof.companies.set(request.POST.getlist("companies"))
+        _apply_role(u, role)
+        ActivityLog.objects.create(category="team", user=request.user,
+            text=f"Added team member {u.get_full_name() or u.username} ({prof.get_role_display()})")
+        _messages.success(request, f"Added {username}. They can log in with the password you set.")
+    return redirect("app_team")
+
+
+@login_required
+def team_toggle_active(request, pk):
+    if not _is_manager(request.user):
+        return redirect("app_team")
+    if request.method == "POST":
+        u = _get(_User, pk=pk)
+        if u != request.user:
+            u.is_active = not u.is_active
+            u.save()
+            state = "reactivated" if u.is_active else "deactivated"
+            ActivityLog.objects.create(category="team", user=request.user,
+                text=f"{state.capitalize()} {u.get_full_name() or u.username}")
+    return redirect("app_team")
+
+
+@login_required
+def app_timesheet(request):
+    entries = TimeEntry.objects.select_related("user").all()[:200]
+    return render(request, "operations/app_timesheet.html", {"entries": entries})
+
+
+def go_home(request, exception=None):
+    """Any unknown/broken link → send the person to the home page (login/dashboard)."""
+    return redirect("/")

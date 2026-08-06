@@ -17,6 +17,12 @@ urlpatterns = [
     path("app/brokers/", views.app_brokers, name="app_brokers"),
     path("app/fuel/", views.app_fuel, name="app_fuel"),
     path("app/fuel/import/", views.fuel_import, name="fuel_import"),
+    path("app/team/", views.app_team, name="app_team"),
+    path("app/team/add/", views.team_add, name="team_add"),
+    path("app/team/<int:pk>/toggle/", views.team_toggle_active, name="team_toggle_active"),
+    path("app/timesheet/", views.app_timesheet, name="app_timesheet"),
+    path("app/clock/", views.clock_toggle, name="clock_toggle"),
+
     path("app/compliance/", views.app_compliance, name="app_compliance"),
     path("app/accounting/", views.app_accounting, name="app_accounting"),
     # reports
@@ -34,3 +40,5 @@ urlpatterns = [
     path("media/<path:path>", views.protected_media, name="protected_media"),
     path("", RedirectView.as_view(url="/dashboard/", permanent=False)),
 ]
+
+handler404 = "operations.views.go_home"

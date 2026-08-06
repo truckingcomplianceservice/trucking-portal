@@ -9,7 +9,7 @@ from django.contrib import admin
 from django.utils.safestring import mark_safe
 from .models import (Company, Profile, Driver, Vehicle, Load, Expense,
                      Settlement, Applicant, ComplianceDocument, ActivityLog, NotificationRule,
-                     Broker, FuelTransaction)
+                     Broker, FuelTransaction, TimeEntry)
 
 
 class CategoryTextInput(forms.TextInput):
@@ -194,7 +194,7 @@ class NotificationRuleAdmin(admin.ModelAdmin):
 
 @admin.register(ActivityLog)
 class ActivityLogAdmin(admin.ModelAdmin):
-    list_display = ("created_at", "company", "category", "text")
+    list_display = ("created_at", "user", "company", "category", "text")
     list_filter = ("company", "category")
     search_fields = ("text",)
     date_hierarchy = "created_at"
@@ -215,3 +215,10 @@ class FuelTransactionAdmin(CompanyScopedAdmin):
     list_filter = ("company", "source")
     search_fields = ("location", "card_last4")
     date_hierarchy = "date"
+
+
+@admin.register(TimeEntry)
+class TimeEntryAdmin(admin.ModelAdmin):
+    list_display = ("user", "clock_in", "clock_out", "hours")
+    list_filter = ("user",)
+    date_hierarchy = "clock_in"

@@ -48,6 +48,8 @@ class Profile(models.Model):
         ("admin", "Administrator"),
         ("manager", "Manager"),
         ("dispatcher", "Dispatcher"),
+        ("compliance", "Compliance manager"),
+        ("safety", "Safety officer"),
         ("accountant", "Accountant"),
         ("billing", "Billing"),
         ("driver", "Driver"),
@@ -308,6 +310,7 @@ class ActivityLog(models.Model):
     """A running record of activity in the system (the in-app notification feed)."""
     company = models.ForeignKey(Company, on_delete=models.CASCADE, null=True, blank=True,
                                 related_name="activity")
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
     category = models.CharField(max_length=20, blank=True)
     text = models.CharField(max_length=300)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -350,7 +353,10 @@ def notify(event, text, company=None):
     except Exception:
         rule = None
     if rule is None or rule.in_app:
-        ActivityLog.objects.create(company=company, category=event, text=text)
+        from .middleware import get_current_user
+        u = get_current_user()
+        ActivityLog.objects.create(company=company, category=event, text=text,
+                                   user=u if getattr(u, "is_authenticated", False) else None)
     if rule and rule.email and getattr(settings, "EMAIL_HOST", ""):
         admins = list(User.objects.filter(is_superuser=True)
                       .exclude(email="").values_list("email", flat=True))
@@ -432,3 +438,26 @@ class FuelTransaction(models.Model):
 
     def __str__(self):
         return f"Fuel ${self.amount} on {self.date}"
+
+
+class TimeEntry(models.Model):
+    """A check-in / check-out record for a team member (the time clock)."""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="time_entries")
+    clock_in = models.DateTimeField()
+    clock_out = models.DateTimeField(null=True, blank=True)
+    note = models.CharField(max_length=200, blank=True)
+
+    class Meta:
+        ordering = ["-clock_in"]
+
+    @property
+    def hours(self):
+        end = self.clock_out or __import__("django.utils.timezone", fromlist=["now"]).now()
+        return round((end - self.clock_in).total_seconds() / 3600, 2)
+
+    @property
+    def is_open(self):
+        return self.clock_out is None
+
+    def __str__(self):
+        return f"{self.user.username} @ {self.clock_in:%Y-%m-%d %H:%M}"

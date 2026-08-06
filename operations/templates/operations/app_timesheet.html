@@ -1,0 +1,16 @@
+{% extends "operations/app_base.html" %}
+{% block title %}Timesheet — Fleetline{% endblock %}
+{% block page_title %}Timesheet{% endblock %}
+{% block content %}
+<a href="/app/team/" class="sub" style="color:var(--blue)">&larr; Team</a>
+<div class="card" style="margin-top:12px"><div class="card-h"><h3>Check-in / check-out history</h3></div>
+{% if entries %}<table><thead><tr><th>Member</th><th>Date</th><th>Clock in</th><th>Clock out</th><th style="text-align:right">Hours</th></tr></thead><tbody>
+{% for e in entries %}<tr>
+ <td><b>{{ e.user.get_full_name|default:e.user.username }}</b></td>
+ <td>{{ e.clock_in|date:"M j, Y" }}</td>
+ <td>{{ e.clock_in|date:"g:i A" }}</td>
+ <td>{% if e.clock_out %}{{ e.clock_out|date:"g:i A" }}{% else %}<span class="chip c-green"><span class="d"></span>On the clock</span>{% endif %}</td>
+ <td style="text-align:right" class="mono">{{ e.hours }}h</td>
+</tr>{% endfor %}</tbody></table>
+{% else %}<div class="empty">No time entries yet. Team members clock in/out from the Team page.</div>{% endif %}
+</div>{% endblock %}

@@ -1,30 +1,39 @@
-# Fleetline — Trucking Operations Portal
+# Trucking Compliance Services — Operations Portal
 
-Custom multi-company TMS with Brokers and Fuel tracking added.
+Multi-company TMS with a full team management system, time clock, branded UI,
+operations, hiring, compliance, factoring, tax/1099s, brokers, and fuel.
 
 ## Deploying this update
 1. In your `trucking-portal` repo: **Add file -> Upload files**.
-2. Unzip and drag in ALL the contents (overwrites changed files).
+2. Unzip and drag in ALL the contents, including `operations/static/logo.png`.
 3. Commit. Railway redeploys automatically.
 
-## New
+## New in this update
 
-### Brokers  (/app/brokers/)
-- Add brokers (name, MC #, phone). On any load, pick the **Broker**.
-- The Brokers page shows, per company, **how many brokers** you run with, plus a
-  table of brokers by load volume, revenue, and which companies they serve.
+### Logo fixed
+The logo now displays on white (the black-box bug is gone).
 
-### Fuel + CSV import  (/app/fuel/ , /app/fuel/import/)
-- Import a CSV export from your fuel-card portal (WEX, Comdata, EFS, etc.).
-- The importer auto-detects columns (date, amount, gallons, location, card,
-  unit) regardless of exact header names, strips $ and commas, and links a
-  transaction to a vehicle when the unit number matches.
-- Fuel page shows total spend, gallons, and every transaction.
+### Team management  (sidebar: Team)
+- **Roster** of everyone with role, companies, active status, and today's hours.
+- **Add team member** (managers only): name, username, temp password, role
+  (Dispatcher, Compliance manager, Safety officer, Accountant, Billing, Manager,
+  Admin, Driver), and which companies they can access. Creates their login and
+  sets role-based permissions automatically.
+- **Deactivate / reactivate** members (this is how you "remove" access).
 
-## Integrations still pending credentials
-- **TRCeLog ELD (live tracking):** send TRCeLog's API docs + an API token, or we
-  can use an ELD aggregator (e.g. TruckerCloud). Then we wire live GPS/HOS.
-- **WEX API (auto fuel sync):** send your WEX API token and we switch fuel from
-  CSV upload to automatic sync.
-- **Highway:** needs a partner/API agreement with Highway; the Brokers feature
-  covers "brokers per company" natively in the meantime.
+### Time clock
+- Each person clocks **in/out** from the Team page.
+- Roster shows who's **on the clock** and their **hours today**.
+- **Timesheet** page: full check-in / check-out history with hours.
+
+### Who's doing what
+- Activity now records **which user** did each action (booked a load, added an
+  expense, clocked in, added a team member, etc.), shown on the Team page and the
+  full activity feed.
+
+## Role permissions (starting point)
+- Dispatcher: loads, drivers, vehicles, brokers
+- Compliance / Safety: compliance documents, applicants, drivers, vehicles
+- Accountant / Billing: expenses, settlements, fuel
+- Manager / Admin: everything
+Everyone can view; these can be fine-tuned later.

@@ -1,0 +1,71 @@
+{% extends "operations/app_base.html" %}
+{% block title %}Team — Fleetline{% endblock %}
+{% block page_title %}Team &amp; time clock{% endblock %}
+{% block extra_css %}
+ .modal-bg{position:absolute;inset:0;background:rgba(20,28,43,.45);display:none;align-items:flex-start;justify-content:center;padding-top:40px;z-index:100}
+ .modal-bg.open{display:flex}
+ .modal{background:#fff;border-radius:14px;width:min(560px,92%);padding:22px;max-height:86vh;overflow:auto}
+ .modal h3{font-size:16px;margin-bottom:14px}
+ .frow{margin-bottom:12px}
+ .frow label{display:block;font-size:11.5px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:5px}
+ .frow input,.frow select{width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:9px;font-size:14px;font-family:inherit}
+ .frow.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+ .msg{padding:10px 14px;border-radius:9px;font-size:13px;margin-bottom:14px}
+ .msg.ok{background:#e4f4ec;color:#137a51}.msg.err{background:#fbe7e5;color:#b02b24}
+ .clockcard{background:var(--navy);color:#fff;border-radius:12px;padding:16px 18px;display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+ .clockcard .s{font-size:12px;color:#c1cbe0}.clockcard b{font-size:16px}
+ .rolebadge{font-size:11px;font-weight:600;padding:2px 9px;border-radius:20px;background:#eef0f4;color:#3a4256}
+{% endblock %}
+{% block content %}
+{% if messages %}{% for m in messages %}<div class="msg {% if m.tags == 'error' %}err{% else %}ok{% endif %}">{{ m }}</div>{% endfor %}{% endif %}
+
+<div class="clockcard">
+ <div>{% if my_open %}<b>You're on the clock</b><div class="s">Since {{ my_open.clock_in|date:"g:i A" }} · {{ my_open.hours }}h today</div>
+ {% else %}<b>You're off the clock</b><div class="s">Clock in to start tracking your time</div>{% endif %}</div>
+ <form method="post" action="/app/clock/">{% csrf_token %}
+  <button class="btn {% if my_open %}ghost{% else %}amber{% endif %}" style="{% if my_open %}background:#fff{% endif %}" type="submit">{% if my_open %}Clock out{% else %}Clock in{% endif %}</button>
+ </form>
+</div>
+
+<div class="toolbar"><b style="font-size:14px">Team members</b><div class="spacer"></div>
+ <a class="btn ghost" href="/admin/operations/company/">Company settings</a>
+ <a class="btn ghost" href="/app/timesheet/">Timesheet</a>
+ {% if can_manage %}<button class="btn amber" onclick="document.getElementById('addm').classList.add('open')">+ Add team member</button>{% endif %}
+</div>
+
+<div class="card">
+<table><thead><tr><th>Member</th><th>Role</th><th>Companies</th><th>Status</th><th>On clock</th><th>Today</th>{% if can_manage %}<th></th>{% endif %}</tr></thead><tbody>
+{% for r in roster %}<tr>
+ <td><div style="display:flex;align-items:center;gap:10px"><span class="avatar" style="background:#e7eefc;color:#1d54c4">{{ r.initials }}</span>
+   <div><b>{{ r.u.get_full_name|default:r.u.username }}</b><div class="sub">{{ r.u.email|default:r.u.username }}</div></div></div></td>
+ <td><span class="rolebadge">{{ r.role }}</span></td>
+ <td class="sub">{{ r.companies|default:"—" }}</td>
+ <td><span class="chip {% if r.u.is_active %}c-green{% else %}c-gray{% endif %}"><span class="d"></span>{% if r.u.is_active %}Active{% else %}Inactive{% endif %}</span></td>
+ <td>{% if r.on_clock %}<span class="chip c-green"><span class="d"></span>On</span>{% else %}<span class="sub">—</span>{% endif %}</td>
+ <td class="mono">{{ r.today_hours }}h</td>
+ {% if can_manage %}<td>{% if r.u != request.user %}<form method="post" action="/app/team/{{ r.u.id }}/toggle/" style="display:inline">{% csrf_token %}
+   <button class="btn ghost" style="padding:5px 10px;font-size:12px" type="submit">{% if r.u.is_active %}Deactivate{% else %}Reactivate{% endif %}</button></form>{% endif %}</td>{% endif %}
+</tr>{% endfor %}</tbody></table>
+</div>
+
+<div class="card" style="margin-top:16px"><div class="card-h"><h3>Who's doing what</h3><a href="/reports/activity/">Full feed →</a></div>
+{% if recent %}{% for a in recent %}
+<div style="display:flex;gap:11px;padding:10px 18px;border-bottom:1px solid #f4f5f8;font-size:12.5px"><span style="width:8px;height:8px;border-radius:50%;margin-top:5px;flex:none;background:var(--navy)"></span>
+ <div><div>{% if a.user %}<b>{{ a.user.get_full_name|default:a.user.username }}</b> · {% endif %}{{ a.text }}</div><div class="sub">{% if a.company %}{{ a.company.name }} · {% endif %}{{ a.created_at|date:"M j, g:i A" }}</div></div></div>
+{% endfor %}{% else %}<div class="empty">No activity yet.</div>{% endif %}</div>
+
+<div class="modal-bg" id="addm">
+ <div class="modal"><h3>Add team member</h3>
+  <form method="post" action="/app/team/add/">{% csrf_token %}
+   <div class="frow two"><div><label>First name</label><input name="first_name"></div><div><label>Last name</label><input name="last_name"></div></div>
+   <div class="frow two"><div><label>Username</label><input name="username" required></div><div><label>Temp password</label><input name="password" placeholder="leave blank to auto-generate"></div></div>
+   <div class="frow two"><div><label>Email</label><input name="email" type="email"></div><div><label>Phone</label><input name="phone"></div></div>
+   <div class="frow"><label>Role</label><select name="role">{% for code,label in roles %}<option value="{{ code }}">{{ label }}</option>{% endfor %}</select></div>
+   <div class="frow"><label>Companies (Ctrl/Cmd-click to pick more than one)</label><select name="companies" multiple size="3">{% for c in all_companies %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}</select></div>
+   <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:6px">
+    <button type="button" class="btn ghost" onclick="document.getElementById('addm').classList.remove('open')">Cancel</button>
+    <button type="submit" class="btn amber">Add member</button></div>
+  </form>
+ </div>
+</div>
+{% endblock %}

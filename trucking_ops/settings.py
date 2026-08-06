@@ -54,6 +54,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'operations.middleware.CurrentUserMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
@@ -146,3 +147,7 @@ if EMAIL_HOST:
 else:
     EMAIL_BACKEND = "django.core.mail.backends.dummy.EmailBackend"
 DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "notifications@pure99inc.com")
+
+# Send login-required redirects (and the 404->home bounce) to the real login page.
+LOGIN_URL = "/admin/login/"
+LOGIN_REDIRECT_URL = "/dashboard/"
