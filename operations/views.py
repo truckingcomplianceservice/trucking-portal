@@ -95,6 +95,8 @@ def compliance_report(request):
         add(f"{d.first_name} {d.last_name}", d.company.name, "Medical card", d.medical_expiry)
     for v in Vehicle.objects.filter(company__in=companies):
         add(f"Unit {v.unit_number}", v.company.name, "DOT inspection", v.inspection_expiry)
+        add(f"Unit {v.unit_number}", v.company.name, "Plate / registration", v.registration_expiry)
+        add(f"Unit {v.unit_number}", v.company.name, "Service due", v.next_service_date)
     for doc in ComplianceDocument.objects.filter(company__in=companies):
         add(str(doc.driver), doc.company.name, doc.get_doc_type_display(), doc.expiry_date)
 
@@ -120,7 +122,7 @@ def hiring_links(request):
 # ---------------- Phase 4: reports index, tax, 1099, factoring, activity ----------------
 import datetime as _dt
 from django.http import Http404
-from .models import ActivityLog
+from .models import ActivityLog, MaintenanceRecord
 
 
 def _scoped_companies(request):
@@ -202,6 +204,8 @@ def _expiring_items(companies):
         add(f"{d.first_name} {d.last_name}", "Medical card", d.medical_expiry)
     for v in Vehicle.objects.filter(company__in=companies):
         add(f"Unit {v.unit_number}", "Inspection", v.inspection_expiry)
+        add(f"Unit {v.unit_number}", "Plate / registration", v.registration_expiry)
+        add(f"Unit {v.unit_number}", "Service due", v.next_service_date)
     for doc in ComplianceDocument.objects.filter(company__in=companies):
         add(str(doc.driver), doc.get_doc_type_display(), doc.expiry_date)
     items.sort(key=lambda x: x["days"])
@@ -302,19 +306,83 @@ def app_driver_detail(request, pk):
                   {"d": d, "cdl": _exp_chip(d.cdl_expiry), "med": _exp_chip(d.medical_expiry)})
 
 
+def _service_chip(v):
+    """Maintenance status from miles-to-service and/or next service date."""
+    today = _dt.date.today()
+    mts = v.miles_to_service
+    # mileage-based
+    if mts is not None:
+        if mts <= 0:
+            return {"cls": "c-red", "label": f"Overdue {abs(mts):,} mi"}
+        if mts <= 1500:
+            return {"cls": "c-warn", "label": f"{mts:,} mi left"}
+        return {"cls": "c-green", "label": f"{mts:,} mi left"}
+    # date-based
+    if v.next_service_date:
+        days = (v.next_service_date - today).days
+        if days < 0:
+            return {"cls": "c-red", "label": f"Overdue {abs(days)}d"}
+        if days <= 30:
+            return {"cls": "c-warn", "label": f"Due in {days}d"}
+        return {"cls": "c-green", "label": "Scheduled"}
+    return {"cls": "c-gray", "label": "Not tracked"}
+
+
 @login_required
 def app_vehicles(request):
     cs = _companies(request)
     vehicles = Vehicle.objects.filter(company__in=cs).select_related("company")
-    rows = [{"o": v, "insp": _exp_chip(v.inspection_expiry)} for v in vehicles]
+    rows = [{"o": v, "insp": _exp_chip(v.inspection_expiry),
+             "reg": _exp_chip(v.registration_expiry), "service": _service_chip(v)} for v in vehicles]
     return render(request, "operations/app_vehicles.html", {"rows": rows})
 
 
 @login_required
 def app_vehicle_detail(request, pk):
     v = _get(Vehicle, pk=pk, company__in=_companies_all(request))
+    records = v.maintenance.all()
+    today = _dt.date.today()
+    total_all = sum((r.total for r in records), 0)
+    total_year = sum((r.total for r in records if r.date and r.date.year == today.year), 0)
+    total_month = sum((r.total for r in records if r.date and r.date.year == today.year
+                       and r.date.month == today.month), 0)
+    months = {}
+    for r in records:
+        if r.date:
+            key = r.date.strftime("%Y-%m")
+            months[key] = months.get(key, 0) + r.total
+    monthly = [{"month": _dt.datetime.strptime(k, "%Y-%m").strftime("%b %Y"), "total": t}
+               for k, t in sorted(months.items(), reverse=True)]
     return render(request, "operations/app_vehicle_detail.html",
-                  {"v": v, "insp": _exp_chip(v.inspection_expiry)})
+                  {"v": v, "insp": _exp_chip(v.inspection_expiry),
+                   "reg": _exp_chip(v.registration_expiry), "service": _service_chip(v),
+                   "records": records, "total_all": total_all, "total_year": total_year,
+                   "total_month": total_month, "monthly": monthly, "today": today.isoformat()})
+
+
+@login_required
+def maintenance_add(request, pk):
+    v = _get(Vehicle, pk=pk, company__in=_companies_all(request))
+    if request.method == "POST":
+        def num(x):
+            try: return float(str(x).replace("$", "").replace(",", "") or 0)
+            except ValueError: return 0
+        def date(x):
+            try: return _dt.date.fromisoformat(x)
+            except (ValueError, TypeError): return _dt.date.today()
+        part = request.POST.get("part", "").strip()
+        if part:
+            rec = MaintenanceRecord.objects.create(
+                company=v.company, vehicle=v, date=date(request.POST.get("date")),
+                part=part, vendor=request.POST.get("vendor", "").strip(),
+                odometer=int(num(request.POST.get("odometer"))) or None,
+                parts_cost=num(request.POST.get("parts_cost")),
+                labor_cost=num(request.POST.get("labor_cost")),
+                receipt=request.FILES.get("receipt"),
+                notes=request.POST.get("notes", "").strip())
+            ActivityLog.objects.create(category="maintenance", user=request.user, company=v.company,
+                text=f"Logged service on Unit {v.unit_number}: {part} (${rec.total})")
+    return redirect("app_vehicle_detail", pk=v.id)
 
 
 @login_required
@@ -473,11 +541,24 @@ def app_brokers(request):
 @login_required
 def app_fuel(request):
     cs = _companies(request)
-    txns = FuelTransaction.objects.filter(company__in=cs).select_related("company", "vehicle", "driver")[:200]
-    total_amt = FuelTransaction.objects.filter(company__in=cs).aggregate(s=Sum("amount"))["s"] or 0
-    total_gal = FuelTransaction.objects.filter(company__in=cs).aggregate(s=Sum("gallons"))["s"] or 0
+    txns = FuelTransaction.objects.filter(company__in=cs).select_related("company", "vehicle", "driver")
+    vehicle_id = request.GET.get("vehicle", "")
+    start = request.GET.get("start", ""); end = request.GET.get("end", "")
+    def parse(d):
+        try: return _dt.date.fromisoformat(d)
+        except ValueError: return None
+    if vehicle_id:
+        txns = txns.filter(vehicle_id=vehicle_id)
+    sd, ed = parse(start), parse(end)
+    if sd: txns = txns.filter(date__gte=sd)
+    if ed: txns = txns.filter(date__lte=ed)
+    total_amt = txns.aggregate(s=Sum("amount"))["s"] or 0
+    total_gal = txns.aggregate(s=Sum("gallons"))["s"] or 0
+    qs = f"vehicle={vehicle_id}&start={start}&end={end}"
     return render(request, "operations/app_fuel.html",
-                  {"txns": txns, "total_amt": total_amt, "total_gal": total_gal})
+                  {"txns": txns[:300], "total_amt": total_amt, "total_gal": total_gal,
+                   "vehicles": Vehicle.objects.filter(company__in=cs), "vehicle_id": vehicle_id,
+                   "start": start, "end": end, "qs": qs, "count": txns.count()})
 
 
 def _find(header, *needles):
@@ -491,7 +572,7 @@ def _find(header, *needles):
 def _num(val):
     if val is None:
         return 0
-    v = str(val).replace("$", "").replace(",", "").strip()
+    v = str(val).replace("$", "").replace(",", "").replace("(", "-").replace(")", "").strip()
     try:
         return float(v)
     except ValueError:
@@ -511,52 +592,89 @@ def _parse_date(val):
 @login_required
 def fuel_import(request):
     companies = _companies_all(request)
-    result = None
-    if request.method == "POST" and request.FILES.get("file"):
-        company_id = request.POST.get("company")
-        company = _get(Company, pk=company_id, pk__in=companies.values_list("pk", flat=True))
-        raw = request.FILES["file"].read().decode("utf-8", errors="ignore")
-        reader = _csv.reader(_io.StringIO(raw))
-        rows = list(reader)
-        created, skipped = 0, 0
-        if rows:
-            header = rows[0]
-            ix = {
-                "date": _find(header, "date"),
-                "amount": _find(header, "amount", "total", "net", "cost"),
-                "gallons": _find(header, "gallon", "qty", "quantity", "units", "volume"),
-                "location": _find(header, "merchant", "location", "site", "city", "station"),
-                "card": _find(header, "card"),
-                "unit": _find(header, "unit", "vehicle", "truck", "asset"),
-                "driver": _find(header, "driver"),
-            }
-            def cell(row, key):
-                i = ix[key]
-                return row[i] if i is not None and i < len(row) else ""
+    ctx = {"companies": companies, "step": "upload"}
+    if request.method == "POST":
+        stage = request.POST.get("stage")
+        # STEP 1 -> read file, guess columns, show mapping
+        if stage == "preview" and request.FILES.get("file"):
+            raw = request.FILES["file"].read().decode("utf-8", errors="ignore")
+            rows = list(_csv.reader(_io.StringIO(raw)))
+            if rows:
+                header = rows[0]
+                guess = {
+                    "date": _find(header, "date"),
+                    "amount": _find(header, "amount", "amt", "total", "net", "cost", "charge",
+                                    "invoice", "purchase", "sale", "spent", "paid", "value", "$"),
+                    "gallons": _find(header, "gallon", "qty", "quantity", "volume", "units"),
+                    "location": _find(header, "merchant", "location", "site", "city", "station", "vendor"),
+                    "card": _find(header, "card"),
+                    "unit": _find(header, "unit", "vehicle", "truck", "asset"),
+                }
+                ctx.update({"step": "map", "headers": list(enumerate(header)),
+                            "sample": rows[1:4], "guess": guess,
+                            "company_id": request.POST.get("company"), "csv_data": raw})
+        # STEP 2 -> import using the confirmed mapping
+        elif stage == "import":
+            company = _get(Company, pk=request.POST.get("company"),
+                           pk__in=companies.values_list("pk", flat=True))
+            raw = request.POST.get("csv_data", "")
+            rows = list(_csv.reader(_io.StringIO(raw)))
+            def col(key):
+                v = request.POST.get(key, "")
+                return int(v) if v not in ("", "none") else None
+            idx = {k: col(k) for k in ["date", "amount", "gallons", "location", "card", "unit"]}
+            created, skipped = 0, 0
             for row in rows[1:]:
                 if not any(c.strip() for c in row):
                     continue
-                amount = _num(cell(row, "amount"))
-                gallons = _num(cell(row, "gallons"))
+                def cell(key):
+                    i = idx[key]
+                    return row[i] if i is not None and i < len(row) else ""
+                amount = _num(cell("amount")); gallons = _num(cell("gallons"))
                 if amount == 0 and gallons == 0:
-                    skipped += 1
-                    continue
-                vehicle = None
-                unit = cell(row, "unit").strip()
+                    skipped += 1; continue
+                vehicle = None; unit = cell("unit").strip()
                 if unit:
                     vehicle = Vehicle.objects.filter(company=company, unit_number__iexact=unit).first()
-                card = cell(row, "card").strip()
-                last4 = card[-4:] if card else ""
+                card = cell("card").strip()
                 FuelTransaction.objects.create(
-                    company=company, date=_parse_date(cell(row, "date")),
-                    vehicle=vehicle, card_last4=last4,
-                    location=cell(row, "location").strip()[:160],
+                    company=company, date=_parse_date(cell("date")), vehicle=vehicle,
+                    card_last4=card[-4:] if card else "", location=cell("location").strip()[:160],
                     gallons=gallons, amount=amount, source="csv")
                 created += 1
-            result = {"created": created, "skipped": skipped, "company": company.name,
-                      "matched": ", ".join(f"{k}={header[v]}" for k, v in ix.items() if v is not None)}
-    return render(request, "operations/app_fuel_import.html",
-                  {"companies": companies, "result": result})
+            ctx.update({"step": "done", "result": {"created": created, "skipped": skipped,
+                        "company": company.name}})
+    return render(request, "operations/app_fuel_import.html", ctx)
+
+
+@login_required
+def fuel_report_pdf(request):
+    cs = _companies(request)
+    txns = FuelTransaction.objects.filter(company__in=cs).select_related("company", "vehicle")
+    vehicle_id = request.GET.get("vehicle", "")
+    start = request.GET.get("start", ""); end = request.GET.get("end", "")
+    def parse(d):
+        try: return _dt.date.fromisoformat(d)
+        except ValueError: return None
+    vlabel = "All trucks"
+    if vehicle_id:
+        txns = txns.filter(vehicle_id=vehicle_id)
+        v = Vehicle.objects.filter(pk=vehicle_id).first()
+        if v: vlabel = f"Unit {v.unit_number}"
+    sd, ed = parse(start), parse(end)
+    if sd: txns = txns.filter(date__gte=sd)
+    if ed: txns = txns.filter(date__lte=ed)
+    total_amt = txns.aggregate(s=Sum("amount"))["s"] or 0
+    total_gal = txns.aggregate(s=Sum("gallons"))["s"] or 0
+    pdf = _render_pdf("operations/pdf_fuel.html", {
+        "txns": txns, "total_amt": f"{total_amt:,.2f}", "total_gal": f"{total_gal:,.1f}",
+        "vlabel": vlabel, "start": start, "end": end,
+        "company": cs.first().name if cs.count() == 1 else "All companies",
+        "company_obj": cs.first() if cs.count() == 1 else None,
+        "today": _dt.date.today()})
+    resp = HttpResponse(pdf, content_type="application/pdf")
+    resp["Content-Disposition"] = 'inline; filename="fuel-report.pdf"'
+    return resp
 
 
 # ================= Team management, time clock, who-did-what =================
@@ -934,7 +1052,24 @@ from django.http import HttpResponse
 from django.core.mail import EmailMessage
 
 
+_LOGO_B64 = None
+def _logo_data_uri():
+    """Return the company logo as a base64 data URI for embedding in PDFs."""
+    global _LOGO_B64
+    if _LOGO_B64 is None:
+        import base64, os
+        from django.conf import settings as _s
+        path = os.path.join(_s.BASE_DIR, "operations", "static", "logo.png")
+        try:
+            with open(path, "rb") as f:
+                _LOGO_B64 = "data:image/png;base64," + base64.b64encode(f.read()).decode()
+        except OSError:
+            _LOGO_B64 = ""
+    return _LOGO_B64
+
+
 def _render_pdf(template, context):
+    context = {**context, "logo_uri": _logo_data_uri()}
     from xhtml2pdf import pisa
     html = render_to_string(template, context)
     buf = _io2.BytesIO()
@@ -986,3 +1121,110 @@ def email_1099(request, driver_id):
         except Exception as e:
             _messages.error(request, f"Could not send email: {e}")
     return redirect(f"/tax/1099/{driver_id}/?year={year}")
+
+
+# ================= Vehicle report (PDF / print / email) =================
+def _vehicle_report_context(request, pk):
+    v = _get(Vehicle, pk=pk, company__in=_companies_all(request))
+    records = v.maintenance.all()
+    today = _dt.date.today()
+    total_all = sum((r.total for r in records), 0)
+    total_year = sum((r.total for r in records if r.date and r.date.year == today.year), 0)
+    return {"v": v, "records": records, "total_all": f"{total_all:,.2f}",
+            "total_year": f"{total_year:,.2f}", "service": _service_chip(v),
+            "insp": _exp_chip(v.inspection_expiry), "reg": _exp_chip(v.registration_expiry),
+            "today": today}
+
+
+@login_required
+def vehicle_report_pdf(request, pk):
+    ctx = _vehicle_report_context(request, pk)
+    pdf = _render_pdf("operations/pdf_vehicle.html", ctx)
+    resp = HttpResponse(pdf, content_type="application/pdf")
+    resp["Content-Disposition"] = f'inline; filename="unit-{ctx["v"].unit_number}-report.pdf"'
+    return resp
+
+
+@login_required
+def email_vehicle_report(request, pk):
+    ctx = _vehicle_report_context(request, pk)
+    v = ctx["v"]
+    if request.method == "POST":
+        to = request.POST.get("email", "").strip()
+        message = request.POST.get("message", "").strip() or \
+            f"Attached is the vehicle report for Unit {v.unit_number}."
+        if not getattr(settings, "EMAIL_HOST", ""):
+            _messages.error(request, "Email isn't set up yet. Add your email settings in Railway, then try again.")
+            return redirect("app_vehicle_detail", pk=v.id)
+        if not to:
+            _messages.error(request, "Please enter a recipient email address.")
+            return redirect("app_vehicle_detail", pk=v.id)
+        pdf = _render_pdf("operations/pdf_vehicle.html", ctx)
+        msg = EmailMessage(subject=f"Vehicle report — Unit {v.unit_number}",
+                           body=message, from_email=settings.DEFAULT_FROM_EMAIL, to=[to])
+        msg.attach(f"unit-{v.unit_number}-report.pdf", pdf, "application/pdf")
+        try:
+            msg.send(fail_silently=False)
+            ActivityLog.objects.create(category="maintenance", user=request.user, company=v.company,
+                text=f"Emailed Unit {v.unit_number} report to {to}")
+            _messages.success(request, f"Vehicle report emailed to {to}.")
+        except Exception as e:
+            _messages.error(request, f"Could not send email: {e}")
+    return redirect("app_vehicle_detail", pk=v.id)
+
+
+# ================= Fleet-wide maintenance report =================
+def _fleet_maint_data(request):
+    cs = _companies(request)
+    records = MaintenanceRecord.objects.filter(company__in=cs).select_related("vehicle", "company")
+    start = request.GET.get("start", ""); end = request.GET.get("end", "")
+    def parse(d):
+        try: return _dt.date.fromisoformat(d)
+        except ValueError: return None
+    sd, ed = parse(start), parse(end)
+    if sd: records = records.filter(date__gte=sd)
+    if ed: records = records.filter(date__lte=ed)
+    today = _dt.date.today()
+    # per-vehicle rollup
+    per = {}
+    for r in records:
+        v = r.vehicle
+        d = per.setdefault(v.id, {"unit": v.unit_number, "company": v.company.name,
+                                  "count": 0, "parts": 0, "labor": 0, "total": 0})
+        d["count"] += 1; d["parts"] += r.parts_cost or 0
+        d["labor"] += r.labor_cost or 0; d["total"] += r.total
+    per_vehicle = sorted(per.values(), key=lambda x: x["total"], reverse=True)
+    # monthly rollup
+    months = {}
+    for r in records:
+        if r.date:
+            months[r.date.strftime("%Y-%m")] = months.get(r.date.strftime("%Y-%m"), 0) + r.total
+    monthly = [{"month": _dt.datetime.strptime(k, "%Y-%m").strftime("%b %Y"), "total": t}
+               for k, t in sorted(months.items(), reverse=True)]
+    grand = sum((r.total for r in records), 0)
+    parts_total = sum((r.parts_cost or 0 for r in records), 0)
+    labor_total = sum((r.labor_cost or 0 for r in records), 0)
+    year_total = sum((r.total for r in records if r.date and r.date.year == today.year), 0)
+    month_total = sum((r.total for r in records if r.date and r.date.year == today.year
+                       and r.date.month == today.month), 0)
+    return {"per_vehicle": per_vehicle, "monthly": monthly, "grand": grand,
+            "parts_total": parts_total, "labor_total": labor_total,
+            "year_total": year_total, "month_total": month_total,
+            "count": records.count(), "start": start, "end": end,
+            "company_obj": cs.first() if cs.count() == 1 else None, "today": today}
+
+
+@login_required
+def fleet_maintenance(request):
+    return render(request, "operations/app_maintenance.html", _fleet_maint_data(request))
+
+
+@login_required
+def fleet_maintenance_pdf(request):
+    data = _fleet_maint_data(request)
+    data["grand"] = f"{data['grand']:,.2f}"; data["parts_total"] = f"{data['parts_total']:,.2f}"
+    data["labor_total"] = f"{data['labor_total']:,.2f}"
+    pdf = _render_pdf("operations/pdf_maintenance.html", data)
+    resp = HttpResponse(pdf, content_type="application/pdf")
+    resp["Content-Disposition"] = 'inline; filename="fleet-maintenance-report.pdf"'
+    return resp

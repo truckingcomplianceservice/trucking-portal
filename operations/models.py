@@ -25,6 +25,8 @@ class Company(models.Model):
     ca_number = models.CharField("CA number", max_length=30, blank=True)
     ein = models.CharField("EIN (federal tax ID)", max_length=20, blank=True)
     address = models.CharField("Mailing address", max_length=250, blank=True)
+    phone = models.CharField(max_length=30, blank=True)
+    email = models.EmailField(blank=True)
     factor = models.CharField(max_length=10, choices=FACTOR_CHOICES, default="None")
     active = models.BooleanField(default=True)
     apply_token = models.CharField(max_length=32, blank=True, db_index=True,
@@ -137,11 +139,32 @@ class Vehicle(models.Model):
     year = models.PositiveIntegerField(null=True, blank=True)
     vin = models.CharField("VIN", max_length=30, blank=True)
     plate = models.CharField(max_length=20, blank=True)
-    inspection_expiry = models.DateField("Annual inspection expiry", null=True, blank=True)
+    inspection_expiry = models.DateField("Annual (DOT) inspection expiry", null=True, blank=True)
+    registration_expiry = models.DateField("Plate / registration expiry", null=True, blank=True)
+    odometer = models.PositiveIntegerField("Current odometer (miles)", null=True, blank=True)
+    service_interval_miles = models.PositiveIntegerField(
+        "Service interval (miles)", null=True, blank=True,
+        help_text="e.g. 25000. Leave blank if you track service by date instead.")
+    last_service_miles = models.PositiveIntegerField("Odometer at last service", null=True, blank=True)
+    last_service_date = models.DateField(null=True, blank=True)
+    next_service_date = models.DateField("Next service due (date)", null=True, blank=True)
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default="active")
 
     class Meta:
         ordering = ["unit_number"]
+
+    @property
+    def next_service_miles(self):
+        if self.service_interval_miles and self.last_service_miles is not None:
+            return self.last_service_miles + self.service_interval_miles
+        return None
+
+    @property
+    def miles_to_service(self):
+        nsm = self.next_service_miles
+        if nsm is not None and self.odometer is not None:
+            return nsm - self.odometer
+        return None
 
     def __str__(self):
         return f"Unit {self.unit_number}"
@@ -551,3 +574,32 @@ class Payment(models.Model):
 
     def __str__(self):
         return f"${self.amount} on {self.payment_date} ({self.get_method_display()})"
+
+
+class MaintenanceRecord(models.Model):
+    """A service/repair on a vehicle: what was done, when, and parts + labor cost."""
+    company = models.ForeignKey(Company, on_delete=models.PROTECT, related_name="maintenance")
+    vehicle = models.ForeignKey(Vehicle, on_delete=models.CASCADE, related_name="maintenance")
+    date = models.DateField(default=__import__("datetime").date.today)
+    part = models.CharField("Part / service", max_length=160)
+    vendor = models.CharField("Shop / vendor", max_length=120, blank=True)
+    odometer = models.PositiveIntegerField("Odometer (miles)", null=True, blank=True)
+    parts_cost = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    labor_cost = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    receipt = models.FileField("Invoice / receipt", upload_to="receipts/", blank=True)
+    notes = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ["-date", "-id"]
+
+    def save(self, *args, **kwargs):
+        if not self.company_id and self.vehicle_id:
+            self.company = self.vehicle.company
+        super().save(*args, **kwargs)
+
+    @property
+    def total(self):
+        return (self.parts_cost or 0) + (self.labor_cost or 0)
+
+    def __str__(self):
+        return f"{self.vehicle} - {self.part} (${self.total})"

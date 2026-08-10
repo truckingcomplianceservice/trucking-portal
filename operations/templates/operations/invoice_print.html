@@ -1,10 +1,11 @@
 <!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Invoice {{ inv.invoice_number }}</title>
+{% load static %}
 <style>
  body{font-family:system-ui,-apple-system,sans-serif;color:#161c2b;max-width:760px;margin:0 auto;padding:36px}
  .top{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #1e2d45;padding-bottom:18px;margin-bottom:24px}
  .co{font-size:20px;font-weight:700;color:#1e2d45}
  h1{font-size:26px;margin:0;color:#1e2d45;letter-spacing:1px}
- .meta{margin:2px 0;font-size:13px;color:#555}
+ .meta{margin:2px 0;font-size:12px;color:#555}
  .cols{display:flex;justify-content:space-between;margin-bottom:24px}
  .cols .l{font-size:11px;text-transform:uppercase;color:#888;letter-spacing:.05em;margin-bottom:4px}
  table{width:100%;border-collapse:collapse;margin-bottom:18px}
@@ -14,15 +15,18 @@
  .tr{display:flex;justify-content:space-between;padding:6px 0;font-size:14px}
  .tr.big{border-top:2px solid #1e2d45;margin-top:6px;padding-top:10px;font-weight:700;font-size:17px}
  .paid{color:#137a51}.bal{color:#b9791a}
+ .logo{height:56px;margin-bottom:8px}
  .btn{background:#1e2d45;color:#fff;border:none;padding:10px 18px;border-radius:8px;font-size:14px;cursor:pointer;margin-bottom:20px}
  @media print{.btn{display:none}body{padding:0}}
 </style></head><body>
  <button class="btn" onclick="window.print()">Print / Save as PDF</button>
  <div class="top">
-  <div><div class="co">{{ inv.company.name }}</div>
+  <div><img src="{% static 'logo.png' %}" class="logo" alt="logo">
+   <div class="co">{{ inv.company.name }}</div>
    {% if inv.company.address %}<div class="meta">{{ inv.company.address }}</div>{% endif %}
-   {% if inv.company.mc_number %}<div class="meta">{{ inv.company.mc_number }}</div>{% endif %}
-   {% if inv.company.ein %}<div class="meta">EIN: {{ inv.company.ein }}</div>{% endif %}</div>
+   <div class="meta">{% if inv.company.mc_number %}MC {{ inv.company.mc_number }}{% endif %}{% if inv.company.dot_number %} · DOT {{ inv.company.dot_number }}{% endif %}{% if inv.company.ca_number %} · CA {{ inv.company.ca_number }}{% endif %}</div>
+   <div class="meta">{% if inv.company.phone %}{{ inv.company.phone }}{% endif %}{% if inv.company.email %} · {{ inv.company.email }}{% endif %}</div>
+  </div>
   <div style="text-align:right"><h1>INVOICE</h1><div class="meta">{{ inv.invoice_number }}</div></div>
  </div>
  <div class="cols">

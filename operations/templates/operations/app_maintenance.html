@@ -1,0 +1,38 @@
+{% extends "operations/app_base.html" %}
+{% load humanize %}
+{% block title %}Fleet maintenance — Fleetline{% endblock %}
+{% block page_title %}Fleet maintenance report{% endblock %}
+{% block content %}
+<div class="print-only"><h2 style="margin:0;color:#1e2d45">Fleet Maintenance Report</h2><div class="sub">{% if start or end %}{{ start }} – {{ end }}{% endif %}</div></div>
+<a href="/app/vehicles/" class="sub" style="color:var(--blue)">&larr; Vehicles</a>
+<div class="kpis" style="grid-template-columns:repeat(4,1fr);margin-top:10px">
+ <div class="kpi"><div class="l">This month</div><div class="n">${{ month_total|floatformat:2|intcomma }}</div></div>
+ <div class="kpi"><div class="l">This year</div><div class="n">${{ year_total|floatformat:2|intcomma }}</div></div>
+ <div class="kpi"><div class="l">Total (filtered)</div><div class="n">${{ grand|floatformat:2|intcomma }}</div><div class="s">{{ count }} records</div></div>
+ <div class="kpi"><div class="l">Parts / Labor</div><div class="n" style="font-size:16px">${{ parts_total|floatformat:0|intcomma }} / ${{ labor_total|floatformat:0|intcomma }}</div></div>
+</div>
+<form method="get" class="toolbar" style="align-items:end">
+ <div><label class="sub" style="display:block;margin-bottom:4px">From</label><input type="date" name="start" value="{{ start }}" style="padding:8px 10px;border:1px solid var(--line);border-radius:8px"></div>
+ <div><label class="sub" style="display:block;margin-bottom:4px">To</label><input type="date" name="end" value="{{ end }}" style="padding:8px 10px;border:1px solid var(--line);border-radius:8px"></div>
+ <button class="btn ghost" type="submit">Filter</button>
+ <div class="spacer"></div>
+ <a class="btn ghost" href="#" onclick="window.print();return false">Print</a>
+ <a class="btn ghost" href="/reports/maintenance/pdf/?start={{ start }}&end={{ end }}" target="_blank">Download PDF</a>
+</form>
+<div class="grid2">
+ <div class="card"><div class="card-h"><h3>Spend by vehicle</h3></div>
+  {% if per_vehicle %}<table><thead><tr><th>Unit</th><th style="text-align:right">Records</th><th style="text-align:right">Parts</th><th style="text-align:right">Labor</th><th style="text-align:right">Total</th></tr></thead><tbody>
+  {% for r in per_vehicle %}<tr>
+   <td><b>Unit {{ r.unit }}</b><div class="sub">{{ r.company }}</div></td>
+   <td style="text-align:right">{{ r.count }}</td>
+   <td style="text-align:right">${{ r.parts|floatformat:2|intcomma }}</td>
+   <td style="text-align:right">${{ r.labor|floatformat:2|intcomma }}</td>
+   <td style="text-align:right;font-weight:600">${{ r.total|floatformat:2|intcomma }}</td>
+  </tr>{% endfor %}</tbody></table>
+  {% else %}<div class="empty">No maintenance records{% if start or end %} in this range{% endif %} yet.</div>{% endif %}
+ </div>
+ <div class="card" style="align-self:start"><div class="card-h"><h3>Spend by month</h3></div>
+  {% if monthly %}<table><tbody>{% for m in monthly %}<tr><td>{{ m.month }}</td><td style="text-align:right;font-weight:600">${{ m.total|floatformat:2|intcomma }}</td></tr>{% endfor %}</tbody></table>
+  {% else %}<div class="empty">No data.</div>{% endif %}
+ </div>
+</div>{% endblock %}

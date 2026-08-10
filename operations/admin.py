@@ -9,7 +9,7 @@ from django.contrib import admin
 from django.utils.safestring import mark_safe
 from .models import (Company, Profile, Driver, Vehicle, Load, Expense,
                      Settlement, Applicant, ComplianceDocument, ActivityLog, NotificationRule,
-                     Broker, FuelTransaction, TimeEntry, Invoice, Payment)
+                     Broker, FuelTransaction, TimeEntry, Invoice, Payment, MaintenanceRecord)
 
 
 class CategoryTextInput(forms.TextInput):
@@ -243,3 +243,11 @@ class PaymentAdmin(admin.ModelAdmin):
     list_display = ("invoice", "amount", "method", "payment_date", "transaction_id")
     list_filter = ("method",)
     date_hierarchy = "payment_date"
+
+
+@admin.register(MaintenanceRecord)
+class MaintenanceRecordAdmin(CompanyScopedAdmin):
+    list_display = ("vehicle", "date", "part", "parts_cost", "labor_cost", "total", "receipt")
+    list_filter = ("company", "vehicle")
+    search_fields = ("part", "vendor")
+    date_hierarchy = "date"

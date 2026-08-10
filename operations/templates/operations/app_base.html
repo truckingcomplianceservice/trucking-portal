@@ -71,7 +71,8 @@
  .col h4 span{background:#fff;border:1px solid var(--line);border-radius:20px;padding:0 8px;font-size:11px}
  .appcard{background:#fff;border:1px solid var(--line);border-radius:9px;padding:11px;margin-bottom:9px;box-shadow:0 1px 3px rgba(20,28,43,.05);display:block}
  .appcard .nm{font-size:13px;font-weight:600}.appcard .mt{font-size:11px;color:var(--muted);margin-top:2px}
- @media print{.fl-side,.fl-topbar,.toolbar,.btn,form.fl-cosel{display:none!important}body{padding-left:0!important}.fl-content{padding:0!important}.card{box-shadow:none!important;border:1px solid #ddd!important}}
+ .print-only{display:none}
+ @media print{.fl-side,.fl-topbar,.toolbar,.btn,form.fl-cosel{display:none!important}.print-only{display:block!important;margin-bottom:14px;border-bottom:2px solid #1e2d45;padding-bottom:8px}body{padding-left:0!important}.fl-content{padding:0!important}.card{box-shadow:none!important;border:1px solid #ddd!important}}
  {% block extra_css %}{% endblock %}
 </style></head><body>
  <aside class="fl-side">

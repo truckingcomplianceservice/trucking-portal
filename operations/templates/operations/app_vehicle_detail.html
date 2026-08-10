@@ -3,13 +3,83 @@
 {% block page_title %}Unit {{ v.unit_number }}{% endblock %}
 {% block content %}
 <a href="/app/vehicles/" class="sub" style="color:var(--blue)">&larr; All vehicles</a>
-<div class="card" style="margin-top:12px;max-width:560px"><div class="card-h"><h3>Vehicle</h3><a href="/admin/operations/vehicle/{{ v.id }}/change/">Edit</a></div>
- <div style="padding:6px 18px 14px">
-  <div class="field"><span class="k">Company</span><span class="v">{{ v.company.name }}</span></div>
-  <div class="field"><span class="k">Vehicle</span><span class="v">{{ v.year }} {{ v.make }} {{ v.model }}</span></div>
-  <div class="field"><span class="k">VIN</span><span class="v">{{ v.vin|default:"—" }}</span></div>
-  <div class="field"><span class="k">Plate</span><span class="v">{{ v.plate|default:"—" }}</span></div>
-  <div class="field"><span class="k">DOT inspection</span><span class="v"><span class="chip {{ insp.cls }}"><span class="d"></span>{{ insp.label }}</span> {{ v.inspection_expiry|default:"" }}</span></div>
-  <div class="field"><span class="k">Status</span><span class="v">{{ v.get_status_display }}</span></div>
+<div class="toolbar"><div class="spacer"></div>
+ <a class="btn ghost" href="#" onclick="window.print();return false">Print</a>
+ <a class="btn ghost" href="/app/vehicles/{{ v.id }}/report/" target="_blank">Download PDF</a>
+ <a class="btn ghost" href="#" onclick="document.getElementById('emailbox').style.display='block';return false">Email report</a>
+</div>
+{% if messages %}{% for m in messages %}<div style="margin:4px 0 10px;padding:10px 14px;border-radius:8px;font-size:13px;background:{% if m.tags == 'error' %}#fbe7e5;color:#b02b24{% else %}#e4f4ec;color:#137a51{% endif %}">{{ m }}</div>{% endfor %}{% endif %}
+<div id="emailbox" style="display:none;background:#fff;border:1px solid var(--line);border-radius:10px;padding:16px;margin-bottom:12px;max-width:460px">
+ <form method="post" action="/app/vehicles/{{ v.id }}/report/email/">{% csrf_token %}
+  <b style="font-size:13px">Email this vehicle report</b>
+  <label class="sub" style="display:block;margin:8px 0 4px">Send to</label>
+  <input name="email" type="email" required placeholder="shop@example.com" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;margin-bottom:8px">
+  <label class="sub" style="display:block;margin-bottom:4px">Message (optional)</label>
+  <textarea name="message" rows="2" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;margin-bottom:8px"></textarea>
+  <button class="btn amber" type="submit">Send report PDF</button>
+ </form>
+</div>
+<div class="print-only"><h2 style="margin:0;color:#1e2d45">Unit {{ v.unit_number }} — Vehicle Report</h2><div class="sub">{{ v.company.name }}</div></div>
+<div class="grid2">
+ <div class="card"><div class="card-h"><h3>Vehicle</h3><a href="/admin/operations/vehicle/{{ v.id }}/change/">Edit</a></div>
+  <div style="padding:6px 18px 14px">
+   <div class="field"><span class="k">Company</span><span class="v">{{ v.company.name }}</span></div>
+   <div class="field"><span class="k">Vehicle</span><span class="v">{{ v.year }} {{ v.make }} {{ v.model }}</span></div>
+   <div class="field"><span class="k">VIN</span><span class="v">{{ v.vin|default:"—" }}</span></div>
+   <div class="field"><span class="k">Plate</span><span class="v">{{ v.plate|default:"—" }}</span></div>
+   <div class="field"><span class="k">Odometer</span><span class="v">{% if v.odometer %}{{ v.odometer }} mi{% else %}—{% endif %}</span></div>
+   <div class="field"><span class="k">Status</span><span class="v">{{ v.get_status_display }}</span></div>
+  </div>
+ </div>
+ <div class="card"><div class="card-h"><h3>Maintenance &amp; compliance</h3></div>
+  <div style="padding:6px 18px 14px">
+   <div class="field"><span class="k">Service status</span><span class="v"><span class="chip {{ service.cls }}"><span class="d"></span>{{ service.label }}</span></span></div>
+   {% if v.service_interval_miles %}<div class="field"><span class="k">Service interval</span><span class="v">{{ v.service_interval_miles }} mi</span></div>
+   <div class="field"><span class="k">Last service</span><span class="v">{% if v.last_service_miles %}{{ v.last_service_miles }} mi{% endif %}{% if v.last_service_date %} · {{ v.last_service_date }}{% endif %}</span></div>
+   <div class="field"><span class="k">Next service at</span><span class="v">{% if v.next_service_miles %}{{ v.next_service_miles }} mi{% else %}—{% endif %}</span></div>{% endif %}
+   {% if v.next_service_date %}<div class="field"><span class="k">Next service date</span><span class="v">{{ v.next_service_date }}</span></div>{% endif %}
+   <div class="field"><span class="k">DOT inspection</span><span class="v"><span class="chip {{ insp.cls }}"><span class="d"></span>{{ insp.label }}</span> {{ v.inspection_expiry|default:"" }}</span></div>
+   <div class="field"><span class="k">Plate / registration</span><span class="v"><span class="chip {{ reg.cls }}"><span class="d"></span>{{ reg.label }}</span> {{ v.registration_expiry|default:"" }}</span></div>
+  </div>
+ </div>
+</div>
+
+<div class="kpis" style="grid-template-columns:repeat(3,1fr);margin-top:16px">
+ <div class="kpi"><div class="l">Spent this month</div><div class="n">${{ total_month|floatformat:2 }}</div></div>
+ <div class="kpi"><div class="l">Spent this year</div><div class="n">${{ total_year|floatformat:2 }}</div></div>
+ <div class="kpi"><div class="l">Total (all time)</div><div class="n">${{ total_all|floatformat:2 }}</div></div>
+</div>
+
+<div class="grid2" style="margin-top:16px">
+ <div class="card"><div class="card-h"><h3>Service history &amp; costs</h3></div>
+  {% if records %}<table><thead><tr><th>Date</th><th>Part / service</th><th style="text-align:right">Parts</th><th style="text-align:right">Labor</th><th style="text-align:right">Total</th><th>Receipt</th></tr></thead><tbody>
+  {% for r in records %}<tr>
+   <td>{{ r.date }}{% if r.odometer %}<div class="sub">{{ r.odometer }} mi</div>{% endif %}</td>
+   <td>{{ r.part }}{% if r.vendor %}<div class="sub">{{ r.vendor }}</div>{% endif %}</td>
+   <td style="text-align:right">${{ r.parts_cost|floatformat:2 }}</td>
+   <td style="text-align:right">${{ r.labor_cost|floatformat:2 }}</td>
+   <td style="text-align:right;font-weight:600">${{ r.total|floatformat:2 }}</td>
+   <td>{% if r.receipt %}<a href="{{ r.receipt.url }}" target="_blank" style="color:var(--blue)">View</a>{% else %}—{% endif %}</td>
+  </tr>{% endfor %}</tbody></table>
+  {% else %}<div class="empty">No service records yet. Add one on the right.</div>{% endif %}
+  {% if monthly %}<div style="padding:12px 18px;border-top:1px solid var(--line)"><b style="font-size:12px">Spend by month</b>
+   {% for m in monthly %}<div style="display:flex;justify-content:space-between;font-size:13px;padding:4px 0"><span class="sub">{{ m.month }}</span><span>${{ m.total|floatformat:2 }}</span></div>{% endfor %}
+  </div>{% endif %}
+ </div>
+ <div class="card" style="align-self:start"><div class="card-h"><h3>Log a service</h3></div>
+  <form method="post" action="/app/vehicles/{{ v.id }}/service/add/" enctype="multipart/form-data" style="padding:16px 18px">{% csrf_token %}
+   <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+    <div><label class="sub">Date</label><input type="date" name="date" value="{{ today }}" style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px"></div>
+    <div><label class="sub">Odometer</label><input name="odometer" placeholder="miles" style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px"></div>
+   </div>
+   <div style="margin-top:8px"><label class="sub">Part / service</label><input name="part" required placeholder="e.g. Brake pads, oil change" style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px"></div>
+   <div style="margin-top:8px"><label class="sub">Shop / vendor</label><input name="vendor" style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px"></div>
+   <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px">
+    <div><label class="sub">Parts cost</label><input name="parts_cost" placeholder="0.00" style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px"></div>
+    <div><label class="sub">Labor cost</label><input name="labor_cost" placeholder="0.00" style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px"></div>
+   </div>
+   <div style="margin-top:8px"><label class="sub">Invoice / receipt (photo or PDF)</label><input type="file" name="receipt" style="width:100%;padding:7px 10px;border:1px solid var(--line);border-radius:8px"></div>
+   <button class="btn amber" type="submit" style="margin-top:12px;width:100%">Add service record</button>
+  </form>
  </div>
 </div>{% endblock %}

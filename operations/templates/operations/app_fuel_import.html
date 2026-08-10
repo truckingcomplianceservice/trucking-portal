@@ -3,25 +3,53 @@
 {% block page_title %}Import fuel CSV{% endblock %}
 {% block content %}
 <a href="/app/fuel/" class="sub" style="color:var(--blue)">&larr; Fuel</a>
-{% if result %}
-<div class="card" style="margin:12px 0;border-color:#bfe6cf"><div style="padding:16px 18px">
+
+{% if step == "done" %}
+<div class="card" style="margin:12px 0;border-color:#bfe6cf;max-width:620px"><div style="padding:16px 18px">
  <b style="color:#137a51">Imported {{ result.created }} transaction(s)</b> into {{ result.company }}.{% if result.skipped %} Skipped {{ result.skipped }} blank/zero rows.{% endif %}
- <div class="sub" style="margin-top:6px">Matched columns: {{ result.matched }}</div>
- <div style="margin-top:12px"><a class="btn navy" href="/app/fuel/">View fuel transactions</a></div>
+ <div style="margin-top:12px"><a class="btn navy" href="/app/fuel/">View fuel transactions</a> <a class="btn ghost" href="/app/fuel/import/">Import another</a></div>
 </div></div>
-{% endif %}
+
+{% elif step == "map" %}
+<div class="card" style="margin-top:12px;max-width:720px"><div class="card-h"><h3>Confirm columns</h3></div>
+ <div style="padding:16px 18px">
+  <div class="sub" style="margin-bottom:14px">We guessed which column is which. <b>Check the Amount and Gallons especially</b>, fix any that are wrong, then import.</div>
+  <form method="post">{% csrf_token %}
+   <input type="hidden" name="stage" value="import">
+   <input type="hidden" name="company" value="{{ company_id }}">
+   <textarea name="csv_data" style="display:none">{{ csv_data }}</textarea>
+   <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+   {% include "operations/_mapfield.html" with fname="date" flabel="Date" %}
+   {% include "operations/_mapfield.html" with fname="amount" flabel="Amount ($)" %}
+   {% include "operations/_mapfield.html" with fname="gallons" flabel="Gallons" %}
+   {% include "operations/_mapfield.html" with fname="location" flabel="Location / merchant" %}
+   {% include "operations/_mapfield.html" with fname="card" flabel="Card number" %}
+   {% include "operations/_mapfield.html" with fname="unit" flabel="Unit / truck #" %}
+   </div>
+   <div style="margin-top:16px"><b style="font-size:12px">Preview (first rows)</b>
+    <div style="overflow-x:auto;border:1px solid var(--line);border-radius:8px;margin-top:6px">
+     <table style="font-size:11.5px"><thead><tr>{% for i,h in headers %}<th>{{ h }}</th>{% endfor %}</tr></thead>
+     <tbody>{% for row in sample %}<tr>{% for c in row %}<td>{{ c }}</td>{% endfor %}</tr>{% endfor %}</tbody></table>
+    </div></div>
+   <button class="btn amber" type="submit" style="margin-top:16px">Import with these columns</button>
+  </form>
+ </div>
+</div>
+
+{% else %}
 <div class="card" style="margin-top:12px;max-width:620px"><div class="card-h"><h3>Upload a fuel-card export</h3></div>
- <form method="post" enctype="multipart/form-data" style="padding:18px">
-  {% csrf_token %}
+ <form method="post" enctype="multipart/form-data" style="padding:18px">{% csrf_token %}
+  <input type="hidden" name="stage" value="preview">
   <div style="margin-bottom:14px"><label style="display:block;font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;margin-bottom:6px">Company</label>
-   <select name="company" required style="width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:9px;font-size:14px">
+   <select name="company" required style="width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:9px">
     {% for c in companies %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}</select></div>
   <div style="margin-bottom:14px"><label style="display:block;font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;margin-bottom:6px">CSV file</label>
    <input type="file" name="file" accept=".csv" required></div>
-  <button class="btn amber" type="submit">Import</button>
+  <button class="btn amber" type="submit">Next: confirm columns</button>
  </form>
 </div>
-<div class="card" style="margin-top:14px;max-width:620px"><div style="padding:16px 18px">
- <b style="font-size:13px">How it works</b>
- <div class="sub" style="margin-top:8px;line-height:1.6">Export your transactions from your fuel-card portal (WEX, Comdata, EFS, etc.) as a CSV, then upload it here. The importer automatically finds common columns — date, amount, gallons, location, card, and unit/vehicle — no matter the exact header names. If a unit number matches one of your vehicles, it links automatically. Later, when you have your WEX API token, we can switch this to sync automatically instead of by upload.</div>
-</div></div>{% endblock %}
+<div class="card" style="margin-top:14px;max-width:620px"><div style="padding:16px 18px"><b style="font-size:13px">Why the extra step?</b>
+ <div class="sub" style="margin-top:8px;line-height:1.6">Every fuel card names its columns differently, so instead of guessing (and sometimes missing the dollar amount), we show you the columns and let you confirm which is Amount, Gallons, etc. before importing. This makes sure your fuel totals come in correctly.</div>
+</div></div>
+{% endif %}
+{% endblock %}

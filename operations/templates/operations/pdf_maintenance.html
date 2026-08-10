@@ -1,0 +1,35 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+ @page { size: letter; margin: 1.5cm; }
+ body { font-family: Helvetica, Arial, sans-serif; color:#161c2b; font-size:11px; }
+ h1 { color:#1e2d45; font-size:18px; margin:0; }
+ h2 { color:#1e2d45; font-size:13px; margin:16px 0 6px; border-bottom:1px solid #ccc; padding-bottom:3px; }
+ .sub { color:#666; font-size:10px; margin-bottom:8px; }
+ table { width:100%; border-collapse:collapse; margin-top:4px; }
+ th,td { border-bottom:1px solid #ddd; padding:6px 8px; text-align:left; font-size:10px; }
+ th { background:#1e2d45; color:#fff; text-transform:uppercase; font-size:9px; }
+ .r { text-align:right; }
+ tfoot td { border-top:2px solid #1e2d45; font-weight:bold; }
+ .cards td { border:1px solid #ccc; padding:8px; text-align:center; width:25%; }
+ .cards .l { font-size:8px; color:#888; text-transform:uppercase; }
+ .cards .n { font-size:15px; font-weight:bold; color:#1e2d45; }
+</style></head><body>
+ {% if company_obj %}{% include "operations/_letterhead_pdf.html" with company=company_obj %}{% endif %}
+ <h1>Fleet Maintenance Report</h1>
+ <div class="sub">{% if start or end %}{{ start }} to {{ end }} · {% endif %}generated {{ today }}</div>
+ <table class="cards"><tr>
+  <td><div class="l">This month</div><div class="n">${{ month_total|floatformat:2 }}</div></td>
+  <td><div class="l">This year</div><div class="n">${{ year_total|floatformat:2 }}</div></td>
+  <td><div class="l">Total</div><div class="n">${{ grand }}</div></td>
+  <td><div class="l">Parts / Labor</div><div class="n" style="font-size:11px">${{ parts_total }} / ${{ labor_total }}</div></td>
+ </tr></table>
+ <h2>Spend by vehicle</h2>
+ <table><thead><tr><th>Unit</th><th>Company</th><th class="r">Records</th><th class="r">Parts</th><th class="r">Labor</th><th class="r">Total</th></tr></thead>
+ <tbody>{% for r in per_vehicle %}<tr><td>Unit {{ r.unit }}</td><td>{{ r.company }}</td><td class="r">{{ r.count }}</td>
+  <td class="r">${{ r.parts|floatformat:2 }}</td><td class="r">${{ r.labor|floatformat:2 }}</td><td class="r">${{ r.total|floatformat:2 }}</td></tr>
+ {% empty %}<tr><td colspan="6">No records.</td></tr>{% endfor %}</tbody>
+ <tfoot><tr><td colspan="5">Fleet total</td><td class="r">${{ grand }}</td></tr></tfoot>
+ </table>
+ <h2>Spend by month</h2>
+ <table><thead><tr><th>Month</th><th class="r">Total</th></tr></thead>
+ <tbody>{% for m in monthly %}<tr><td>{{ m.month }}</td><td class="r">${{ m.total|floatformat:2 }}</td></tr>{% endfor %}</tbody></table>
+</body></html>

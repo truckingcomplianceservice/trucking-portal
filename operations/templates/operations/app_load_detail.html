@@ -3,6 +3,8 @@
 {% block page_title %}Load {{ l.reference }}{% endblock %}
 {% block content %}
 <a href="/app/loads/" class="sub" style="color:var(--blue)">&larr; All loads</a>
+<div class="toolbar"><div class="spacer"></div><a class="btn ghost" href="#" onclick="window.print();return false">Print / Save as PDF</a></div>
+<div class="print-only"><h2 style="margin:0;color:#1e2d45">Load {{ l.reference }}</h2><div class="sub">{{ l.company.name }}</div></div>
 <div class="grid2" style="margin-top:12px">
  <div class="card"><div class="card-h"><h3>Load details</h3><a href="/admin/operations/load/{{ l.id }}/change/">Edit</a></div>
   <div style="padding:6px 18px 14px">
