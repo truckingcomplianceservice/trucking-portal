@@ -471,3 +471,83 @@ class TimeEntry(models.Model):
 
     def __str__(self):
         return f"{self.user.username} @ {self.clock_in:%Y-%m-%d %H:%M}"
+
+
+class Invoice(models.Model):
+    """A customer invoice. Can be tied to a load, or grouped/billed to a broker."""
+    company = models.ForeignKey(Company, on_delete=models.PROTECT, related_name="invoices")
+    invoice_number = models.CharField(max_length=40, blank=True)
+    broker = models.ForeignKey("Broker", on_delete=models.SET_NULL, null=True, blank=True,
+                               related_name="invoices", help_text="Who you're billing (optional).")
+    bill_to_name = models.CharField("Bill to (if not a saved broker)", max_length=140, blank=True)
+    load = models.ForeignKey("Load", on_delete=models.SET_NULL, null=True, blank=True,
+                             related_name="invoices")
+    issue_date = models.DateField(default=__import__("datetime").date.today)
+    due_date = models.DateField(null=True, blank=True)
+    subtotal = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    discount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    tax = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-issue_date", "-id"]
+
+    def save(self, *args, **kwargs):
+        if not self.invoice_number:
+            n = Invoice.objects.count() + 1
+            self.invoice_number = f"INV-{n:05d}"
+        super().save(*args, **kwargs)
+
+    @property
+    def total(self):
+        return (self.subtotal or 0) - (self.discount or 0) + (self.tax or 0)
+
+    @property
+    def paid(self):
+        return sum((p.amount for p in self.payments.all()), 0)
+
+    @property
+    def balance(self):
+        return self.total - self.paid
+
+    @property
+    def bill_to(self):
+        return self.broker.name if self.broker else (self.bill_to_name or "—")
+
+    @property
+    def is_overdue(self):
+        import datetime as _d
+        return bool(self.due_date and self.due_date < _d.date.today() and self.balance > 0)
+
+    @property
+    def status(self):
+        if self.total > 0 and self.paid >= self.total:
+            return "paid"
+        if self.paid > 0:
+            return "partial"
+        return "unpaid"
+
+    def __str__(self):
+        return f"{self.invoice_number} ({self.bill_to})"
+
+
+class Payment(models.Model):
+    """A payment recorded against an invoice. Supports partial payments."""
+    METHOD_CHOICES = [
+        ("check", "Check"), ("ach", "ACH / bank transfer"), ("wire", "Wire"),
+        ("card", "Card"), ("cash", "Cash"), ("factoring", "Factoring"), ("other", "Other"),
+    ]
+    invoice = models.ForeignKey(Invoice, on_delete=models.CASCADE, related_name="payments")
+    amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    method = models.CharField(max_length=12, choices=METHOD_CHOICES, default="check")
+    transaction_id = models.CharField(max_length=80, blank=True)
+    payment_date = models.DateField(default=__import__("datetime").date.today)
+    note = models.CharField(max_length=200, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-payment_date", "-id"]
+
+    def __str__(self):
+        return f"${self.amount} on {self.payment_date} ({self.get_method_display()})"

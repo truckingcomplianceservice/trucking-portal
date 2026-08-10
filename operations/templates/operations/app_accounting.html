@@ -2,7 +2,7 @@
 {% block title %}Accounting — Fleetline{% endblock %}
 {% block page_title %}Accounting{% endblock %}
 {% block content %}
-<div class="toolbar"><div class="spacer"></div><a class="btn ghost" href="/admin/operations/expense/add/">+ Expense</a><a class="btn amber" href="/admin/operations/settlement/add/">+ Settlement</a></div>
+<div class="toolbar"><div class="spacer"></div><a class="btn ghost" href="#" onclick="window.print();return false">Print / PDF</a><a class="btn ghost" href="/admin/operations/expense/add/">+ Expense</a><a class="btn amber" href="/admin/operations/settlement/add/">+ Settlement</a></div>
 <div class="card" style="margin-bottom:16px"><div class="card-h"><h3>Profit &amp; Loss by company</h3><a href="/reports/pnl/">Full report</a></div>
 <table><thead><tr><th>Company</th><th style="text-align:right">Revenue</th><th style="text-align:right">Expenses</th><th style="text-align:right">Wages</th><th style="text-align:right">Net</th></tr></thead><tbody>
 {% for r in rows %}<tr><td><b>{{ r.name }}</b></td><td style="text-align:right">${{ r.rev|floatformat:2 }}</td><td style="text-align:right">${{ r.exp|floatformat:2 }}</td><td style="text-align:right">${{ r.wag|floatformat:2 }}</td><td style="text-align:right;color:#1f9d6b;font-weight:700">${{ r.net|floatformat:2 }}</td></tr>{% endfor %}

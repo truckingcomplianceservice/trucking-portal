@@ -1,32 +1,37 @@
 # Trucking Compliance Services — Operations Portal
 
-Now with a full Driver Qualification File (DQF) workflow, team management, and
-the whole TMS (operations, hiring, compliance, factoring, tax, brokers, fuel).
+Adds printable reports everywhere, a real 1099 PDF, and emailing the 1099.
 
 ## Deploying this update
 1. In your `trucking-portal` repo: **Add file -> Upload files**.
-2. Unzip and drag in ALL the contents (including operations/static/logo.png).
-3. Commit. Railway redeploys automatically.
+2. Unzip and drag in ALL the contents (including operations/static/logo.png
+   and the updated requirements.txt).
+3. Commit. Railway redeploys automatically (it installs the new PDF library).
 
-## New: Driver Qualification File (DQF) — like a DQF portal
+## New
 
-### Per-driver DQF file  (Drivers -> a driver -> "DQF file")
-- A checklist of the FMCSA-style required documents (CDL, application, medical,
-  MVR, annual review, road test, PSP, drug test, Clearinghouse, safety history),
-  each with a **red / yellow / green** status:
-  - Green = complete, Yellow = pending review or expiring soon, Red = missing or expired.
-- A progress bar and an overall badge: **Qualified / Attention / Action needed**.
-- The Drivers list shows each driver's DQF status at a glance.
+### Print any report, anytime
+Every report (P&L, Tax, Factoring, Compliance, Activity, Report Builder, Billing)
+now has a **Print / Save as PDF** button. It prints a clean layout — sidebar and
+buttons are hidden, just the data.
 
-### Drivers upload their own documents, you approve
-- Each driver has a **private upload link** (shown on their DQF page, with a Copy
-  button). Send it by text/email.
-- The driver opens it on their phone, sees their checklist, and uploads documents
-  (medical card, MVR, etc.) — **no login**.
-- Uploads arrive as **Pending review**. You **Approve** or **Reject** them from the
-  DQF page with one click. Approved items turn green and start expiry tracking.
+### 1099 as a real PDF
+On Tax -> Generate 1099 you now have:
+- **Download PDF** — a proper PDF file (not just browser print).
+- **Print** — clean printout.
 
-## Not included (would need extra services)
-DOT-style AI license scanning (OCR auto-fill), e-signatures, and built-in MVR/PSP
-ordering require third-party AI/e-sign/screening providers + credentials. The
-manual upload + approve workflow above covers the core DQF process today.
+### Email the 1099 to anyone
+- Click **Email this 1099**, enter a recipient (e.g. your accountant) and an
+  optional message, and the app emails the **1099 PDF as an attachment**.
+- This sends **once your email is connected**. Until then it shows a friendly
+  note. To turn it on, add EMAIL_HOST / EMAIL_HOST_USER / EMAIL_HOST_PASSWORD
+  (and DEFAULT_FROM_EMAIL) in Railway Variables.
+
+## Email setup (to enable sending)
+Easiest is Gmail with an App Password, or a service like Resend/SendGrid.
+Add these Railway Variables on the web service:
+- EMAIL_HOST (e.g. smtp.gmail.com)
+- EMAIL_HOST_USER (your email address)
+- EMAIL_HOST_PASSWORD (app password / API key)
+- DEFAULT_FROM_EMAIL (the from address)
+Then emailing works everywhere in the app.

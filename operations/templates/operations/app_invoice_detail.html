@@ -1,0 +1,52 @@
+{% extends "operations/app_base.html" %}
+{% load humanize %}
+{% block title %}{{ inv.invoice_number }} — Fleetline{% endblock %}
+{% block page_title %}Invoice {{ inv.invoice_number }}{% endblock %}
+{% block extra_css %}
+ .tot-row{display:flex;justify-content:space-between;padding:7px 0;font-size:13.5px}
+ .tot-row.big{border-top:1px solid var(--line);margin-top:6px;padding-top:12px;font-weight:700;font-size:16px;font-family:'Space Grotesk'}
+{% endblock %}
+{% block content %}
+<a href="/app/billing/" class="sub" style="color:var(--blue)">&larr; Billing</a>
+<div class="toolbar" style="margin-top:8px"><div class="spacer"></div>
+ <a class="btn ghost" href="/app/billing/{{ inv.id }}/print/" target="_blank">Print / Download PDF</a>
+ <a class="btn ghost" href="/admin/operations/invoice/{{ inv.id }}/change/">Edit</a>
+</div>
+<div class="grid2">
+ <div class="card"><div class="card-h"><h3>Invoice</h3><span class="chip {{ cls }}"><span class="d"></span>{{ inv.status|capfirst }}{% if inv.is_overdue %} · Overdue{% endif %}</span></div>
+  <div style="padding:8px 18px 16px">
+   <div class="field"><span class="k">Bill to</span><span class="v">{{ inv.bill_to }}</span></div>
+   <div class="field"><span class="k">Company</span><span class="v">{{ inv.company.name }}</span></div>
+   {% if inv.load %}<div class="field"><span class="k">Load</span><span class="v">{{ inv.load.reference }}</span></div>{% endif %}
+   <div class="field"><span class="k">Issued</span><span class="v">{{ inv.issue_date }}</span></div>
+   <div class="field"><span class="k">Due</span><span class="v">{{ inv.due_date|default:"—" }}</span></div>
+   <div style="margin-top:14px">
+     <div class="tot-row"><span class="sub">Subtotal</span><span>${{ inv.subtotal|floatformat:2|intcomma }}</span></div>
+     <div class="tot-row"><span class="sub">Discount</span><span>−${{ inv.discount|floatformat:2|intcomma }}</span></div>
+     <div class="tot-row"><span class="sub">Tax</span><span>${{ inv.tax|floatformat:2|intcomma }}</span></div>
+     <div class="tot-row big"><span>Total</span><span>${{ inv.total|floatformat:2|intcomma }}</span></div>
+     <div class="tot-row"><span class="sub">Paid</span><span style="color:#137a51">${{ inv.paid|floatformat:2|intcomma }}</span></div>
+     <div class="tot-row big"><span>Balance due</span><span style="color:{% if inv.balance > 0 %}#b9791a{% else %}#137a51{% endif %}">${{ inv.balance|floatformat:2|intcomma }}</span></div>
+   </div>
+  </div>
+ </div>
+ <div class="card" style="align-self:start"><div class="card-h"><h3>Payments</h3></div>
+  {% if inv.payments.all %}<table><tbody>
+  {% for p in inv.payments.all %}<tr><td>{{ p.payment_date }}<div class="sub">{{ p.get_method_display }}{% if p.transaction_id %} · {{ p.transaction_id }}{% endif %}</div></td>
+   <td style="text-align:right;font-weight:600">${{ p.amount|floatformat:2|intcomma }}</td></tr>{% endfor %}
+  </tbody></table>{% else %}<div class="empty">No payments recorded yet.</div>{% endif %}
+  {% if inv.balance > 0 %}
+  <div style="padding:14px 18px;border-top:1px solid var(--line)">
+   <b style="font-size:13px">Record a payment</b>
+   <form method="post" action="/app/billing/{{ inv.id }}/pay/" style="margin-top:10px">{% csrf_token %}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+     <div><label class="sub">Amount</label><input name="amount" placeholder="0.00" required style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px"></div>
+     <div><label class="sub">Date</label><input type="date" name="payment_date" style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px"></div>
+     <div><label class="sub">Method</label><select name="method" style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px">{% for c,l in methods %}<option value="{{ c }}">{{ l }}</option>{% endfor %}</select></div>
+     <div><label class="sub">Transaction ID</label><input name="transaction_id" style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px"></div>
+    </div>
+    <button class="btn amber" type="submit" style="margin-top:10px;width:100%">Add payment</button>
+   </form>
+  </div>{% endif %}
+ </div>
+</div>{% endblock %}

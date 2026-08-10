@@ -9,7 +9,7 @@ from django.contrib import admin
 from django.utils.safestring import mark_safe
 from .models import (Company, Profile, Driver, Vehicle, Load, Expense,
                      Settlement, Applicant, ComplianceDocument, ActivityLog, NotificationRule,
-                     Broker, FuelTransaction, TimeEntry)
+                     Broker, FuelTransaction, TimeEntry, Invoice, Payment)
 
 
 class CategoryTextInput(forms.TextInput):
@@ -222,3 +222,24 @@ class TimeEntryAdmin(admin.ModelAdmin):
     list_display = ("user", "clock_in", "clock_out", "hours")
     list_filter = ("user",)
     date_hierarchy = "clock_in"
+
+
+class PaymentInline(admin.TabularInline):
+    model = Payment
+    extra = 0
+
+
+@admin.register(Invoice)
+class InvoiceAdmin(CompanyScopedAdmin):
+    list_display = ("invoice_number", "company", "bill_to", "issue_date", "due_date", "total", "balance", "status")
+    list_filter = ("company",)
+    search_fields = ("invoice_number", "bill_to_name")
+    date_hierarchy = "issue_date"
+    inlines = [PaymentInline]
+
+
+@admin.register(Payment)
+class PaymentAdmin(admin.ModelAdmin):
+    list_display = ("invoice", "amount", "method", "payment_date", "transaction_id")
+    list_filter = ("method",)
+    date_hierarchy = "payment_date"

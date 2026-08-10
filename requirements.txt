@@ -3,3 +3,4 @@ gunicorn
 whitenoise
 dj-database-url
 psycopg[binary]
+xhtml2pdf>=0.2.17

@@ -13,8 +13,8 @@
  tr:last-child td{border-bottom:none}
  .total td{font-weight:700;background:#fafbfc}
  .net{color:#1f9d6b;font-weight:600}
-</style></head><body><div class="wrap">
- <a class="back" href="/admin/">&larr; Back to portal</a>
+@media print{.back,.yr,.btn,a.btn,.print-btn,form{display:none!important}body{background:#fff!important;padding:0!important}}</style></head><body><div class="wrap">
+ <a class="back" href="/admin/">&larr; Back to portal</a> &nbsp;·&nbsp; <a class="print-btn" href="#" onclick="window.print();return false" style="color:#2e6be6;font-size:13px">Print / Save as PDF</a>
  <h1>Profit &amp; Loss by company</h1>
  <div class="sub">Revenue (loads) &minus; expenses &minus; driver wages. Year to date.</div>
  <table>

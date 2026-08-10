@@ -1,0 +1,31 @@
+{% extends "operations/app_base.html" %}
+{% load humanize %}
+{% block title %}Billing — Fleetline{% endblock %}
+{% block page_title %}Billing &amp; Invoices{% endblock %}
+{% block content %}
+<div class="kpis" style="grid-template-columns:repeat(3,1fr)">
+ <div class="kpi"><div class="l">Total invoiced</div><div class="n">${{ t_inv|floatformat:2|intcomma }}</div></div>
+ <div class="kpi"><div class="l">Paid</div><div class="n" style="color:#137a51">${{ t_paid|floatformat:2|intcomma }}</div></div>
+ <div class="kpi"><div class="l">Outstanding</div><div class="n" style="color:#b9791a">${{ t_out|floatformat:2|intcomma }}</div></div>
+</div>
+<form method="get" class="toolbar" style="align-items:end">
+ <div><label class="sub" style="display:block;margin-bottom:4px">From</label><input type="date" name="start" value="{{ start }}" style="padding:8px 10px;border:1px solid var(--line);border-radius:8px"></div>
+ <div><label class="sub" style="display:block;margin-bottom:4px">To</label><input type="date" name="end" value="{{ end }}" style="padding:8px 10px;border:1px solid var(--line);border-radius:8px"></div>
+ <button class="btn ghost" type="submit">Filter</button>
+ <div class="spacer"></div>
+ <a class="btn ghost" href="#" onclick="window.print();return false">Print / PDF</a>
+ <a class="btn amber" href="/app/billing/new/">+ New invoice</a>
+</form>
+<div class="card"><div class="card-h"><h3>Invoices{% if start or end %} ({{ count }}){% endif %}</h3></div>
+{% if rows %}<table><thead><tr><th>Invoice</th><th>Bill to</th><th>Issued</th><th>Due</th><th style="text-align:right">Total</th><th style="text-align:right">Balance</th><th>Status</th></tr></thead><tbody>
+{% for r in rows %}<tr onclick="location.href='/app/billing/{{ r.o.id }}/'">
+ <td><span class="mono">{{ r.o.invoice_number }}</span><div class="sub">{{ r.o.company.name }}</div></td>
+ <td>{{ r.o.bill_to }}{% if r.o.load %}<div class="sub">Load {{ r.o.load.reference }}</div>{% endif %}</td>
+ <td>{{ r.o.issue_date }}</td>
+ <td>{{ r.o.due_date|default:"—" }}{% if r.overdue %}<div class="sub" style="color:#b02b24">Overdue</div>{% endif %}</td>
+ <td style="text-align:right">${{ r.o.total|floatformat:2|intcomma }}</td>
+ <td style="text-align:right;font-weight:600">${{ r.o.balance|floatformat:2|intcomma }}</td>
+ <td><span class="chip {{ r.cls }}"><span class="d"></span>{{ r.o.get_status_display|default:r.o.status|capfirst }}</span></td>
+</tr>{% endfor %}</tbody></table>
+{% else %}<div class="empty">No invoices yet. <a href="/app/billing/new/" style="color:var(--blue)">Create your first invoice →</a></div>{% endif %}
+</div>{% endblock %}

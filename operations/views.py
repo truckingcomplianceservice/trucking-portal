@@ -826,3 +826,163 @@ def driver_upload(request, token):
     return render(request, "operations/driver_upload.html",
                   {"d": d, "items": items, "msg": msg,
                    "doc_types": ComplianceDocument.DOC_TYPE_CHOICES})
+
+
+# ================= Billing / Invoicing (Core) =================
+from .models import Invoice, Payment
+
+INV_STATUS_CLASS = {"paid": "c-green", "partial": "c-blue", "unpaid": "c-gray"}
+
+
+@login_required
+def app_billing(request):
+    cs = _companies(request)
+    invoices = Invoice.objects.filter(company__in=cs).select_related("company", "broker", "load")
+    start = request.GET.get("start", ""); end = request.GET.get("end", "")
+    def parse(d):
+        try: return _dt.date.fromisoformat(d)
+        except ValueError: return None
+    sd, ed = parse(start), parse(end)
+    if sd: invoices = invoices.filter(issue_date__gte=sd)
+    if ed: invoices = invoices.filter(issue_date__lte=ed)
+    rows, t_inv, t_paid, t_out = [], 0, 0, 0
+    for inv in invoices:
+        rows.append({"o": inv, "cls": INV_STATUS_CLASS.get(inv.status, "c-gray"),
+                     "overdue": inv.is_overdue})
+        t_inv += inv.total; t_paid += inv.paid; t_out += inv.balance
+    return render(request, "operations/app_billing.html", {
+        "rows": rows, "t_inv": t_inv, "t_paid": t_paid, "t_out": t_out,
+        "start": start, "end": end, "count": len(rows),
+    })
+
+
+@login_required
+def invoice_detail(request, pk):
+    inv = _get(Invoice, pk=pk, company__in=_companies_all(request))
+    return render(request, "operations/app_invoice_detail.html", {
+        "inv": inv, "cls": INV_STATUS_CLASS.get(inv.status, "c-gray"),
+        "methods": Payment.METHOD_CHOICES,
+    })
+
+
+@login_required
+def invoice_create(request):
+    cs = _companies_all(request)
+    if request.method == "POST":
+        company = _get(Company, pk=request.POST.get("company"), pk__in=cs.values_list("pk", flat=True))
+        def num(v):
+            try: return float(str(v).replace("$", "").replace(",", "") or 0)
+            except ValueError: return 0
+        def date(v):
+            try: return _dt.date.fromisoformat(v)
+            except (ValueError, TypeError): return None
+        inv = Invoice.objects.create(
+            company=company,
+            invoice_number=request.POST.get("invoice_number", "").strip(),
+            broker_id=request.POST.get("broker") or None,
+            bill_to_name=request.POST.get("bill_to_name", "").strip(),
+            load_id=request.POST.get("load") or None,
+            issue_date=date(request.POST.get("issue_date")) or _dt.date.today(),
+            due_date=date(request.POST.get("due_date")),
+            subtotal=num(request.POST.get("subtotal")),
+            discount=num(request.POST.get("discount")),
+            tax=num(request.POST.get("tax")),
+            notes=request.POST.get("notes", "").strip(),
+        )
+        ActivityLog.objects.create(category="billing", user=request.user, company=company,
+            text=f"Created invoice {inv.invoice_number} (${inv.total}) for {inv.bill_to}")
+        return redirect("invoice_detail", pk=inv.id)
+    return render(request, "operations/app_invoice_form.html", {
+        "companies": cs, "brokers": Broker.objects.all(),
+        "loads": Load.objects.filter(company__in=cs)[:200], "today": _dt.date.today().isoformat(),
+    })
+
+
+@login_required
+def payment_add(request, pk):
+    inv = _get(Invoice, pk=pk, company__in=_companies_all(request))
+    if request.method == "POST":
+        def num(v):
+            try: return float(str(v).replace("$", "").replace(",", "") or 0)
+            except ValueError: return 0
+        amt = num(request.POST.get("amount"))
+        if amt > 0:
+            try:
+                pdate = _dt.date.fromisoformat(request.POST.get("payment_date"))
+            except (ValueError, TypeError):
+                pdate = _dt.date.today()
+            Payment.objects.create(
+                invoice=inv, amount=amt, method=request.POST.get("method", "check"),
+                transaction_id=request.POST.get("transaction_id", "").strip(),
+                payment_date=pdate, note=request.POST.get("note", "").strip())
+            ActivityLog.objects.create(category="billing", user=request.user, company=inv.company,
+                text=f"Recorded ${amt} payment on invoice {inv.invoice_number} "
+                     f"(balance ${inv.balance})")
+    return redirect("invoice_detail", pk=inv.id)
+
+
+@login_required
+def invoice_print(request, pk):
+    inv = _get(Invoice, pk=pk, company__in=_companies_all(request))
+    return render(request, "operations/invoice_print.html", {"inv": inv})
+
+
+# ================= PDF generation + emailing (1099) =================
+import io as _io2
+from django.template.loader import render_to_string
+from django.http import HttpResponse
+from django.core.mail import EmailMessage
+
+
+def _render_pdf(template, context):
+    from xhtml2pdf import pisa
+    html = render_to_string(template, context)
+    buf = _io2.BytesIO()
+    pisa.CreatePDF(html, dest=buf)
+    return buf.getvalue()
+
+
+def _1099_context(request, driver_id, year):
+    companies = _companies_all(request)
+    d = _get(Driver, pk=driver_id, company__in=companies)
+    paid = Settlement.objects.filter(driver=d, period_end__year=year).aggregate(s=Sum("gross_pay"))["s"] or 0
+    return {"d": d, "company": d.company, "paid": f"{paid:,.2f}", "year": year}
+
+
+@login_required
+def generate_1099_pdf(request, driver_id):
+    year = int(request.GET.get("year", _dt.date.today().year))
+    ctx = _1099_context(request, driver_id, year)
+    pdf = _render_pdf("operations/pdf_1099.html", ctx)
+    resp = HttpResponse(pdf, content_type="application/pdf")
+    resp["Content-Disposition"] = f'inline; filename="1099-{ctx["d"].last_name}-{year}.pdf"'
+    return resp
+
+
+@login_required
+def email_1099(request, driver_id):
+    year = int(request.GET.get("year", _dt.date.today().year))
+    ctx = _1099_context(request, driver_id, year)
+    if request.method == "POST":
+        to = request.POST.get("email", "").strip()
+        message = request.POST.get("message", "").strip() or \
+            f"Please find attached the 1099-NEC summary for {ctx['d']} ({year})."
+        if not getattr(settings, "EMAIL_HOST", ""):
+            _messages.error(request, "Email isn't set up yet. Add your email settings in Railway, then try again.")
+            return redirect(f"/tax/1099/{driver_id}/?year={year}")
+        if not to:
+            _messages.error(request, "Please enter a recipient email address.")
+            return redirect(f"/tax/1099/{driver_id}/?year={year}")
+        pdf = _render_pdf("operations/pdf_1099.html", ctx)
+        msg = EmailMessage(
+            subject=f"1099-NEC — {ctx['d']} ({year})",
+            body=message, from_email=settings.DEFAULT_FROM_EMAIL, to=[to])
+        msg.attach(f"1099-{ctx['d'].last_name}-{year}.pdf", pdf, "application/pdf")
+        try:
+            msg.send(fail_silently=False)
+            ActivityLog.objects.create(category="billing", user=request.user, company=ctx["d"].company,
+                text=f"Emailed 1099 for {ctx['d']} to {to}")
+            _messages.success(request, f"1099 emailed to {to}.")
+        except Exception as e:
+            _messages.error(request, f"Could not send email: {e}")
+    return redirect(f"/tax/1099/{driver_id}/?year={year}")

@@ -30,6 +30,12 @@ urlpatterns = [
 
     path("app/compliance/", views.app_compliance, name="app_compliance"),
     path("app/accounting/", views.app_accounting, name="app_accounting"),
+    path("app/billing/", views.app_billing, name="app_billing"),
+    path("app/billing/new/", views.invoice_create, name="invoice_create"),
+    path("app/billing/<int:pk>/", views.invoice_detail, name="invoice_detail"),
+    path("app/billing/<int:pk>/pay/", views.payment_add, name="payment_add"),
+    path("app/billing/<int:pk>/print/", views.invoice_print, name="invoice_print"),
+
     # reports
     path("reports/", views.reports_index, name="reports"),
     path("reports/builder/", views.report_builder, name="report_builder"),
@@ -39,6 +45,8 @@ urlpatterns = [
     path("reports/compliance/", views.compliance_report, name="compliance"),
     path("reports/activity/", views.activity_feed, name="activity"),
     path("tax/1099/<int:driver_id>/", views.generate_1099, name="generate_1099"),
+    path("tax/1099/<int:driver_id>/pdf/", views.generate_1099_pdf, name="generate_1099_pdf"),
+    path("tax/1099/<int:driver_id>/email/", views.email_1099, name="email_1099"),
     path("hiring/links/", views.hiring_links, name="hiring_links"),
     path("apply/done/", views.apply_thanks, name="apply_thanks"),
     path("apply/<str:token>/", views.apply_view, name="apply"),

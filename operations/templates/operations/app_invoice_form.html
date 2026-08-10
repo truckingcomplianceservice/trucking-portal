@@ -1,0 +1,25 @@
+{% extends "operations/app_base.html" %}
+{% block title %}New invoice — Fleetline{% endblock %}
+{% block page_title %}New invoice{% endblock %}
+{% block content %}
+<a href="/app/billing/" class="sub" style="color:var(--blue)">&larr; Billing</a>
+<div class="card" style="margin-top:12px;max-width:640px"><div class="card-h"><h3>Create invoice</h3></div>
+ <form method="post" style="padding:18px">{% csrf_token %}
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+   <div><label class="sub">Company</label><select name="company" required style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:9px">{% for c in companies %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}</select></div>
+   <div><label class="sub">Invoice # (blank = auto)</label><input name="invoice_number" placeholder="INV-00001" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:9px"></div>
+   <div><label class="sub">Bill to (broker)</label><select name="broker" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:9px"><option value="">— choose or type below —</option>{% for b in brokers %}<option value="{{ b.id }}">{{ b.name }}</option>{% endfor %}</select></div>
+   <div><label class="sub">…or bill-to name</label><input name="bill_to_name" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:9px"></div>
+   <div><label class="sub">Link a load (optional)</label><select name="load" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:9px"><option value="">— none —</option>{% for l in loads %}<option value="{{ l.id }}">{{ l.reference }} (${{ l.rate }})</option>{% endfor %}</select></div>
+   <div></div>
+   <div><label class="sub">Issue date</label><input type="date" name="issue_date" value="{{ today }}" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:9px"></div>
+   <div><label class="sub">Due date</label><input type="date" name="due_date" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:9px"></div>
+   <div><label class="sub">Subtotal</label><input name="subtotal" placeholder="0.00" required style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:9px"></div>
+   <div><label class="sub">Discount</label><input name="discount" placeholder="0.00" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:9px"></div>
+   <div><label class="sub">Tax</label><input name="tax" placeholder="0.00" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:9px"></div>
+   <div></div>
+  </div>
+  <div style="margin-top:12px"><label class="sub">Notes</label><textarea name="notes" rows="2" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:9px"></textarea></div>
+  <button class="btn amber" type="submit" style="margin-top:14px">Create invoice</button>
+ </form>
+</div>{% endblock %}

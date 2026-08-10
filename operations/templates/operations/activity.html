@@ -9,8 +9,8 @@ h1{font-size:22px;margin:6px 0 2px}.sub{color:#727c93;font-size:13px;margin-bott
 .expense_added .dot,.settlement_created .dot{background:#b39a6d}
 .txt{font-size:13.5px}.meta{font-size:11.5px;color:#727c93;margin-top:1px}
 .empty{padding:16px;color:#727c93;font-size:13px}
-</style></head><body><div class="wrap">
-<a class="back" href="/reports/">&larr; Reports</a>
+@media print{.back,.yr,.btn,a.btn,.print-btn,form{display:none!important}body{background:#fff!important;padding:0!important}}</style></head><body><div class="wrap">
+<a class="back" href="/reports/">&larr; Reports</a> &nbsp;·&nbsp; <a class="print-btn" href="#" onclick="window.print();return false" style="color:#2e6be6;font-size:13px">Print / Save as PDF</a>
 <h1>Activity feed</h1>
 <div class="sub">Recent activity across your companies. Choose which events notify you (and by email) under <b>Notification rules</b> in the admin.</div>
 <div class="card">

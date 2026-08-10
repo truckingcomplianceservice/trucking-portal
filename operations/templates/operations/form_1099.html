@@ -13,7 +13,19 @@ h1{font-size:18px;margin:0 0 2px}.form-t{font-size:13px;color:#727c93;margin-bot
 @media print{.back,.print,.note{display:none}body{background:#fff;padding:0}}
 </style></head><body><div class="wrap">
 <a class="back" href="/reports/tax/?year={{ year }}">&larr; Tax</a>
-<button class="print" onclick="window.print()">Print / Save as PDF</button>
+<button class="print" onclick="window.print()">Print</button>
+<a class="print" style="text-decoration:none;background:#137a51" href="/tax/1099/{{ d.id }}/pdf/?year={{ year }}" target="_blank">Download PDF</a>
+<button class="print" style="background:#1d54c4" onclick="document.getElementById('emailbox').style.display='block'">Email this 1099</button>
+{% if messages %}{% for m in messages %}<div style="margin:10px 0;padding:10px 14px;border-radius:8px;font-size:13px;background:{% if m.tags == 'error' %}#fbe7e5;color:#b02b24{% else %}#e4f4ec;color:#137a51{% endif %}">{{ m }}</div>{% endfor %}{% endif %}
+<div id="emailbox" style="display:none;background:#fff;border:1px solid #e6e9f0;border-radius:10px;padding:16px;margin:10px 0;max-width:460px">
+  <form method="post" action="/tax/1099/{{ d.id }}/email/?year={{ year }}">{% csrf_token %}
+    <label style="display:block;font-size:12px;font-weight:600;color:#727c93;margin-bottom:5px">Send to (email)</label>
+    <input name="email" type="email" required placeholder="accountant@example.com" style="width:100%;padding:9px 11px;border:1px solid #e6e9f0;border-radius:8px;margin-bottom:10px">
+    <label style="display:block;font-size:12px;font-weight:600;color:#727c93;margin-bottom:5px">Message (optional)</label>
+    <textarea name="message" rows="2" style="width:100%;padding:9px 11px;border:1px solid #e6e9f0;border-radius:8px;margin-bottom:10px"></textarea>
+    <button class="print" type="submit" style="background:#1d54c4">Send 1099 PDF</button>
+  </form>
+</div>
 <div class="doc">
  <h1>Form 1099-NEC &mdash; Nonemployee Compensation</h1>
  <div class="form-t">Tax year {{ year }} &middot; summary for filing</div>

@@ -1,0 +1,30 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+ @page { size: letter; margin: 1.6cm; }
+ body { font-family: Helvetica, Arial, sans-serif; color:#161c2b; font-size: 11px; }
+ h1 { color:#1e2d45; font-size: 20px; margin:0 0 2px; }
+ .sub { color:#666; font-size:11px; margin-bottom:16px; }
+ table { width:100%; border-collapse:collapse; margin-top:8px; }
+ td { border:1px solid #999; padding:8px 10px; vertical-align:top; }
+ .lbl { font-size:8px; color:#666; text-transform:uppercase; }
+ .val { font-size:12px; font-weight:bold; }
+ .box1 { background:#f2f2f2; }
+ .box1 .val { font-size:18px; }
+ .note { color:#666; font-size:9px; margin-top:14px; }
+</style></head><body>
+ <h1>Form 1099-NEC &mdash; Nonemployee Compensation</h1>
+ <div class="sub">Tax year {{ year }} &middot; summary for filing</div>
+ <table>
+  <tr>
+   <td width="60%"><div class="lbl">Payer (your company)</div><div class="val">{{ company.name }}</div>
+     <div>{{ company.address|default:"(add address in Companies)" }}</div></td>
+   <td><div class="lbl">Payer EIN</div><div class="val">{{ company.ein|default:"(add EIN)" }}</div></td>
+  </tr>
+  <tr>
+   <td><div class="lbl">Recipient</div><div class="val">{{ d.first_name }} {{ d.last_name }}</div>
+     <div>{{ d.address|default:"(add address on driver)" }}</div></td>
+   <td><div class="lbl">Recipient TIN (SSN/EIN)</div><div class="val">{{ d.tax_id|default:"(add tax ID)" }}</div></td>
+  </tr>
+  <tr><td colspan="2" class="box1"><div class="lbl">Box 1 &mdash; Nonemployee compensation</div><div class="val">${{ paid }}</div></td></tr>
+ </table>
+ <div class="note">This is a data summary to hand to your accountant or enter into an e-file service (e.g. Tax1099, Track1099). It is not the official IRS red-ink form. Verify all figures before filing.</div>
+</body></html>

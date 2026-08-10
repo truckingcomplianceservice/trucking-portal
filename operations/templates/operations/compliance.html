@@ -14,8 +14,8 @@
  .red{background:#fbe7e5;color:#b02b24}.amber{background:#fbefd6;color:#b9791a}.green{background:#e4f4ec;color:#137a51}
  .n{text-align:right;font-weight:700;font-family:ui-monospace,monospace}
  .empty{color:#727c93;font-size:13px;padding:14px 0}
-</style></head><body><div class="wrap">
- <a class="back" href="/admin/">&larr; Back to portal</a>
+@media print{.back,.yr,.btn,a.btn,.print-btn,form{display:none!important}body{background:#fff!important;padding:0!important}}</style></head><body><div class="wrap">
+ <a class="back" href="/admin/">&larr; Back to portal</a> &nbsp;·&nbsp; <a class="print-btn" href="#" onclick="window.print();return false" style="color:#2e6be6;font-size:13px">Print / Save as PDF</a>
  <h1>Compliance &mdash; document expiry</h1>
  <div class="sub">{{ count }} item(s) need attention. CDLs, medical cards, inspections, and DQ-file documents, soonest first.</div>
 

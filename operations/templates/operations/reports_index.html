@@ -7,8 +7,8 @@ h1{font-size:22px;margin:6px 0 18px}
 a.card{display:block;background:#fff;border:1px solid #e6e9f0;border-radius:12px;padding:18px;text-decoration:none;color:#161c2b}
 a.card:hover{border-color:#2e6be6}
 a.card b{font-size:15px}a.card p{color:#727c93;font-size:12.5px;margin:4px 0 0}
-</style></head><body><div class="wrap">
-<a class="back" href="/admin/">&larr; Back to portal</a>
+@media print{.back,.yr,.btn,a.btn,.print-btn,form{display:none!important}body{background:#fff!important;padding:0!important}}</style></head><body><div class="wrap">
+<a class="back" href="/admin/">&larr; Back to portal</a> &nbsp;·&nbsp; <a class="print-btn" href="#" onclick="window.print();return false" style="color:#2e6be6;font-size:13px">Print / Save as PDF</a>
 <h1>Reports &amp; tools</h1>
 <div class="grid">
  <a class="card" href="/reports/builder/"><b>Report builder</b><p>Pick a date range, company, and driver (by name or phone) and pull loads, settlements, or expenses.</p></a>

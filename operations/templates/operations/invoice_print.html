@@ -1,0 +1,44 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Invoice {{ inv.invoice_number }}</title>
+<style>
+ body{font-family:system-ui,-apple-system,sans-serif;color:#161c2b;max-width:760px;margin:0 auto;padding:36px}
+ .top{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #1e2d45;padding-bottom:18px;margin-bottom:24px}
+ .co{font-size:20px;font-weight:700;color:#1e2d45}
+ h1{font-size:26px;margin:0;color:#1e2d45;letter-spacing:1px}
+ .meta{margin:2px 0;font-size:13px;color:#555}
+ .cols{display:flex;justify-content:space-between;margin-bottom:24px}
+ .cols .l{font-size:11px;text-transform:uppercase;color:#888;letter-spacing:.05em;margin-bottom:4px}
+ table{width:100%;border-collapse:collapse;margin-bottom:18px}
+ th,td{padding:10px 12px;text-align:left;font-size:14px;border-bottom:1px solid #eee}
+ th{background:#f5f6f9;font-size:11px;text-transform:uppercase;color:#666}
+ .totals{margin-left:auto;width:280px}
+ .tr{display:flex;justify-content:space-between;padding:6px 0;font-size:14px}
+ .tr.big{border-top:2px solid #1e2d45;margin-top:6px;padding-top:10px;font-weight:700;font-size:17px}
+ .paid{color:#137a51}.bal{color:#b9791a}
+ .btn{background:#1e2d45;color:#fff;border:none;padding:10px 18px;border-radius:8px;font-size:14px;cursor:pointer;margin-bottom:20px}
+ @media print{.btn{display:none}body{padding:0}}
+</style></head><body>
+ <button class="btn" onclick="window.print()">Print / Save as PDF</button>
+ <div class="top">
+  <div><div class="co">{{ inv.company.name }}</div>
+   {% if inv.company.address %}<div class="meta">{{ inv.company.address }}</div>{% endif %}
+   {% if inv.company.mc_number %}<div class="meta">{{ inv.company.mc_number }}</div>{% endif %}
+   {% if inv.company.ein %}<div class="meta">EIN: {{ inv.company.ein }}</div>{% endif %}</div>
+  <div style="text-align:right"><h1>INVOICE</h1><div class="meta">{{ inv.invoice_number }}</div></div>
+ </div>
+ <div class="cols">
+  <div><div class="l">Bill to</div><div style="font-weight:600">{{ inv.bill_to }}</div></div>
+  <div style="text-align:right"><div class="l">Issue date</div><div>{{ inv.issue_date }}</div>
+   <div class="l" style="margin-top:8px">Due date</div><div>{{ inv.due_date|default:"—" }}</div></div>
+ </div>
+ <table><thead><tr><th>Description</th><th style="text-align:right">Amount</th></tr></thead><tbody>
+  <tr><td>{% if inv.load %}Freight — Load {{ inv.load.reference }} ({{ inv.load.origin }} → {{ inv.load.destination }}){% else %}Freight services{% endif %}{% if inv.notes %}<br><span style="color:#888;font-size:12px">{{ inv.notes }}</span>{% endif %}</td><td style="text-align:right">${{ inv.subtotal|floatformat:2 }}</td></tr>
+ </tbody></table>
+ <div class="totals">
+  <div class="tr"><span>Subtotal</span><span>${{ inv.subtotal|floatformat:2 }}</span></div>
+  <div class="tr"><span>Discount</span><span>−${{ inv.discount|floatformat:2 }}</span></div>
+  <div class="tr"><span>Tax</span><span>${{ inv.tax|floatformat:2 }}</span></div>
+  <div class="tr big"><span>Total</span><span>${{ inv.total|floatformat:2 }}</span></div>
+  <div class="tr"><span>Paid</span><span class="paid">${{ inv.paid|floatformat:2 }}</span></div>
+  <div class="tr big"><span>Balance due</span><span class="bal">${{ inv.balance|floatformat:2 }}</span></div>
+ </div>
+</body></html>

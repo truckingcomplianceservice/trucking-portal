@@ -2,6 +2,7 @@
 {% block title %}Compliance — Fleetline{% endblock %}
 {% block page_title %}Compliance{% endblock %}
 {% block content %}
+<div class="toolbar"><div class="spacer"></div><a class="btn ghost" href="#" onclick="window.print();return false">Print / PDF</a></div>
 <div class="sub" style="margin-bottom:14px">{{ count }} item(s) need attention — CDLs, medical cards, inspections, and DQ documents.</div>
 <div class="card" style="margin-bottom:16px"><div class="card-h"><h3 style="color:#b02b24">Overdue</h3></div>
 {% if overdue %}<table><thead><tr><th>Holder</th><th>Company</th><th>Document</th><th>Expired</th><th style="text-align:right">Days over</th></tr></thead><tbody>

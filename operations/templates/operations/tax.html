@@ -12,8 +12,8 @@ tr:last-child td{border-bottom:none}.n{text-align:right}
 .pill{font-size:11px;font-weight:700;padding:2px 9px;border-radius:20px}.g{background:#e4f4ec;color:#137a51}.r{background:#fbe7e5;color:#b02b24}
 .note{background:#fbefd6;border:1px solid #f0ddb0;color:#8a6410;border-radius:10px;padding:12px 14px;font-size:12.5px;margin-bottom:18px}
 a.btn{background:#1e2d45;color:#fff;text-decoration:none;padding:6px 11px;border-radius:7px;font-size:12.5px}
-</style></head><body><div class="wrap">
-<a class="back" href="/reports/">&larr; Reports</a>
+@media print{.back,.yr,.btn,a.btn,.note,.print-btn{display:none!important}body{padding:0!important}}</style></head><body><div class="wrap">
+<a class="back" href="/reports/">&larr; Reports</a> &nbsp;·&nbsp; <a class="print-btn" href="#" onclick="window.print();return false" style="color:#2e6be6;font-size:13px">Print / Save as PDF</a>
 <h1>Tax &amp; 1099s &mdash; {{ year }}</h1>
 <div class="sub">Per-company income &amp; expenses and 1099-NEC contractors for the tax year.</div>
 <div class="yr">{% for y in years %}<a href="?year={{ y }}" class="{% if y == year %}on{% endif %}">{{ y }}</a>{% endfor %}</div>
