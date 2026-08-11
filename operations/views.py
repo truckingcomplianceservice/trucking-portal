@@ -562,10 +562,13 @@ def app_fuel(request):
 
 
 def _find(header, *needles):
-    for i, h in enumerate(header):
-        hl = h.strip().lower()
-        if any(n in hl for n in needles):
-            return i
+    """Return the column index best matching the needles, in PRIORITY order.
+    Earlier needles win, regardless of column position (so 'amt' beats 'invoice')."""
+    hls = [h.strip().lower() for h in header]
+    for n in needles:
+        for i, hl in enumerate(hls):
+            if n in hl:
+                return i
     return None
 
 
@@ -601,14 +604,24 @@ def fuel_import(request):
             rows = list(_csv.reader(_io.StringIO(raw)))
             if rows:
                 header = rows[0]
+                def _find_unit(hdr):
+                    hls = [h.strip().lower() for h in hdr]
+                    for n in ("truck", "tractor", "vehicle", "asset"):
+                        for i, hl in enumerate(hls):
+                            if n in hl:
+                                return i
+                    for i, hl in enumerate(hls):   # a 'unit' column that isn't 'unit price'
+                        if "unit" in hl and "price" not in hl:
+                            return i
+                    return None
                 guess = {
                     "date": _find(header, "date"),
-                    "amount": _find(header, "amount", "amt", "total", "net", "cost", "charge",
-                                    "invoice", "purchase", "sale", "spent", "paid", "value", "$"),
+                    "amount": _find(header, "amt", "amount", "total", "net", "grand",
+                                    "cost", "charge", "sale amt", "spent", "paid"),
                     "gallons": _find(header, "gallon", "qty", "quantity", "volume", "units"),
-                    "location": _find(header, "merchant", "location", "site", "city", "station", "vendor"),
+                    "location": _find(header, "merchant", "location", "site", "station", "vendor", "city"),
                     "card": _find(header, "card"),
-                    "unit": _find(header, "unit", "vehicle", "truck", "asset"),
+                    "unit": _find_unit(header),
                 }
                 fielddefs = [("date", "Date"), ("amount", "Amount ($)"), ("gallons", "Gallons"),
                              ("location", "Location / merchant"), ("card", "Card number"),
