@@ -19,16 +19,17 @@
    <input type="hidden" name="company" value="{{ company_id }}">
    <textarea name="csv_data" style="display:none">{{ csv_data }}</textarea>
    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-   {% include "operations/_mapfield.html" with fname="date" flabel="Date" %}
-   {% include "operations/_mapfield.html" with fname="amount" flabel="Amount ($)" %}
-   {% include "operations/_mapfield.html" with fname="gallons" flabel="Gallons" %}
-   {% include "operations/_mapfield.html" with fname="location" flabel="Location / merchant" %}
-   {% include "operations/_mapfield.html" with fname="card" flabel="Card number" %}
-   {% include "operations/_mapfield.html" with fname="unit" flabel="Unit / truck #" %}
+   {% for f in fields %}
+   <div><label class="sub" style="display:block;margin-bottom:4px;font-weight:600">{{ f.label }}</label>
+    <select name="{{ f.name }}" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:9px">
+     <option value="none">— not in file —</option>
+     {% for o in f.options %}<option value="{{ o.idx }}"{% if o.selected %} selected{% endif %}>{{ o.header }}</option>{% endfor %}
+    </select></div>
+   {% endfor %}
    </div>
    <div style="margin-top:16px"><b style="font-size:12px">Preview (first rows)</b>
     <div style="overflow-x:auto;border:1px solid var(--line);border-radius:8px;margin-top:6px">
-     <table style="font-size:11.5px"><thead><tr>{% for i,h in headers %}<th>{{ h }}</th>{% endfor %}</tr></thead>
+     <table style="font-size:11.5px"><thead><tr>{% for h in headers_list %}<th>{{ h }}</th>{% endfor %}</tr></thead>
      <tbody>{% for row in sample %}<tr>{% for c in row %}<td>{{ c }}</td>{% endfor %}</tr>{% endfor %}</tbody></table>
     </div></div>
    <button class="btn amber" type="submit" style="margin-top:16px">Import with these columns</button>

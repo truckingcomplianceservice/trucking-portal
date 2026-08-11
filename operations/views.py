@@ -610,9 +610,17 @@ def fuel_import(request):
                     "card": _find(header, "card"),
                     "unit": _find(header, "unit", "vehicle", "truck", "asset"),
                 }
-                ctx.update({"step": "map", "headers": list(enumerate(header)),
-                            "sample": rows[1:4], "guess": guess,
-                            "company_id": request.POST.get("company"), "csv_data": raw})
+                fielddefs = [("date", "Date"), ("amount", "Amount ($)"), ("gallons", "Gallons"),
+                             ("location", "Location / merchant"), ("card", "Card number"),
+                             ("unit", "Unit / truck #")]
+                fields = []
+                for fname, flabel in fielddefs:
+                    gi = guess.get(fname)
+                    opts = [{"idx": i, "header": h, "selected": (gi == i)} for i, h in enumerate(header)]
+                    fields.append({"name": fname, "label": flabel, "options": opts})
+                ctx.update({"step": "map", "fields": fields, "headers_list": header,
+                            "sample": rows[1:4], "company_id": request.POST.get("company"),
+                            "csv_data": raw})
         # STEP 2 -> import using the confirmed mapping
         elif stage == "import":
             company = _get(Company, pk=request.POST.get("company"),
