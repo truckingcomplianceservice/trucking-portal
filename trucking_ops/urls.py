@@ -1,5 +1,7 @@
+from django.views.static import serve as _serve
+from django.conf import settings
 from django.contrib import admin
-from django.urls import path
+from django.urls import path, re_path
 from django.views.generic import RedirectView
 from operations import views
 
@@ -65,3 +67,7 @@ urlpatterns = [
 ]
 
 handler404 = "operations.views.go_home"
+
+urlpatterns += [
+    re_path(r"^media/(?P<path>.*)$", _serve, {"document_root": settings.MEDIA_ROOT}),
+]

@@ -232,7 +232,7 @@ class Expense(models.Model):
         ordering = ["-date"]
 
     def __str__(self):
-        return f"{self.get_category_display()} - ${self.amount} ({self.date})"
+        return f"{self.category} - ${self.amount} ({self.date})"
 
 
 class Settlement(models.Model):

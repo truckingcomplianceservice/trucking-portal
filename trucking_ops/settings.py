@@ -132,7 +132,7 @@ STORAGES = {
 }
 
 # Uploaded documents (BOL, POD, receipts). MEDIA_DIR points to the Railway volume in production.
-MEDIA_URL = 'media/'
+MEDIA_URL = '/media/'
 MEDIA_ROOT = os.environ.get('MEDIA_DIR') or (BASE_DIR / 'media')
 
 # Email notifications (optional). Set EMAIL_HOST etc. in Railway Variables to enable.
