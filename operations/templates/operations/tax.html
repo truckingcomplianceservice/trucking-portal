@@ -32,7 +32,9 @@ a.btn{background:#1e2d45;color:#fff;text-decoration:none;padding:6px 11px;border
 <td class="n">${{ c.paid|floatformat:2 }}</td>
 <td>{% if c.w9 %}<span class="pill g">On file</span>{% else %}<span class="pill r">Missing</span>{% endif %}</td>
 <td>{% if c.over %}<span class="pill g">&ge; $600</span>{% else %}<span class="pill">Under $600</span>{% endif %}</td>
-<td>{% if c.over %}<a class="btn" href="/tax/1099/{{ c.id }}/?year={{ year }}">Generate 1099</a>{% endif %}</td></tr>
-{% empty %}<tr><td colspan="6" style="color:#727c93">No 1099 contractors in scope. Set a driver's tax status to "1099 contractor" to see them here.</td></tr>{% endfor %}
+<td style="white-space:nowrap"><a class="btn" href="/tax/1099/{{ c.id }}/?year={{ year }}">Open / Print</a>
+ <a class="btn" style="background:#137a51" href="/tax/1099/{{ c.id }}/pdf/?year={{ year }}" target="_blank">PDF</a>
+ <a class="btn" style="background:#1d54c4" href="/tax/1099/{{ c.id }}/?year={{ year }}#email">Email</a></td></tr>
+{% empty %}<tr><td colspan="6" style="color:#727c93">No 1099 contractors in scope. Set a driver's tax status to "1099 contractor" (on the driver) and record their settlement pay to see them here.</td></tr>{% endfor %}
 </tbody></table>
 </div></body></html>

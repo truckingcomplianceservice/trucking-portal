@@ -1,27 +1,22 @@
 # Trucking Compliance Services — Operations Portal
 
-Adds an all-companies portfolio command center (multi-client).
+Makes per-contractor 1099 actions obvious.
 
 ## Deploying this update
 1. In your `trucking-portal` repo: **Add file -> Upload files**.
 2. Unzip and drag in ALL the contents.
 3. Commit. Railway redeploys automatically.
 
-## New: All companies (portfolio)
-For anyone with access to more than one company, a new **All companies** item
-appears at the top of the sidebar. It shows every company as a scorecard:
-- Active loads, drivers, trucks
-- Outstanding AR, amount with factor
-- Compliance alerts (expiring docs) — red if any need attention
-- Totals across the whole portfolio at the top
-Click a company to drop into its dashboard.
+## Change: 1099 per contractor
+On the **Tax & 1099s** page, every 1099 contractor row now has three buttons:
+- **Open / Print** — the printable 1099 (Print or Save as PDF).
+- **PDF** — download that contractor's 1099 PDF directly.
+- **Email** — opens the 1099 with the email form ready (sends the PDF once your
+  email is connected in Railway).
 
-## How multi-client access works (already built)
-- Add each client as a **Company** (Companies -> Add company). Add up to as many
-  as you like.
-- Add each client's login on the **Team** page and assign them ONLY their company.
-  They see only their own loads, drivers, compliance, billing — nothing else.
-- You (owner/admin) are assigned to all companies, so you see the portfolio and
-  can drill into any client.
-- Single-company clients don't see the "All companies" view at all — they just
-  see their own dashboard.
+These now appear for EVERY 1099 contractor (not only those over $600), so you can
+generate, download, print, or email each one separately. The >= $600 threshold is
+still shown as a status so you know who legally requires a 1099.
+
+To see a contractor here: set the driver's tax status to "1099 contractor" and
+record their settlement pay for the year.
