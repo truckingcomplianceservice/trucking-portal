@@ -7,4 +7,5 @@ def nav(request):
     if not request.user.is_superuser:
         companies = companies.filter(pk__in=request.user.profile.companies.all())
     return {"nav_companies": companies,
-            "active_company_id": request.session.get("active_company", "all")}
+            "active_company_id": request.session.get("active_company", "all"),
+            "multi_company": companies.count() > 1}

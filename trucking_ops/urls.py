@@ -6,8 +6,10 @@ from operations import views
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("dashboard/", views.dashboard, name="dashboard"),
+    path("portfolio/", views.portfolio, name="portfolio"),
     # custom app sections
     path("app/loads/", views.app_loads, name="app_loads"),
+    path("app/loads/from-ratecon/", views.load_from_ratecon, name="load_from_ratecon"),
     path("app/loads/<int:pk>/", views.app_load_detail, name="app_load_detail"),
     path("app/drivers/", views.app_drivers, name="app_drivers"),
     path("app/drivers/<int:pk>/", views.app_driver_detail, name="app_driver_detail"),
@@ -48,6 +50,8 @@ urlpatterns = [
     path("reports/pnl/", views.pnl_report, name="pnl"),
     path("reports/tax/", views.tax_report, name="tax"),
     path("reports/factoring/", views.factoring_report, name="factoring"),
+    path("reports/factoring/aging/", views.factoring_aging, name="factoring_aging"),
+    path("reports/factoring/aging/pdf/", views.factoring_aging_pdf, name="factoring_aging_pdf"),
     path("reports/compliance/", views.compliance_report, name="compliance"),
     path("reports/activity/", views.activity_feed, name="activity"),
     path("tax/1099/<int:driver_id>/", views.generate_1099, name="generate_1099"),

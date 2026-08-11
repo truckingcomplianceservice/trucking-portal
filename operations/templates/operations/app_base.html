@@ -78,6 +78,7 @@
  <aside class="fl-side">
     <a class="fl-brand" href="/dashboard/"><span class="fl-logo"><img src="{% static 'logo.png' %}" alt="Trucking Compliance Services"></span></a>
     <nav class="fl-nav">
+      {% if multi_company %}<a href="/portfolio/" data-match="/portfolio"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span class="fl-label">All companies</span></a>{% endif %}
       <a href="/dashboard/" data-match="/dashboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M4 13h6V4H4zM14 20h6V4h-6zM4 20h6v-5H4z"/></svg><span class="fl-label">Dashboard</span></a>
       <a href="/app/loads/" data-match="/app/loads"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span class="fl-label">Dispatch</span></a>
       <a href="/app/brokers/" data-match="/app/brokers"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M3 21V8l6-4 6 4v13M9 21v-5h3v5M17 21V11l4 2v8"/></svg><span class="fl-label">Brokers</span></a>

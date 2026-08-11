@@ -1,0 +1,33 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+ @page { size: letter; margin: 1.5cm; }
+ body { font-family: Helvetica, Arial, sans-serif; color:#161c2b; font-size:11px; }
+ h1 { color:#1e2d45; font-size:18px; margin:0; }
+ h2 { color:#1e2d45; font-size:13px; margin:16px 0 6px; border-bottom:1px solid #ccc; padding-bottom:3px; }
+ .sub { color:#666; font-size:10px; margin-bottom:8px; }
+ table { width:100%; border-collapse:collapse; margin-top:4px; }
+ th,td { border-bottom:1px solid #ddd; padding:6px 8px; text-align:left; font-size:10px; }
+ th { background:#1e2d45; color:#fff; text-transform:uppercase; font-size:9px; }
+ .r { text-align:right; }
+ tfoot td { border-top:2px solid #1e2d45; font-weight:bold; }
+ .cards td { border:1px solid #ccc; padding:8px; text-align:center; width:20%; }
+ .cards .l { font-size:8px; color:#888; text-transform:uppercase; }
+ .cards .n { font-size:13px; font-weight:bold; color:#1e2d45; }
+</style></head><body>
+ {% if company_obj %}{% include "operations/_letterhead_pdf.html" with company=company_obj %}{% endif %}
+ <h1>Factoring Aging Report</h1>
+ <div class="sub">as of {{ today }}</div>
+ <table class="cards"><tr>
+  <td><div class="l">Current</div><div class="n">${{ aging.current|floatformat:2 }}</div></td>
+  <td><div class="l">1–30</div><div class="n">${{ aging.d1_30|floatformat:2 }}</div></td>
+  <td><div class="l">31–60</div><div class="n">${{ aging.d31_60|floatformat:2 }}</div></td>
+  <td><div class="l">61–90</div><div class="n">${{ aging.d61_90|floatformat:2 }}</div></td>
+  <td><div class="l">90+</div><div class="n">${{ aging.d90|floatformat:2 }}</div></td>
+ </tr></table>
+ <h2>Outstanding factored loads</h2>
+ <table><thead><tr><th>Load</th><th>Broker</th><th>Factor</th><th>Delivered</th><th class="r">Age</th><th class="r">Amount</th><th>Status</th></tr></thead>
+ <tbody>{% for r in rows %}<tr><td>{{ r.ref }}</td><td>{{ r.customer }}</td><td>{{ r.factor }}</td><td>{{ r.delivered|default:"—" }}</td>
+  <td class="r">{% if r.days is not None %}{{ r.days }}d{% else %}—{% endif %}</td><td class="r">${{ r.rate|floatformat:2 }}</td><td>{{ r.status }}</td></tr>
+ {% empty %}<tr><td colspan="7">No outstanding factored loads.</td></tr>{% endfor %}</tbody>
+ <tfoot><tr><td colspan="5">Total outstanding</td><td class="r">${{ total }}</td><td></td></tr></tfoot>
+ </table>
+</body></html>

@@ -8,6 +8,15 @@
  <div class="kpi"><div class="l">Paid</div><div class="n" style="color:#137a51">${{ t_paid|floatformat:2|intcomma }}</div></div>
  <div class="kpi"><div class="l">Outstanding</div><div class="n" style="color:#b9791a">${{ t_out|floatformat:2|intcomma }}</div></div>
 </div>
+<div class="card" style="margin-bottom:16px"><div class="card-h"><h3>Accounts receivable aging</h3><span class="sub">unpaid balances by age</span></div>
+ <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:1px;background:var(--line)">
+  <div style="background:#fff;padding:12px 14px"><div class="sub" style="font-size:10.5px;text-transform:uppercase">Current</div><div style="font-size:18px;font-weight:700;font-family:'Space Grotesk'">${{ aging.current|floatformat:2|intcomma }}</div></div>
+  <div style="background:#fff;padding:12px 14px"><div class="sub" style="font-size:10.5px;text-transform:uppercase">1–30 days</div><div style="font-size:18px;font-weight:700;font-family:'Space Grotesk'">${{ aging.d1_30|floatformat:2|intcomma }}</div></div>
+  <div style="background:#fff;padding:12px 14px"><div class="sub" style="font-size:10.5px;text-transform:uppercase">31–60 days</div><div style="font-size:18px;font-weight:700;font-family:'Space Grotesk';color:#b9791a">${{ aging.d31_60|floatformat:2|intcomma }}</div></div>
+  <div style="background:#fff;padding:12px 14px"><div class="sub" style="font-size:10.5px;text-transform:uppercase">61–90 days</div><div style="font-size:18px;font-weight:700;font-family:'Space Grotesk';color:#b9791a">${{ aging.d61_90|floatformat:2|intcomma }}</div></div>
+  <div style="background:#fff;padding:12px 14px"><div class="sub" style="font-size:10.5px;text-transform:uppercase">90+ days</div><div style="font-size:18px;font-weight:700;font-family:'Space Grotesk';color:#b02b24">${{ aging.d90|floatformat:2|intcomma }}</div></div>
+ </div>
+</div>
 <form method="get" class="toolbar" style="align-items:end">
  <div><label class="sub" style="display:block;margin-bottom:4px">From</label><input type="date" name="start" value="{{ start }}" style="padding:8px 10px;border:1px solid var(--line);border-radius:8px"></div>
  <div><label class="sub" style="display:block;margin-bottom:4px">To</label><input type="date" name="end" value="{{ end }}" style="padding:8px 10px;border:1px solid var(--line);border-radius:8px"></div>

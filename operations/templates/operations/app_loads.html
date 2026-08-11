@@ -2,7 +2,8 @@
 {% block title %}Dispatch — Fleetline{% endblock %}
 {% block page_title %}Dispatch &amp; Loads{% endblock %}
 {% block content %}
-<div class="toolbar"><div class="spacer"></div><a class="btn amber" href="/admin/operations/load/add/">+ New load</a></div>
+<div class="toolbar"><div class="spacer"></div><a class="btn ghost" href="/app/loads/from-ratecon/">+ From Rate Con</a>
+ <a class="btn amber" href="/admin/operations/load/add/">+ New load</a></div>
 <div class="card"><div class="card-h"><h3>All loads</h3><a href="/admin/operations/load/">Table view</a></div>
 {% if rows %}<table><thead><tr><th>Load</th><th>Route</th><th>Driver</th><th>Rate</th><th>Status</th><th>Payment</th></tr></thead><tbody>
 {% for r in rows %}<tr onclick="location.href='/app/loads/{{ r.o.id }}/'">

@@ -1,0 +1,32 @@
+{% extends "operations/app_base.html" %}
+{% load humanize %}
+{% block title %}Factoring aging — Fleetline{% endblock %}
+{% block page_title %}Factoring aging{% endblock %}
+{% block content %}
+<div class="print-only"><h2 style="margin:0;color:#1e2d45">Factoring Aging Report</h2><div class="sub">as of {{ today }}</div></div>
+<a href="/reports/factoring/" class="sub" style="color:var(--blue)">&larr; Factoring</a>
+<div class="card" style="margin:10px 0 16px"><div class="card-h"><h3>Outstanding with factor by age</h3><span class="sub">${{ total|floatformat:2|intcomma }} across {{ count }} loads</span></div>
+ <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:1px;background:var(--line)">
+  <div style="background:#fff;padding:12px 14px"><div class="sub" style="font-size:10.5px;text-transform:uppercase">Current</div><div style="font-size:18px;font-weight:700;font-family:'Space Grotesk'">${{ aging.current|floatformat:2|intcomma }}</div></div>
+  <div style="background:#fff;padding:12px 14px"><div class="sub" style="font-size:10.5px;text-transform:uppercase">1–30 days</div><div style="font-size:18px;font-weight:700;font-family:'Space Grotesk'">${{ aging.d1_30|floatformat:2|intcomma }}</div></div>
+  <div style="background:#fff;padding:12px 14px"><div class="sub" style="font-size:10.5px;text-transform:uppercase">31–60 days</div><div style="font-size:18px;font-weight:700;font-family:'Space Grotesk';color:#b9791a">${{ aging.d31_60|floatformat:2|intcomma }}</div></div>
+  <div style="background:#fff;padding:12px 14px"><div class="sub" style="font-size:10.5px;text-transform:uppercase">61–90 days</div><div style="font-size:18px;font-weight:700;font-family:'Space Grotesk';color:#b9791a">${{ aging.d61_90|floatformat:2|intcomma }}</div></div>
+  <div style="background:#fff;padding:12px 14px"><div class="sub" style="font-size:10.5px;text-transform:uppercase">90+ days</div><div style="font-size:18px;font-weight:700;font-family:'Space Grotesk';color:#b02b24">${{ aging.d90|floatformat:2|intcomma }}</div></div>
+ </div>
+</div>
+<div class="toolbar"><div class="spacer"></div>
+ <a class="btn ghost" href="#" onclick="window.print();return false">Print</a>
+ <a class="btn ghost" href="/reports/factoring/aging/pdf/" target="_blank">Download PDF</a>
+</div>
+<div class="card"><div class="card-h"><h3>Outstanding factored loads</h3></div>
+{% if rows %}<table><thead><tr><th>Load</th><th>Broker / customer</th><th>Factor</th><th>Delivered</th><th style="text-align:right">Age</th><th style="text-align:right">Amount</th><th>Status</th></tr></thead><tbody>
+{% for r in rows %}<tr>
+ <td><span class="mono">{{ r.ref }}</span><div class="sub">{{ r.company }}</div></td>
+ <td>{{ r.customer }}</td><td>{{ r.factor }}</td>
+ <td>{{ r.delivered|default:"—" }}</td>
+ <td style="text-align:right">{% if r.days is not None %}<span class="chip {{ r.cls }}"><span class="d"></span>{{ r.days }}d</span>{% else %}—{% endif %}</td>
+ <td style="text-align:right;font-weight:600">${{ r.rate|floatformat:2|intcomma }}</td>
+ <td>{{ r.status }}</td>
+</tr>{% endfor %}</tbody></table>
+{% else %}<div class="empty">No outstanding factored loads. (Loads count here once marked Submitted/Advanced/Reserve released, until Closed.)</div>{% endif %}
+</div>{% endblock %}

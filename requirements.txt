@@ -4,3 +4,4 @@ whitenoise
 dj-database-url
 psycopg[binary]
 xhtml2pdf>=0.2.17
+pypdf>=4.0

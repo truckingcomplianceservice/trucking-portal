@@ -1,0 +1,39 @@
+{% extends "operations/app_base.html" %}
+{% load humanize %}
+{% block title %}All companies — Fleetline{% endblock %}
+{% block page_title %}All companies{% endblock %}
+{% block extra_css %}
+ .pcard{background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px 18px;transition:box-shadow .15s;cursor:pointer}
+ .pcard:hover{box-shadow:0 4px 16px rgba(20,28,43,.08)}
+ .pcard .top{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+ .pcard .nm{font-size:16px;font-weight:700;font-family:'Space Grotesk';color:#161c2b}
+ .pmet{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+ .pmet .m .l{font-size:10px;text-transform:uppercase;color:var(--muted);letter-spacing:.03em}
+ .pmet .m .v{font-size:18px;font-weight:600;font-family:'Space Grotesk'}
+{% endblock %}
+{% block content %}
+<div class="kpis" style="grid-template-columns:repeat(5,1fr)">
+ <div class="kpi"><div class="l">Companies</div><div class="n">{{ count }}</div></div>
+ <div class="kpi"><div class="l">Active loads</div><div class="n">{{ tot.loads }}</div></div>
+ <div class="kpi"><div class="l">Outstanding AR</div><div class="n" style="color:#b9791a">${{ tot.ar|floatformat:0|intcomma }}</div></div>
+ <div class="kpi"><div class="l">With factor</div><div class="n">${{ tot.factoring|floatformat:0|intcomma }}</div></div>
+ <div class="kpi"><div class="l">Compliance alerts</div><div class="n" style="color:{% if tot.alerts %}#c0392b{% else %}#137a51{% endif %}">{{ tot.alerts }}</div></div>
+</div>
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px">
+{% for x in cards %}
+ <div class="pcard" onclick="location.href='/dashboard/?company={{ x.c.id }}'">
+  <div class="top"><div class="nm">{{ x.c.name }}</div>
+   {% if x.alerts %}<span class="chip c-red"><span class="d"></span>{{ x.alerts }} alert{{ x.alerts|pluralize }}</span>{% else %}<span class="chip c-green"><span class="d"></span>OK</span>{% endif %}</div>
+  <div class="sub" style="margin-top:-6px;margin-bottom:12px">{% if x.c.mc_number %}MC {{ x.c.mc_number }}{% endif %}{% if x.c.factor and x.c.factor != 'None' %} · {{ x.c.factor }}{% endif %}</div>
+  <div class="pmet">
+   <div class="m"><div class="l">Loads</div><div class="v">{{ x.loads }}</div></div>
+   <div class="m"><div class="l">Drivers</div><div class="v">{{ x.drivers }}</div></div>
+   <div class="m"><div class="l">Trucks</div><div class="v">{{ x.vehicles }}</div></div>
+   <div class="m"><div class="l">AR</div><div class="v">${{ x.ar|floatformat:0|intcomma }}</div></div>
+   <div class="m"><div class="l">Factor</div><div class="v">${{ x.factoring|floatformat:0|intcomma }}</div></div>
+   <div class="m"><div class="l">Open</div><div class="v" style="color:var(--blue)">&rarr;</div></div>
+  </div>
+ </div>
+{% empty %}<div class="empty">No companies yet.</div>{% endfor %}
+</div>
+{% endblock %}

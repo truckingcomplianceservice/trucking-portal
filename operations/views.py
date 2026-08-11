@@ -955,7 +955,7 @@ INV_STATUS_CLASS = {"paid": "c-green", "partial": "c-blue", "unpaid": "c-gray"}
 @login_required
 def app_billing(request):
     cs = _companies(request)
-    invoices = Invoice.objects.filter(company__in=cs).select_related("company", "broker", "load")
+    invoices = Invoice.objects.filter(company__in=cs).select_related("company", "broker", "load").prefetch_related("payments")
     start = request.GET.get("start", ""); end = request.GET.get("end", "")
     def parse(d):
         try: return _dt.date.fromisoformat(d)
@@ -968,9 +968,23 @@ def app_billing(request):
         rows.append({"o": inv, "cls": INV_STATUS_CLASS.get(inv.status, "c-gray"),
                      "overdue": inv.is_overdue})
         t_inv += inv.total; t_paid += inv.paid; t_out += inv.balance
+    # A/R aging snapshot over ALL open invoices in scope (independent of the date filter)
+    today = _dt.date.today()
+    aging = {"current": 0, "d1_30": 0, "d31_60": 0, "d61_90": 0, "d90": 0}
+    for inv in Invoice.objects.filter(company__in=cs).prefetch_related("payments"):
+        bal = inv.balance
+        if bal <= 0:
+            continue
+        ref = inv.due_date or inv.issue_date
+        days = (today - ref).days if ref else 0
+        if days <= 0: aging["current"] += bal
+        elif days <= 30: aging["d1_30"] += bal
+        elif days <= 60: aging["d31_60"] += bal
+        elif days <= 90: aging["d61_90"] += bal
+        else: aging["d90"] += bal
     return render(request, "operations/app_billing.html", {
         "rows": rows, "t_inv": t_inv, "t_paid": t_paid, "t_out": t_out,
-        "start": start, "end": end, "count": len(rows),
+        "start": start, "end": end, "count": len(rows), "aging": aging,
     })
 
 
@@ -1228,3 +1242,187 @@ def fleet_maintenance_pdf(request):
     resp = HttpResponse(pdf, content_type="application/pdf")
     resp["Content-Disposition"] = 'inline; filename="fleet-maintenance-report.pdf"'
     return resp
+
+
+# ================= Factoring aging =================
+def _factoring_aging_data(request):
+    cs = _companies(request)
+    # Outstanding with the factor = submitted / advanced / reserve released (not unpaid, not closed)
+    open_states = ["submitted", "advanced", "reserve_released"]
+    loads = Load.objects.filter(company__in=cs, payment_status__in=open_states).select_related("company", "broker")
+    today = _dt.date.today()
+    aging = {"current": 0, "d1_30": 0, "d31_60": 0, "d61_90": 0, "d90": 0}
+    rows = []
+    total = 0
+    for l in loads:
+        ref_date = l.delivery_date or l.pickup_date
+        days = (today - ref_date).days if ref_date else 0
+        rate = l.rate or 0
+        total += rate
+        if days <= 0: bucket = "current"
+        elif days <= 30: bucket = "d1_30"
+        elif days <= 60: bucket = "d31_60"
+        elif days <= 90: bucket = "d61_90"
+        else: bucket = "d90"
+        aging[bucket] += rate
+        rows.append({"ref": l.reference, "customer": l.broker.name if l.broker else (l.customer or "—"),
+                     "company": l.company.name, "factor": l.company.factor,
+                     "delivered": ref_date, "days": days if ref_date else None,
+                     "rate": rate, "status": l.get_payment_status_display(),
+                     "cls": "c-red" if days > 90 else ("c-warn" if days > 30 else "c-green")})
+    rows.sort(key=lambda r: (r["days"] is not None, r["days"] or 0), reverse=True)
+    return {"aging": aging, "rows": rows, "total": total, "count": len(rows),
+            "company_obj": cs.first() if cs.count() == 1 else None, "today": today}
+
+
+@login_required
+def factoring_aging(request):
+    return render(request, "operations/app_factoring_aging.html", _factoring_aging_data(request))
+
+
+@login_required
+def factoring_aging_pdf(request):
+    data = _factoring_aging_data(request)
+    data["total"] = f"{data['total']:,.2f}"
+    pdf = _render_pdf("operations/pdf_factoring.html", data)
+    resp = HttpResponse(pdf, content_type="application/pdf")
+    resp["Content-Disposition"] = 'inline; filename="factoring-aging.pdf"'
+    return resp
+
+
+# ================= Create load from a Rate Confirmation =================
+import re as _re, os as _os, json as _json
+
+
+def _ratecon_text(uploaded):
+    """Extract text from an uploaded rate-con PDF (text-based PDFs)."""
+    try:
+        from pypdf import PdfReader
+        reader = PdfReader(uploaded)
+        return "\n".join((p.extract_text() or "") for p in reader.pages)
+    except Exception:
+        return ""
+
+
+def _ratecon_ai(text):
+    """High-accuracy extraction via Anthropic API, only if a key is configured."""
+    key = _os.environ.get("ANTHROPIC_API_KEY", "")
+    if not key or not text.strip():
+        return None
+    try:
+        import urllib.request
+        prompt = ("Extract fields from this freight rate confirmation. Respond with ONLY a JSON "
+                  "object, no prose, with keys: broker_name, mc_number, reference, origin, "
+                  "destination, pickup_date (YYYY-MM-DD or ''), delivery_date (YYYY-MM-DD or ''), "
+                  "rate (number). Use '' if unknown.\n\n" + text[:6000])
+        model = _os.environ.get("ANTHROPIC_MODEL", "claude-haiku-4-5-20251001")
+        body = _json.dumps({"model": model, "max_tokens": 400,
+                            "messages": [{"role": "user", "content": prompt}]}).encode()
+        req = urllib.request.Request("https://api.anthropic.com/v1/messages", data=body,
+            headers={"x-api-key": key, "anthropic-version": "2023-06-01",
+                     "content-type": "application/json"})
+        resp = _json.loads(urllib.request.urlopen(req, timeout=30).read())
+        raw = resp["content"][0]["text"].strip()
+        raw = raw[raw.find("{"):raw.rfind("}") + 1]
+        return _json.loads(raw)
+    except Exception:
+        return None
+
+
+def _ratecon_heuristic(text):
+    d = {"broker_name": "", "mc_number": "", "reference": "", "origin": "",
+         "destination": "", "pickup_date": "", "delivery_date": "", "rate": ""}
+    m = _re.search(r"MC[#\s:.]*?(\d{4,8})", text, _re.I)
+    if m: d["mc_number"] = m.group(1)
+    amts = [float(x.replace(",", "")) for x in _re.findall(r"\$\s*([\d,]+\.\d{2})", text)]
+    if amts: d["rate"] = max(amts)
+    m = _re.search(r"(?:load|order|pro|ref\w*|bol)\s*[#:]?\s*([A-Z0-9\-]*\d[A-Z0-9\-]*)", text, _re.I)
+    if m: d["reference"] = m.group(1)
+    dates = _re.findall(r"(\d{1,2}/\d{1,2}/\d{2,4})", text)
+    def iso(x):
+        for f in ("%m/%d/%Y", "%m/%d/%y"):
+            try: return _dt.datetime.strptime(x, f).date().isoformat()
+            except ValueError: continue
+        return ""
+    if dates: d["pickup_date"] = iso(dates[0])
+    if len(dates) > 1: d["delivery_date"] = iso(dates[1])
+    cities = _re.findall(r"([A-Z][A-Za-z\.\s]{1,24},\s*[A-Z]{2})\b", text)
+    if cities: d["origin"] = cities[0].strip()
+    if len(cities) > 1: d["destination"] = cities[1].strip()
+    lines = [l.strip() for l in text.splitlines() if l.strip()]
+    if lines: d["broker_name"] = lines[0][:120]
+    return d
+
+
+@login_required
+def load_from_ratecon(request):
+    companies = _companies_all(request)
+    if request.method == "POST" and request.FILES.get("ratecon"):
+        f = request.FILES["ratecon"]
+        text = _ratecon_text(f)
+        data = _ratecon_ai(text) or _ratecon_heuristic(text)
+        company = _get(Company, pk=request.POST.get("company"),
+                       pk__in=companies.values_list("pk", flat=True))
+        # auto-add / link broker
+        broker = None
+        mc = str(data.get("mc_number") or "").strip()
+        bname = str(data.get("broker_name") or "").strip()
+        if mc:
+            broker = Broker.objects.filter(mc_number=mc).first()
+        if not broker and bname:
+            broker = Broker.objects.filter(name__iexact=bname).first()
+        if not broker and (mc or bname):
+            broker = Broker.objects.create(name=bname or f"MC {mc}", mc_number=mc)
+        def rate():
+            try: return float(str(data.get("rate") or 0).replace("$", "").replace(",", "") or 0)
+            except ValueError: return 0
+        def date(v):
+            try: return _dt.date.fromisoformat(v)
+            except (ValueError, TypeError): return None
+        f.seek(0)
+        load = Load.objects.create(
+            company=company, reference=str(data.get("reference") or "")[:40],
+            customer=bname[:120], broker=broker,
+            origin=str(data.get("origin") or "")[:120], destination=str(data.get("destination") or "")[:120],
+            pickup_date=date(data.get("pickup_date")), delivery_date=date(data.get("delivery_date")),
+            rate=rate(), rate_confirmation=f, status="booked")
+        ActivityLog.objects.create(category="load", user=request.user, company=company,
+            text=f"Created load {load.reference or load.id} from rate confirmation"
+                 + (f" · added broker {broker.name}" if broker else ""))
+        _messages.success(request, "Load created from the rate confirmation. Please review and correct any fields below.")
+        return redirect(f"/admin/operations/load/{load.id}/change/")
+    return render(request, "operations/app_ratecon.html",
+                  {"companies": companies, "ai_on": bool(_os.environ.get("ANTHROPIC_API_KEY"))})
+
+
+# ================= Portfolio: all-companies command center =================
+@login_required
+def portfolio(request):
+    companies = _companies_all(request)
+    today = _dt.date.today()
+    soon = today + _dt.timedelta(days=30)
+    cards = []
+    tot = {"loads": 0, "drivers": 0, "vehicles": 0, "ar": 0, "alerts": 0, "factoring": 0}
+    for c in companies:
+        active_loads = Load.objects.filter(company=c).exclude(payment_status="closed")\
+            .exclude(status="delivered").count()
+        drivers = Driver.objects.filter(company=c).count()
+        vehicles = Vehicle.objects.filter(company=c).count()
+        ar = sum((inv.balance for inv in Invoice.objects.filter(company=c).prefetch_related("payments")), 0)
+        # compliance alerts: driver CDL/medical + vehicle inspection/registration expiring within 30d
+        alerts = 0
+        for d in Driver.objects.filter(company=c):
+            for dt_ in (d.cdl_expiry, d.medical_expiry):
+                if dt_ and dt_ <= soon:
+                    alerts += 1
+        for v in Vehicle.objects.filter(company=c):
+            for dt_ in (v.inspection_expiry, v.registration_expiry, v.next_service_date):
+                if dt_ and dt_ <= soon:
+                    alerts += 1
+        factoring = Load.objects.filter(company=c, payment_status__in=["submitted", "advanced", "reserve_released"])\
+            .aggregate(s=Sum("rate"))["s"] or 0
+        cards.append({"c": c, "loads": active_loads, "drivers": drivers, "vehicles": vehicles,
+                      "ar": ar, "alerts": alerts, "factoring": factoring})
+        tot["loads"] += active_loads; tot["drivers"] += drivers; tot["vehicles"] += vehicles
+        tot["ar"] += ar; tot["alerts"] += alerts; tot["factoring"] += factoring
+    return render(request, "operations/app_portfolio.html", {"cards": cards, "tot": tot, "count": companies.count()})

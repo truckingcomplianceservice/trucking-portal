@@ -1,19 +1,27 @@
 # Trucking Compliance Services — Operations Portal
 
-Adds a fleet-wide maintenance report.
+Adds an all-companies portfolio command center (multi-client).
 
 ## Deploying this update
 1. In your `trucking-portal` repo: **Add file -> Upload files**.
-2. Unzip and drag in ALL the contents (including operations/static/logo.png).
+2. Unzip and drag in ALL the contents.
 3. Commit. Railway redeploys automatically.
 
-## New: Fleet maintenance report
-Vehicles -> **Maintenance report** (or /reports/maintenance/):
-- Totals: this month, this year, total (filtered), and parts vs labor split.
-- **Spend by vehicle** — every truck ranked by total maintenance cost, with
-  record count and parts/labor breakdown.
-- **Spend by month** — fleet-wide monthly totals.
-- **Date-range filter**, **Print**, and **Download PDF** (with company letterhead).
+## New: All companies (portfolio)
+For anyone with access to more than one company, a new **All companies** item
+appears at the top of the sidebar. It shows every company as a scorecard:
+- Active loads, drivers, trucks
+- Outstanding AR, amount with factor
+- Compliance alerts (expiring docs) — red if any need attention
+- Totals across the whole portfolio at the top
+Click a company to drop into its dashboard.
 
-Respects the company switcher: with one company active it shows that fleet;
-with all companies it totals across them.
+## How multi-client access works (already built)
+- Add each client as a **Company** (Companies -> Add company). Add up to as many
+  as you like.
+- Add each client's login on the **Team** page and assign them ONLY their company.
+  They see only their own loads, drivers, compliance, billing — nothing else.
+- You (owner/admin) are assigned to all companies, so you see the portfolio and
+  can drill into any client.
+- Single-company clients don't see the "All companies" view at all — they just
+  see their own dashboard.

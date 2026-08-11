@@ -1,0 +1,28 @@
+{% extends "operations/app_base.html" %}
+{% block title %}New load from Rate Con — Fleetline{% endblock %}
+{% block page_title %}Create load from Rate Confirmation{% endblock %}
+{% block content %}
+<a href="/app/loads/" class="sub" style="color:var(--blue)">&larr; Loads</a>
+<div class="card" style="margin-top:12px;max-width:600px"><div class="card-h"><h3>Upload a rate confirmation</h3></div>
+ <form method="post" enctype="multipart/form-data" style="padding:18px">{% csrf_token %}
+  <div style="margin-bottom:14px"><label style="display:block;font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;margin-bottom:6px">Company</label>
+   <select name="company" required style="width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:9px">
+    {% for c in companies %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}</select></div>
+  <div style="margin-bottom:14px"><label style="display:block;font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;margin-bottom:6px">Rate confirmation (PDF)</label>
+   <input type="file" name="ratecon" accept=".pdf" required></div>
+  <button class="btn amber" type="submit">Read &amp; create load</button>
+ </form>
+</div>
+<div class="card" style="margin-top:14px;max-width:600px"><div style="padding:16px 18px">
+ <b style="font-size:13px">How this works</b>
+ <div class="sub" style="margin-top:8px;line-height:1.6">
+  Upload the broker's rate confirmation and we'll read it, pull out the details we can
+  (broker, MC#, load #, rate, pickup/delivery, origin/destination), create the load, add
+  the broker automatically, and attach the PDF. You'll land on the load to <b>review and
+  fix anything</b> before it's final.
+  {% if ai_on %}<br><br><span style="color:#137a51">AI extraction is ON — high accuracy across layouts.</span>
+  {% else %}<br><br>Tip: this reads text-based PDFs. For best accuracy across every broker's
+  layout, AI extraction can be turned on (ask your admin to add an Anthropic API key).{% endif %}
+ </div>
+</div></div>
+{% endblock %}
