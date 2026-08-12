@@ -2,7 +2,7 @@
 import datetime
 from django import forms
 from django.contrib.auth.decorators import login_required
-from django.db.models import Sum
+from django.db.models import Sum, Q
 from django.shortcuts import render, get_object_or_404, redirect
 from django.views.static import serve
 from django.conf import settings
@@ -275,10 +275,41 @@ def _exp_chip(expiry):
 @login_required
 def app_loads(request):
     cs = _companies(request)
-    loads = Load.objects.filter(company__in=cs).select_related("company", "driver")
+    base = Load.objects.filter(company__in=cs).select_related("company", "driver", "vehicle", "broker")
+    # status counts (over all company loads, so tabs always show totals)
+    counts = {"all": base.count()}
+    for code, _label in Load.STATUS_CHOICES:
+        counts[code] = base.filter(status=code).count()
+    # read filters
+    f = {k: request.GET.get(k, "").strip() for k in
+         ["status", "ref", "customer", "driver", "truck", "origin", "destination", "start", "end"]}
+    loads = base
+    if f["status"] and f["status"] != "all":
+        loads = loads.filter(status=f["status"])
+    if f["ref"]:
+        loads = loads.filter(Q(reference__icontains=f["ref"]) | Q(invoice_number__icontains=f["ref"]))
+    if f["customer"]:
+        loads = loads.filter(Q(customer__icontains=f["customer"]) | Q(broker__name__icontains=f["customer"]))
+    if f["driver"]:
+        loads = loads.filter(Q(driver__first_name__icontains=f["driver"]) |
+                             Q(driver__last_name__icontains=f["driver"]))
+    if f["truck"]:
+        loads = loads.filter(vehicle__unit_number__icontains=f["truck"])
+    if f["origin"]:
+        loads = loads.filter(origin__icontains=f["origin"])
+    if f["destination"]:
+        loads = loads.filter(destination__icontains=f["destination"])
+    def parse(d):
+        try: return _dt.date.fromisoformat(d)
+        except ValueError: return None
+    if parse(f["start"]): loads = loads.filter(pickup_date__gte=parse(f["start"]))
+    if parse(f["end"]): loads = loads.filter(pickup_date__lte=parse(f["end"]))
     rows = [{"o": l, "sc": STATUS_CLASS.get(l.status, "c-gray"),
              "pc": PAY_CLASS.get(l.payment_status, "c-gray")} for l in loads]
-    return render(request, "operations/app_loads.html", {"rows": rows})
+    return render(request, "operations/app_loads.html", {
+        "rows": rows, "counts": counts, "f": f,
+        "statuses": Load.STATUS_CHOICES, "shown": len(rows), "total": counts["all"],
+    })
 
 
 @login_required
@@ -595,7 +626,8 @@ def _parse_date(val):
 @login_required
 def fuel_import(request):
     companies = _companies_all(request)
-    ctx = {"companies": companies, "step": "upload"}
+    active = request.session.get("active_company", "all")
+    ctx = {"companies": companies, "step": "upload", "active_id": str(active)}
     if request.method == "POST":
         stage = request.POST.get("stage")
         # STEP 1 -> read file, guess columns, show mapping
@@ -644,27 +676,38 @@ def fuel_import(request):
                 v = request.POST.get(key, "")
                 return int(v) if v not in ("", "none") else None
             idx = {k: col(k) for k in ["date", "amount", "gallons", "location", "card", "unit"]}
-            created, skipped = 0, 0
+            existing = set()
+            for t in FuelTransaction.objects.filter(company=company).values_list(
+                    "date", "card_last4", "gallons", "amount", "location"):
+                existing.add((t[0], t[1], round(float(t[2]), 2), round(float(t[3]), 2),
+                              (t[4] or "").strip().lower()))
+            created, skipped, dup = 0, 0, 0
             for row in rows[1:]:
                 if not any(c.strip() for c in row):
                     continue
                 def cell(key):
                     i = idx[key]
                     return row[i] if i is not None and i < len(row) else ""
-                amount = _num(cell("amount")); gallons = _num(cell("gallons"))
+                amount = round(_num(cell("amount")), 2); gallons = round(_num(cell("gallons")), 2)
                 if amount == 0 and gallons == 0:
                     skipped += 1; continue
+                date_val = _parse_date(cell("date"))
+                card = cell("card").strip(); last4 = card[-4:] if card else ""
+                loc = cell("location").strip()[:160]
+                sig = (date_val, last4, gallons, amount, loc.strip().lower())
+                if sig in existing:
+                    dup += 1; continue
                 vehicle = None; unit = cell("unit").strip()
                 if unit:
                     vehicle = Vehicle.objects.filter(company=company, unit_number__iexact=unit).first()
-                card = cell("card").strip()
                 FuelTransaction.objects.create(
-                    company=company, date=_parse_date(cell("date")), vehicle=vehicle,
-                    card_last4=card[-4:] if card else "", location=cell("location").strip()[:160],
+                    company=company, date=date_val, vehicle=vehicle,
+                    card_last4=last4, location=loc,
                     gallons=gallons, amount=amount, source="csv")
+                existing.add(sig)
                 created += 1
             ctx.update({"step": "done", "result": {"created": created, "skipped": skipped,
-                        "company": company.name}})
+                        "dup": dup, "company": company.name, "company_id": company.id}})
     return render(request, "operations/app_fuel_import.html", ctx)
 
 
@@ -1447,3 +1490,82 @@ def portfolio(request):
         tot["loads"] += active_loads; tot["drivers"] += drivers; tot["vehicles"] += vehicles
         tot["ar"] += ar; tot["alerts"] += alerts; tot["factoring"] += factoring
     return render(request, "operations/app_portfolio.html", {"cards": cards, "tot": tot, "count": companies.count()})
+
+
+# ================= Team: edit member, reset password, invite =================
+from django.contrib.auth.tokens import default_token_generator as _tokgen
+from django.utils.http import urlsafe_base64_encode as _uidenc
+from django.utils.encoding import force_bytes as _fbytes
+from django.urls import reverse as _reverse
+
+
+@login_required
+def team_edit(request, pk):
+    if not _is_manager(request.user):
+        _messages.error(request, "Only managers can edit team members.")
+        return redirect("app_team")
+    m = _get(_User, pk=pk)
+    prof, _ = Profile.objects.get_or_create(user=m)
+    if request.method == "POST":
+        action = request.POST.get("action")
+        if action == "details":
+            m.first_name = request.POST.get("first_name", "").strip()
+            m.last_name = request.POST.get("last_name", "").strip()
+            m.email = request.POST.get("email", "").strip()
+            m.save()
+            prof.phone = request.POST.get("phone", "").strip()
+            role = request.POST.get("role", prof.role)
+            prof.role = role
+            prof.save()
+            prof.companies.set(request.POST.getlist("companies"))
+            _apply_role(m, role)
+            ActivityLog.objects.create(category="team", user=request.user,
+                text=f"Updated team member {m.get_full_name() or m.username}")
+            _messages.success(request, "Details saved.")
+        elif action == "setpw":
+            pw = request.POST.get("password", "").strip()
+            if len(pw) < 6:
+                _messages.error(request, "Password must be at least 6 characters.")
+            else:
+                m.set_password(pw); m.save()
+                ActivityLog.objects.create(category="team", user=request.user,
+                    text=f"Reset password for {m.username}")
+                _messages.success(request, f"Password updated for {m.username}. Share it with them securely.")
+        return redirect("team_edit", pk=pk)
+    return render(request, "operations/app_team_edit.html", {
+        "m": m, "prof": prof, "roles": Profile.ROLE_CHOICES,
+        "all_companies": _companies_all(request),
+        "member_company_ids": list(prof.companies.values_list("id", flat=True)),
+    })
+
+
+@login_required
+def team_send_reset(request, pk):
+    if not _is_manager(request.user):
+        return redirect("app_team")
+    m = _get(_User, pk=pk)
+    uid = _uidenc(_fbytes(m.pk))
+    token = _tokgen.make_token(m)
+    link = request.build_absolute_uri(
+        _reverse("password_reset_confirm", kwargs={"uidb64": uid, "token": token}))
+    emailed = False
+    if getattr(settings, "EMAIL_HOST", "") and m.email:
+        try:
+            from django.core.mail import send_mail
+            send_mail(
+                "Set up your Trucking Compliance Services login",
+                f"Hi {m.first_name or m.username},\n\n"
+                f"Use this link to set your password:\n{link}\n\n"
+                f"If you didn't expect this, you can ignore it.",
+                settings.DEFAULT_FROM_EMAIL, [m.email], fail_silently=False)
+            emailed = True
+        except Exception as e:
+            _messages.error(request, f"Could not send email: {e}")
+    if emailed:
+        ActivityLog.objects.create(category="team", user=request.user,
+            text=f"Emailed password-setup link to {m.email}")
+        _messages.success(request, f"Password-setup email sent to {m.email}.")
+    else:
+        _messages.info(request, f"Email isn't set up (or no address on file), so copy this "
+                                f"link and send it to {m.get_full_name() or m.username}: {link}")
+    return redirect("team_edit", pk=pk)

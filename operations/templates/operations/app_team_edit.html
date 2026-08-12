@@ -1,0 +1,38 @@
+{% extends "operations/app_base.html" %}
+{% block title %}Edit member — Fleetline{% endblock %}
+{% block page_title %}Edit {{ m.get_full_name|default:m.username }}{% endblock %}
+{% block content %}
+<a href="/app/team/" class="sub" style="color:var(--blue)">&larr; Team</a>
+{% if messages %}{% for msg in messages %}<div style="margin:8px 0;padding:10px 14px;border-radius:8px;font-size:13px;word-break:break-all;background:{% if msg.tags == 'error' %}#fbe7e5;color:#b02b24{% elif msg.tags == 'info' %}#e7eefc;color:#1d54c4{% else %}#e4f4ec;color:#137a51{% endif %}">{{ msg }}</div>{% endfor %}{% endif %}
+<div class="grid2" style="margin-top:8px">
+ <div class="card"><div class="card-h"><h3>Member details</h3></div>
+  <form method="post" style="padding:16px 18px">{% csrf_token %}<input type="hidden" name="action" value="details">
+   <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+    <div><label class="sub">First name</label><input name="first_name" value="{{ m.first_name }}" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px"></div>
+    <div><label class="sub">Last name</label><input name="last_name" value="{{ m.last_name }}" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px"></div>
+    <div><label class="sub">Email</label><input name="email" type="email" value="{{ m.email }}" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px"></div>
+    <div><label class="sub">Phone</label><input name="phone" value="{{ prof.phone }}" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px"></div>
+   </div>
+   <div style="margin-top:10px"><label class="sub">Role</label><select name="role" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px">{% for code,label in roles %}<option value="{{ code }}"{% if prof.role == code %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+   <div style="margin-top:10px"><label class="sub">Companies (Ctrl/Cmd-click for more than one)</label>
+    <select name="companies" multiple size="4" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px">
+     {% for c in all_companies %}<option value="{{ c.id }}"{% if c.id in member_company_ids %} selected{% endif %}>{{ c.name }}</option>{% endfor %}</select></div>
+   <button class="btn amber" type="submit" style="margin-top:14px">Save details</button>
+  </form>
+ </div>
+ <div class="card" style="align-self:start"><div class="card-h"><h3>Password</h3></div>
+  <div style="padding:16px 18px">
+   <b style="font-size:13px">Option 1 — set a password now</b>
+   <form method="post" style="margin-top:8px">{% csrf_token %}<input type="hidden" name="action" value="setpw">
+    <input name="password" placeholder="New password" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px">
+    <button class="btn ghost" type="submit" style="margin-top:8px">Set password</button>
+   </form>
+   <div style="border-top:1px solid var(--line);margin:16px 0"></div>
+   <b style="font-size:13px">Option 2 — let them set their own</b>
+   <div class="sub" style="margin:6px 0 10px">Sends a secure "set your password" link. If your email isn't connected yet, you'll get a link to copy and send them.</div>
+   <form method="post" action="/app/team/{{ m.id }}/send-reset/">{% csrf_token %}
+    <button class="btn navy" type="submit">Send / get password-setup link</button>
+   </form>
+  </div>
+ </div>
+</div>{% endblock %}

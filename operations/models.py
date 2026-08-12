@@ -394,8 +394,17 @@ def notify(event, text, company=None):
         admins = list(User.objects.filter(is_superuser=True)
                       .exclude(email="").values_list("email", flat=True))
         if admins:
-            send_mail(f"[Fleetline] {rule.get_event_display()}", text,
-                      settings.DEFAULT_FROM_EMAIL, admins, fail_silently=True)
+            # Send in the background so a slow/misconfigured mail server can never
+            # hang or slow down saving a load, expense, etc.
+            import threading
+
+            def _send():
+                try:
+                    send_mail(f"[Fleetline] {rule.get_event_display()}", text,
+                              settings.DEFAULT_FROM_EMAIL, admins, fail_silently=True)
+                except Exception:
+                    pass
+            threading.Thread(target=_send, daemon=True).start()
 
 
 # ---- auto-logging signals ----

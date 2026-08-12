@@ -24,11 +24,12 @@
  <a class="btn amber" href="/admin/operations/fueltransaction/add/">+ Add</a>
 </form>
 <div class="card"><div class="card-h"><h3>Fuel transactions</h3></div>
-{% if txns %}<table><thead><tr><th>Date</th><th>Company</th><th>Unit</th><th>Location</th><th>Card</th><th style="text-align:right">Gallons</th><th style="text-align:right">Amount</th></tr></thead><tbody>
+{% if txns %}<table><thead><tr><th>Date</th><th>Company</th><th>Unit</th><th>Location</th><th>Card</th><th style="text-align:right">Gallons</th><th style="text-align:right">Amount</th><th></th></tr></thead><tbody>
 {% for t in txns %}<tr>
  <td>{{ t.date|default:"—" }}</td><td>{{ t.company.name }}</td><td>{% if t.vehicle %}Unit {{ t.vehicle.unit_number }}{% else %}—{% endif %}</td>
  <td>{{ t.location|default:"—" }}</td><td>{% if t.card_last4 %}••{{ t.card_last4 }}{% else %}—{% endif %}</td>
  <td style="text-align:right">{{ t.gallons|floatformat:1 }}</td><td style="text-align:right;font-weight:600">${{ t.amount|floatformat:2|intcomma }}</td>
+ <td style="text-align:right"><a href="/admin/operations/fueltransaction/{{ t.id }}/change/" class="sub" style="color:var(--blue)">Edit / delete</a></td>
 </tr>{% endfor %}</tbody></table>
 {% else %}<div class="empty">No fuel transactions{% if vehicle_id or start or end %} match this filter{% endif %}. <a href="/app/fuel/import/" style="color:var(--blue)">Import a CSV →</a></div>{% endif %}
 </div>{% endblock %}

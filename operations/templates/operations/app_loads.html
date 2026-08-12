@@ -1,18 +1,58 @@
 {% extends "operations/app_base.html" %}
+{% load fl_extras %}
 {% block title %}Dispatch — Fleetline{% endblock %}
 {% block page_title %}Dispatch &amp; Loads{% endblock %}
+{% block extra_css %}
+ .stabs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
+ .stab{padding:7px 12px;border:1px solid var(--line);border-radius:20px;font-size:12.5px;color:var(--muted);background:#fff;text-decoration:none;white-space:nowrap}
+ .stab .n{font-weight:700;color:#161c2b}
+ .stab.on{background:var(--navy);border-color:var(--navy);color:#fff}
+ .stab.on .n{color:#fff}
+ .fld label{display:block;font-size:10.5px;text-transform:uppercase;color:var(--muted);margin-bottom:3px}
+ .fld input{width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:7px;font-size:12px;font-family:inherit;box-sizing:border-box}
+{% endblock %}
 {% block content %}
 <div class="toolbar"><div class="spacer"></div><a class="btn ghost" href="/app/loads/from-ratecon/">+ From Rate Con</a>
  <a class="btn amber" href="/admin/operations/load/add/">+ New load</a></div>
-<div class="card"><div class="card-h"><h3>All loads</h3><a href="/admin/operations/load/">Table view</a></div>
-{% if rows %}<table><thead><tr><th>Load</th><th>Route</th><th>Driver</th><th>Rate</th><th>Status</th><th>Payment</th></tr></thead><tbody>
+
+<div class="stabs">
+ <a class="stab {% if f.status == '' or f.status == 'all' %}on{% endif %}" href="?status=all">All <span class="n">{{ counts.all }}</span></a>
+ {% for code,label in statuses %}
+  <a class="stab {% if f.status == code %}on{% endif %}" href="?status={{ code }}">{{ label }} <span class="n">{{ counts|dictkey:code }}</span></a>
+ {% endfor %}
+</div>
+
+<form method="get" class="card" style="padding:0;margin-bottom:14px">
+ <input type="hidden" name="status" value="{{ f.status }}">
+ <div style="padding:12px 14px;border-bottom:1px solid var(--line)"><b style="font-size:13px">Filter loads</b> <span class="sub">showing {{ shown }} of {{ total }}</span></div>
+ <div style="padding:12px 14px;display:grid;grid-template-columns:repeat(4,1fr);gap:10px">
+  <div class="fld"><label>Load / Ref #</label><input name="ref" value="{{ f.ref }}"></div>
+  <div class="fld"><label>Customer / broker</label><input name="customer" value="{{ f.customer }}"></div>
+  <div class="fld"><label>Driver</label><input name="driver" value="{{ f.driver }}"></div>
+  <div class="fld"><label>Truck #</label><input name="truck" value="{{ f.truck }}"></div>
+  <div class="fld"><label>Pick up (origin)</label><input name="origin" value="{{ f.origin }}"></div>
+  <div class="fld"><label>Drop off (destination)</label><input name="destination" value="{{ f.destination }}"></div>
+  <div class="fld"><label>Pickup from</label><input type="date" name="start" value="{{ f.start }}"></div>
+  <div class="fld"><label>Pickup to</label><input type="date" name="end" value="{{ f.end }}"></div>
+ </div>
+ <div style="padding:0 14px 14px;display:flex;gap:8px">
+  <button class="btn amber" type="submit">Apply filters</button>
+  <a class="btn ghost" href="/app/loads/">Clear</a>
+ </div>
+</form>
+
+<div class="card"><div class="card-h"><h3>Loads</h3><a href="/admin/operations/load/">Table view</a></div>
+{% if rows %}<table><thead><tr><th>Load</th><th>Route</th><th>Customer</th><th>Driver</th><th>Truck</th><th>Pickup</th><th>Rate</th><th>Status</th><th>Payment</th></tr></thead><tbody>
 {% for r in rows %}<tr onclick="location.href='/app/loads/{{ r.o.id }}/'">
  <td><span class="mono">{{ r.o.reference }}</span><div class="sub">{{ r.o.company.name }}</div></td>
- <td>{{ r.o.origin }} <span class="sub">→</span> {{ r.o.destination }}<div class="sub">{{ r.o.customer }}</div></td>
+ <td>{{ r.o.origin }} <span class="sub">→</span> {{ r.o.destination }}</td>
+ <td>{% if r.o.broker %}{{ r.o.broker.name }}{% else %}{{ r.o.customer|default:"—" }}{% endif %}</td>
  <td>{{ r.o.driver|default:"—" }}</td>
- <td>${{ r.o.rate|floatformat:0 }}<div class="sub">{{ r.o.miles }} mi</div></td>
+ <td>{% if r.o.vehicle %}{{ r.o.vehicle.unit_number }}{% else %}—{% endif %}</td>
+ <td>{{ r.o.pickup_date|default:"—" }}</td>
+ <td>${{ r.o.rate|floatformat:0 }}</td>
  <td><span class="chip {{ r.sc }}"><span class="d"></span>{{ r.o.get_status_display }}</span></td>
  <td><span class="chip {{ r.pc }}"><span class="d"></span>{{ r.o.get_payment_status_display }}</span></td>
 </tr>{% endfor %}</tbody></table>
-{% else %}<div class="empty">No loads yet. <a href="/admin/operations/load/add/" style="color:var(--blue)">Add your first load →</a></div>{% endif %}
+{% else %}<div class="empty">No loads match these filters. <a href="/app/loads/" style="color:var(--blue)">Clear filters</a></div>{% endif %}
 </div>{% endblock %}

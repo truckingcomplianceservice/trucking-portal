@@ -1,19 +1,22 @@
-# Trucking Compliance Services — Operations Portal
+# Trucking Compliance Services — Operations Portal (COMPLETE)
 
-Fix: fuel import auto-detecting the wrong Amount column.
+Complete current app. Fixes the "saving a load hangs" problem and everything prior.
 
-## Deploying this update
-1. Unzip and copy ALL contents into your trucking-portal folder (replace all).
-2. Commit + push (GitHub Desktop) — Railway redeploys automatically.
+## Deploy (one upload — this zip has everything)
+1. Unzip COMPLETE-trucking-portal-LATEST.zip
+2. Copy ALL contents into your trucking-portal folder -> Replace all
+3. GitHub Desktop -> Commit -> Push -> wait for Railway "Successful"
 
-## What was wrong
-On WEX exports, the importer guessed the **Amount** column as "Invoice" (the
-invoice number) instead of "Amt" (the dollars), and "Unit" as "Unit Price".
-So the spent amount came in wrong/blank.
+## The save-hang fix
+When a load's payment status changed, the app sent a notification email. With the
+email variables set to port 465 on the old code (no timeout), that connection hung
+and the Save spun forever. Now:
+- Notification emails send in the BACKGROUND — saving a load/expense is never
+  delayed by email, even if the mail server is slow or misconfigured.
+- Email uses the right security automatically (465=SSL, 587=TLS) with a 20s timeout.
 
-## Fixed
-Column detection is now priority-based:
-- Amount -> the real dollars column (Amt / Amount / Total), never the invoice #.
-- Unit -> the truck unit column, never "Unit Price".
-- Gallons -> Qty, Date -> Tran Date, Location, Card all detected correctly.
-You can still override any column on the confirm screen before importing.
+## Includes everything to date
+Email 465/SSL support, load filters + status tabs, team edit/reset/invite,
+fuel fixes (self-contained import, correct amount detection, right-company default,
+duplicate protection, edit/delete), expense-upload fix, portfolio, factoring aging,
+maintenance, DQF, billing + aging, letterheads.

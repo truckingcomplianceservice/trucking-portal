@@ -143,7 +143,16 @@ if EMAIL_HOST:
     EMAIL_PORT = int(os.environ.get("EMAIL_PORT", "587"))
     EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
     EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
-    EMAIL_USE_TLS = True
+    # Port 465 uses SSL; port 587 uses TLS. Pick automatically from the port,
+    # or force with EMAIL_SECURITY = "ssl" / "tls" in Railway.
+    _sec = os.environ.get("EMAIL_SECURITY", "").lower()
+    if _sec == "ssl" or (not _sec and EMAIL_PORT == 465):
+        EMAIL_USE_SSL = True
+        EMAIL_USE_TLS = False
+    else:
+        EMAIL_USE_TLS = True
+        EMAIL_USE_SSL = False
+    EMAIL_TIMEOUT = 20
 else:
     EMAIL_BACKEND = "django.core.mail.backends.dummy.EmailBackend"
 DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "notifications@pure99inc.com")

@@ -1,3 +1,4 @@
+from django.contrib.auth import views as auth_views
 from django.views.static import serve as _serve
 from django.conf import settings
 from django.contrib import admin
@@ -35,6 +36,8 @@ urlpatterns = [
     path("app/team/", views.app_team, name="app_team"),
     path("app/team/add/", views.team_add, name="team_add"),
     path("app/team/<int:pk>/toggle/", views.team_toggle_active, name="team_toggle_active"),
+    path("app/team/<int:pk>/edit/", views.team_edit, name="team_edit"),
+    path("app/team/<int:pk>/send-reset/", views.team_send_reset, name="team_send_reset"),
     path("app/timesheet/", views.app_timesheet, name="app_timesheet"),
     path("app/clock/", views.clock_toggle, name="clock_toggle"),
 
@@ -70,4 +73,11 @@ handler404 = "operations.views.go_home"
 
 urlpatterns += [
     re_path(r"^media/(?P<path>.*)$", _serve, {"document_root": settings.MEDIA_ROOT}),
+]
+
+urlpatterns += [
+    path("password-reset/", auth_views.PasswordResetView.as_view(), name="password_reset"),
+    path("password-reset/done/", auth_views.PasswordResetDoneView.as_view(), name="password_reset_done"),
+    path("reset/<uidb64>/<token>/", auth_views.PasswordResetConfirmView.as_view(), name="password_reset_confirm"),
+    path("reset/done/", auth_views.PasswordResetCompleteView.as_view(), name="password_reset_complete"),
 ]

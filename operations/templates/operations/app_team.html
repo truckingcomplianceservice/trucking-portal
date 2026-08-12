@@ -43,7 +43,7 @@
  <td><span class="chip {% if r.u.is_active %}c-green{% else %}c-gray{% endif %}"><span class="d"></span>{% if r.u.is_active %}Active{% else %}Inactive{% endif %}</span></td>
  <td>{% if r.on_clock %}<span class="chip c-green"><span class="d"></span>On</span>{% else %}<span class="sub">—</span>{% endif %}</td>
  <td class="mono">{{ r.today_hours }}h</td>
- {% if can_manage %}<td>{% if r.u != request.user %}<form method="post" action="/app/team/{{ r.u.id }}/toggle/" style="display:inline">{% csrf_token %}
+ {% if can_manage %}<td><a href="/app/team/{{ r.u.id }}/edit/" class="btn ghost" style="padding:5px 10px;font-size:12px">Edit</a> {% if r.u != request.user %}<form method="post" action="/app/team/{{ r.u.id }}/toggle/" style="display:inline">{% csrf_token %}
    <button class="btn ghost" style="padding:5px 10px;font-size:12px" type="submit">{% if r.u.is_active %}Deactivate{% else %}Reactivate{% endif %}</button></form>{% endif %}</td>{% endif %}
 </tr>{% endfor %}</tbody></table>
 </div>

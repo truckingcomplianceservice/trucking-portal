@@ -6,8 +6,8 @@
 
 {% if step == "done" %}
 <div class="card" style="margin:12px 0;border-color:#bfe6cf;max-width:620px"><div style="padding:16px 18px">
- <b style="color:#137a51">Imported {{ result.created }} transaction(s)</b> into {{ result.company }}.{% if result.skipped %} Skipped {{ result.skipped }} blank/zero rows.{% endif %}
- <div style="margin-top:12px"><a class="btn navy" href="/app/fuel/">View fuel transactions</a> <a class="btn ghost" href="/app/fuel/import/">Import another</a></div>
+ <b style="color:#137a51">Imported {{ result.created }} transaction(s)</b> into {{ result.company }}.{% if result.dup %} <b>Skipped {{ result.dup }} duplicate(s)</b> already on file.{% endif %}{% if result.skipped %} Skipped {{ result.skipped }} blank/zero rows.{% endif %}
+ <div style="margin-top:12px"><a class="btn navy" href="/app/fuel/?company={{ result.company_id }}">View fuel transactions</a> <a class="btn ghost" href="/app/fuel/import/">Import another</a></div>
 </div></div>
 
 {% elif step == "map" %}
@@ -43,7 +43,7 @@
   <input type="hidden" name="stage" value="preview">
   <div style="margin-bottom:14px"><label style="display:block;font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;margin-bottom:6px">Company</label>
    <select name="company" required style="width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:9px">
-    {% for c in companies %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}</select></div>
+    {% for c in companies %}<option value="{{ c.id }}"{% if active_id == c.id|stringformat:'s' %} selected{% endif %}>{{ c.name }}</option>{% endfor %}</select></div>
   <div style="margin-bottom:14px"><label style="display:block;font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;margin-bottom:6px">CSV file</label>
    <input type="file" name="file" accept=".csv" required></div>
   <button class="btn amber" type="submit">Next: confirm columns</button>
