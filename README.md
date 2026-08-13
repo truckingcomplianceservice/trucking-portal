@@ -1,6 +1,6 @@
 # Trucking Compliance Services — Operations Portal (COMPLETE)
 
-Driver settlement PDF: company address + clear From/To route per load.
+Settlement sheet: miles + deadhead, company address & phone.
 
 ## Deploy
 1. Download this zip, then in Terminal:
@@ -9,12 +9,15 @@ Driver settlement PDF: company address + clear From/To route per load.
 3. Hard-refresh (Cmd+Shift+R).
 
 ## What changed on the driver settlement sheet
-- FIX: the downloadable PDF now includes the loads (before, only the emailed one did).
-- Company NAME + ADDRESS (+ MC/DOT/CA, phone, email) show at the top via letterhead.
-  -> Make sure each company's Address is filled in: Admin -> Companies -> Address.
-- "Loads covered (what this pay is for)" table now has clear FROM and TO columns
-  so the driver sees exactly which loads, from where to where, they're paid for.
+- Company NAME, ADDRESS, PHONE (+ MC/DOT/CA, email) at the top (letterhead).
+  -> Fill these in: Admin -> Companies -> Address / Phone.
+- Loads table now shows LOADED miles, DEADHEAD (empty) miles, and TOTAL miles
+  per load, plus grand totals, alongside From/To and rate.
+
+## Entering deadhead miles
+New field on each load: Admin -> Loads -> a load -> "Deadhead (empty) miles".
+Loaded miles is the existing "miles" field. Total = loaded + deadhead.
 
 ## Includes everything to date
-Settlement sheet with address + routes, percentage pay + reimbursement,
+Settlement miles+deadhead+address+phone, routes, percentage pay + reimbursement,
 settlement loads, driver pay, per-truck & per-driver detail, team comms, portals.

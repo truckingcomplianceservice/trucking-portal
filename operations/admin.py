@@ -104,13 +104,13 @@ class VehicleAdmin(CompanyScopedAdmin):
 @admin.register(Load)
 class LoadAdmin(CompanyScopedAdmin):
     list_display = ("reference", "company", "customer", "origin", "destination",
-                    "pickup_date", "rate", "miles", "status", "payment_status", "driver")
+                    "pickup_date", "rate", "miles", "deadhead_miles", "status", "payment_status", "driver")
     list_filter = ("company", "status", "payment_status")
     search_fields = ("reference", "customer", "origin", "destination")
     date_hierarchy = "pickup_date"
     fieldsets = (
         (None, {"fields": ("company", "reference", "customer", ("origin", "destination"),
-                           ("pickup_date", "delivery_date"), ("rate", "miles"),
+                           ("pickup_date", "delivery_date"), ("rate", "miles", "deadhead_miles"),
                            ("driver", "vehicle"), ("status", "payment_status"), "notes")}),
         ("Documents & billing", {"fields": ("invoice_number", "bill_of_lading",
                            "proof_of_delivery", "rate_confirmation")}),

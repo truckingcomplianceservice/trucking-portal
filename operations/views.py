@@ -2105,8 +2105,13 @@ def driver_pay_pdf(request, pk):
     s = _get(Settlement, pk=pk, company__in=_companies(request))
     oop = Expense.objects.filter(driver=s.driver, out_of_pocket=True,
                                  date__gte=s.period_start, date__lte=s.period_end)
+    _sl = s.loads.order_by("pickup_date")
+    _mi = _sl.aggregate(a=Sum("miles"), b=Sum("deadhead_miles"), r=Sum("rate"))
     pdf = _render_pdf("operations/driver_pay_pdf.html", {"s": s, "oop": oop, "company": s.company,
-                       "settle_loads": s.loads.order_by("pickup_date")})
+                       "settle_loads": _sl,
+                       "total_loaded": _mi["a"] or 0, "total_deadhead": _mi["b"] or 0,
+                       "total_miles": (_mi["a"] or 0) + (_mi["b"] or 0),
+                       "loads_total": _mi["r"] or 0})
     resp = HttpResponse(pdf, content_type="application/pdf")
     resp["Content-Disposition"] = f'attachment; filename="settlement-{s.driver}-{s.period_end}.pdf"'
     return resp
@@ -2124,8 +2129,13 @@ def driver_pay_email(request, pk):
         return redirect("driver_pay_detail", pk=pk)
     oop = Expense.objects.filter(driver=s.driver, out_of_pocket=True,
                                  date__gte=s.period_start, date__lte=s.period_end)
+    _sl = s.loads.order_by("pickup_date")
+    _mi = _sl.aggregate(a=Sum("miles"), b=Sum("deadhead_miles"), r=Sum("rate"))
     pdf = _render_pdf("operations/driver_pay_pdf.html", {"s": s, "oop": oop, "company": s.company,
-                       "settle_loads": s.loads.order_by("pickup_date")})
+                       "settle_loads": _sl,
+                       "total_loaded": _mi["a"] or 0, "total_deadhead": _mi["b"] or 0,
+                       "total_miles": (_mi["a"] or 0) + (_mi["b"] or 0),
+                       "loads_total": _mi["r"] or 0})
     try:
         from django.core.mail import EmailMessage
         msg = EmailMessage(

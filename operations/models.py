@@ -205,7 +205,9 @@ class Load(models.Model):
     pickup_date = models.DateField(null=True, blank=True)
     delivery_date = models.DateField(null=True, blank=True)
     rate = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    miles = models.PositiveIntegerField(default=0)
+    miles = models.PositiveIntegerField("Loaded miles", default=0)
+    deadhead_miles = models.PositiveIntegerField("Deadhead (empty) miles", default=0,
+        help_text="Empty miles driven to reach the pickup.")
     status = models.CharField(max_length=12, choices=STATUS_CHOICES, default="booked")
     payment_status = models.CharField(max_length=18, choices=PAYMENT_CHOICES, default="unpaid")
     driver = models.ForeignKey(Driver, on_delete=models.SET_NULL, null=True, blank=True)
@@ -216,6 +218,10 @@ class Load(models.Model):
     proof_of_delivery = models.FileField("Proof of Delivery (POD)", upload_to="loads/pod/", blank=True)
     rate_confirmation = models.FileField(upload_to="loads/ratecon/", blank=True)
     notes = models.TextField(blank=True)
+
+    @property
+    def total_miles(self):
+        return (self.miles or 0) + (self.deadhead_miles or 0)
 
     class Meta:
         ordering = ["-pickup_date"]
