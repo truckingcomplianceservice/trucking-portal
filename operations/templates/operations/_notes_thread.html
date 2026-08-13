@@ -1,0 +1,18 @@
+{# Reusable team-notes thread. Pass: thread_notes, note_company_id, note_field, note_obj_id, note_next #}
+<div class="card" style="margin-top:14px"><div class="card-h"><h3>Team notes</h3></div>
+ <div style="padding:14px 16px">
+  <form method="post" action="/app/board/note/" style="margin-bottom:12px">{% csrf_token %}
+   <input type="hidden" name="company" value="{{ note_company_id }}">
+   <input type="hidden" name="{{ note_field }}" value="{{ note_obj_id }}">
+   <input type="hidden" name="next" value="{{ note_next }}">
+   <textarea name="body" rows="2" placeholder="Leave a note for the team…" required style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px"></textarea>
+   <button class="btn amber" type="submit" style="margin-top:8px">Post note</button>
+  </form>
+  {% for n in thread_notes %}
+  <div style="border-top:1px solid var(--line);padding:10px 0">
+   <div style="font-size:13px">{{ n.body|linebreaksbr }}</div>
+   <div class="sub">{{ n.author.get_full_name|default:n.author.username }} · {{ n.created_at|date:"M j, Y g:i A" }}</div>
+  </div>
+  {% empty %}<div class="sub">No notes yet. Be the first to leave one.</div>{% endfor %}
+ </div>
+</div>

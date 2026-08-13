@@ -265,3 +265,12 @@ class TaskAdmin(CompanyScopedAdmin):
 class PerformanceNoteAdmin(CompanyScopedAdmin):
     list_display = ("date", "company", "driver", "vehicle", "member", "rating")
     list_filter = ("company", "rating")
+
+
+from .models import TeamNote
+
+@admin.register(TeamNote)
+class TeamNoteAdmin(CompanyScopedAdmin):
+    list_display = ("created_at", "company", "author", "subject_label", "pinned")
+    list_filter = ("company", "pinned")
+    search_fields = ("body",)

@@ -1,32 +1,31 @@
 # Trucking Compliance Services — Operations Portal (COMPLETE)
 
-Adds Tasks (assign work) and Performance (per person + per truck).
+Adds internal team communication (board + notes on records) with email alerts.
 
 ## Deploy (one upload — this zip has everything)
 1. Unzip -> copy ALL contents into your trucking-portal folder -> Replace all.
 2. GitHub Desktop -> Commit -> Push -> wait for Railway "Successful".
-(There is a new migration for Tasks + Performance notes — it runs automatically.)
+3. Hard-refresh the site after deploy (Ctrl/Cmd + Shift + R).
+(New migration for team notes runs automatically.)
 
-## New: Tasks (sidebar -> Tasks)
-- Managers/owner assign tasks to a team member OR a driver, with due date,
-  priority, and an optional linked truck/load.
-- Each person sees only the tasks assigned to them; managers see all.
-- Change status with the dropdown (Open / In progress / Done / Cancelled).
-  Overdue due-dates show in red.
+## New: Team communication (team members only — drivers can't see it)
 
-## New: Performance (sidebar -> Performance, under Reports)
-Auto stats plus your own notes:
-- Drivers: loads, revenue, average rating, note count.
-- Trucks: loads, revenue, fuel, average rating, note count.
-- Team members: tasks assigned / done / open.
-- Click "+ note" on any row to add a dated note and an optional 1-5 rating.
-- Date-range filter at the top.
+### Team board (sidebar -> Team board)
+A company-wide feed. Post updates, pin important ones to the top.
 
-Everything is company-scoped and respects roles: Performance sits under the
-"reports" permission; Tasks are visible to everyone (but non-managers only see
-their own and can only self-assign).
+### Notes on records
+On a Driver page and a Load page there's now a "Team notes" section. Leave a
+note and the next teammate sees the full history right on that record — so
+context follows the client/load/driver ("last person's note shows for the next").
+
+### Email alerts
+When someone posts a note, the rest of the team on that company gets an email
+(sent in the background, so it never slows anything down). Requires your email
+to be connected (it is).
+
+Notes are company-scoped and team-only: drivers and outside users never see them.
 
 ## Includes everything to date
-Tasks + performance, branded portal login, role-based access, per-truck P&L,
-per-company logos, background email, email 465/SSL, load filters,
+Team communication, tasks + performance, branded portal login, role-based
+access, per-truck P&L, per-company logos, background email, load filters,
 team edit/reset/invite, fuel fixes + dedup, expense fix, portfolio, aging.

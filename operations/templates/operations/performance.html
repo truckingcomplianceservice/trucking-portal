@@ -14,25 +14,25 @@
 
 <div class="card" style="margin-bottom:14px"><div class="card-h"><h3>Drivers</h3></div>
 <table><thead><tr><th>Driver</th><th class="n">Loads</th><th class="n">Revenue</th><th class="n">Avg rating</th><th class="n">Notes</th><th></th></tr></thead><tbody>
-{% for r in drivers %}<tr>
+{% for r in drivers %}<tr onclick="location.href='/app/performance/driver/{{ r.d.id }}/'" style="cursor:pointer">
  <td><b>{{ r.d }}</b></td><td class="n">{{ r.loads }}</td><td class="n">${{ r.revenue|floatformat:0|intcomma }}</td>
  <td class="n">{% if r.avg %}{{ r.avg }}/5{% else %}—{% endif %}</td><td class="n">{{ r.notes }}</td>
- <td class="n"><a href="#" class="sub" style="color:var(--blue)" onclick="noteBox('driver',{{ r.d.id }},'{{ r.d }}');return false">+ note</a></td>
+ <td class="n">Open &rarr;</td>
 </tr>{% empty %}<tr><td colspan="6" class="sub">No drivers.</td></tr>{% endfor %}</tbody></table></div>
 
 <div class="card" style="margin-bottom:14px"><div class="card-h"><h3>Trucks</h3></div>
 <table><thead><tr><th>Truck</th><th class="n">Loads</th><th class="n">Revenue</th><th class="n">Fuel</th><th class="n">Avg rating</th><th class="n">Notes</th><th></th></tr></thead><tbody>
-{% for r in trucks %}<tr>
+{% for r in trucks %}<tr onclick="location.href='/app/performance/vehicle/{{ r.v.id }}/'" style="cursor:pointer">
  <td><b>Unit {{ r.v.unit_number }}</b></td><td class="n">{{ r.loads }}</td><td class="n">${{ r.revenue|floatformat:0|intcomma }}</td>
  <td class="n">${{ r.fuel|floatformat:0|intcomma }}</td><td class="n">{% if r.avg %}{{ r.avg }}/5{% else %}—{% endif %}</td><td class="n">{{ r.notes }}</td>
- <td class="n"><a href="#" class="sub" style="color:var(--blue)" onclick="noteBox('vehicle',{{ r.v.id }},'Unit {{ r.v.unit_number }}');return false">+ note</a></td>
+ <td class="n">Open &rarr;</td>
 </tr>{% empty %}<tr><td colspan="7" class="sub">No trucks.</td></tr>{% endfor %}</tbody></table></div>
 
 {% if members %}<div class="card" style="margin-bottom:14px"><div class="card-h"><h3>Team members</h3></div>
 <table><thead><tr><th>Member</th><th class="n">Tasks assigned</th><th class="n">Done</th><th class="n">Open</th><th></th></tr></thead><tbody>
-{% for r in members %}<tr>
+{% for r in members %}<tr onclick="location.href='/app/performance/member/{{ r.u.id }}/'" style="cursor:pointer">
  <td><b>{{ r.u.get_full_name|default:r.u.username }}</b></td><td class="n">{{ r.assigned }}</td><td class="n">{{ r.done }}</td><td class="n">{{ r.open }}</td>
- <td class="n"><a href="#" class="sub" style="color:var(--blue)" onclick="noteBox('member',{{ r.u.id }},'{{ r.u.get_full_name|default:r.u.username }}');return false">+ note</a></td>
+ <td class="n">Open &rarr;</td>
 </tr>{% endfor %}</tbody></table></div>{% endif %}
 
 <div id="notemodal" style="display:none;position:fixed;inset:0;background:rgba(20,28,43,.4);z-index:50;align-items:center;justify-content:center">

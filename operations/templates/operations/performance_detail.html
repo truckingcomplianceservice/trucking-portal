@@ -1,0 +1,47 @@
+{% extends "operations/app_base.html" %}
+{% load humanize %}
+{% block title %}{{ name }} — Performance{% endblock %}
+{% block page_title %}{{ name }} — performance{% endblock %}
+{% block content %}
+<a href="/app/performance/" class="sub" style="color:var(--blue)">&larr; Performance</a>
+{% if messages %}{% for m in messages %}<div style="margin:8px 0;padding:10px 14px;border-radius:8px;font-size:13px;background:{% if m.tags == 'error' %}#fbe7e5;color:#b02b24{% else %}#e4f4ec;color:#137a51{% endif %}">{{ m }}</div>{% endfor %}{% endif %}
+
+<div class="kpis" style="margin-top:8px">
+{% if kind == 'driver' %}
+ <div class="kpi"><div class="l">Loads</div><div class="n">{{ loads }}</div></div>
+ <div class="kpi"><div class="l">Revenue</div><div class="n">${{ revenue|floatformat:0|intcomma }}</div></div>
+{% elif kind == 'vehicle' %}
+ <div class="kpi"><div class="l">Loads</div><div class="n">{{ loads }}</div></div>
+ <div class="kpi"><div class="l">Revenue</div><div class="n">${{ revenue|floatformat:0|intcomma }}</div></div>
+ <div class="kpi"><div class="l">Fuel</div><div class="n">${{ fuel|floatformat:0|intcomma }}</div></div>
+{% else %}
+ <div class="kpi"><div class="l">Tasks assigned</div><div class="n">{{ assigned }}</div></div>
+ <div class="kpi"><div class="l">Done</div><div class="n">{{ done }}</div></div>
+ <div class="kpi"><div class="l">Open</div><div class="n">{{ open }}</div></div>
+{% endif %}
+ <div class="kpi"><div class="l">Avg rating</div><div class="n">{% if avg %}{{ avg }}/5{% else %}—{% endif %}</div></div>
+</div>
+
+<div class="grid2" style="align-items:start;margin-top:14px">
+ <div class="card"><div class="card-h"><h3>Performance notes</h3></div>
+  {% if notes %}<table><tbody>
+  {% for n in notes %}<tr>
+   <td style="white-space:nowrap;vertical-align:top"><b>{{ n.date }}</b>{% if n.rating %}<div><span class="chip c-amber"><span class="d"></span>{{ n.rating }}/5</span></div>{% endif %}</td>
+   <td>{{ n.note }}<div class="sub">{% if n.author %}by {{ n.author.get_full_name|default:n.author.username }}{% endif %}</div></td>
+  </tr>{% endfor %}</tbody></table>
+  {% else %}<div class="empty">No notes yet.</div>{% endif %}
+ </div>
+
+ <div class="card" style="align-self:start"><div class="card-h"><h3>Add a note</h3></div>
+  <form method="post" action="/app/performance/note/" style="padding:16px 18px">{% csrf_token %}
+   <input type="hidden" name="subject_type" value="{{ kind }}">
+   <input type="hidden" name="subject_id" value="{{ subj.id }}">
+   <input type="hidden" name="next" value="/app/performance/{{ kind }}/{{ subj.id }}/">
+   <label class="sub">Rating (optional)</label>
+   <select name="rating" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;margin-bottom:8px"><option value="">— no rating —</option><option value="5">5 — Great</option><option value="4">4 — Good</option><option value="3">3 — OK</option><option value="2">2 — Below</option><option value="1">1 — Poor</option></select>
+   <label class="sub">Note</label><textarea name="note" rows="4" required style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px"></textarea>
+   <button class="btn amber" type="submit" style="margin-top:12px">Save note</button>
+  </form>
+ </div>
+</div>
+{% endblock %}

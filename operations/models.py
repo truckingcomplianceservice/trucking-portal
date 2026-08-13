@@ -691,3 +691,37 @@ class PerformanceNote(models.Model):
 
     def __str__(self):
         return f"{self.date} — {self.note[:40]}"
+
+
+class TeamNote(models.Model):
+    """Internal team communication: a company-wide board and threaded notes
+    attached to a client/broker, a load, or a driver. Team members only."""
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name="team_notes")
+    author = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True,
+                               related_name="team_notes")
+    body = models.TextField()
+    # optional attachment to a record (all blank = company-wide board post)
+    broker = models.ForeignKey("Broker", on_delete=models.CASCADE, null=True, blank=True,
+                               related_name="team_notes")
+    load = models.ForeignKey(Load, on_delete=models.CASCADE, null=True, blank=True,
+                             related_name="team_notes")
+    driver = models.ForeignKey(Driver, on_delete=models.CASCADE, null=True, blank=True,
+                               related_name="team_notes")
+    pinned = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-pinned", "-created_at"]
+
+    def __str__(self):
+        return f"{self.author} — {self.body[:40]}"
+
+    @property
+    def subject_label(self):
+        if self.broker_id:
+            return f"Client: {self.broker.name}"
+        if self.load_id:
+            return f"Load {self.load.reference}"
+        if self.driver_id:
+            return f"Driver: {self.driver}"
+        return "Team board"

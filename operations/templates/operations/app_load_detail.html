@@ -1,5 +1,6 @@
 {% extends "operations/app_base.html" %}
-{% block title %}Load {{ l.reference }} — Fleetline{% endblock %}
+{% block title %}Load {{ l.reference }} — Fleetline{% include "operations/_notes_thread.html" %}
+{% endblock %}
 {% block page_title %}Load {{ l.reference }}{% endblock %}
 {% block content %}
 <a href="/app/loads/" class="sub" style="color:var(--blue)">&larr; All loads</a>

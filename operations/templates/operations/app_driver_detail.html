@@ -1,5 +1,6 @@
 {% extends "operations/app_base.html" %}
-{% block title %}{{ d.first_name }} {{ d.last_name }} — Fleetline{% endblock %}
+{% block title %}{{ d.first_name }} {{ d.last_name }} — Fleetline{% include "operations/_notes_thread.html" %}
+{% endblock %}
 {% block page_title %}{{ d.first_name }} {{ d.last_name }}{% endblock %}
 {% block content %}
 <a href="/app/drivers/" class="sub" style="color:var(--blue)">&larr; All drivers</a>

@@ -1,0 +1,24 @@
+{% extends "operations/app_base.html" %}
+{% block title %}Team board — Fleetline{% endblock %}
+{% block page_title %}Team board{% endblock %}
+{% block content %}
+{% if messages %}{% for m in messages %}<div style="margin:8px 0;padding:10px 14px;border-radius:8px;font-size:13px;background:{% if m.tags == 'error' %}#fbe7e5;color:#b02b24{% else %}#e4f4ec;color:#137a51{% endif %}">{{ m }}</div>{% endfor %}{% endif %}
+<div class="card" style="margin-bottom:14px"><div style="padding:16px 18px">
+ <form method="post" action="/app/board/note/">{% csrf_token %}
+  <input type="hidden" name="next" value="/app/board/">
+  {% if companies.count > 1 %}<select name="company" style="padding:8px 10px;border:1px solid var(--line);border-radius:8px;margin-bottom:8px">{% for c in companies %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}</select>{% else %}{% for c in companies %}<input type="hidden" name="company" value="{{ c.id }}">{% endfor %}{% endif %}
+  <textarea name="body" rows="3" placeholder="Share an update with the team…" required style="width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px"></textarea>
+  <button class="btn amber" type="submit" style="margin-top:10px">Post to board</button>
+ </form>
+</div></div>
+
+{% for n in notes %}
+<div class="card" style="margin-bottom:10px"><div style="padding:14px 16px">
+ <div style="display:flex;justify-content:space-between;align-items:start">
+  <div style="font-size:14px">{{ n.body|linebreaksbr }}</div>
+  <form method="post" action="/app/board/note/{{ n.id }}/pin/" style="margin-left:10px">{% csrf_token %}<input type="hidden" name="next" value="/app/board/"><button class="btn ghost" style="padding:4px 9px;font-size:11px" type="submit">{% if n.pinned %}Unpin{% else %}Pin{% endif %}</button></form>
+ </div>
+ <div class="sub" style="margin-top:6px">{% if n.pinned %}📌 {% endif %}{{ n.author.get_full_name|default:n.author.username }}{% if companies.count > 1 %} · {{ n.company.name }}{% endif %} · {{ n.created_at|date:"M j, Y g:i A" }}</div>
+</div></div>
+{% empty %}<div class="empty">No posts yet. Start the conversation above.</div>{% endfor %}
+{% endblock %}
