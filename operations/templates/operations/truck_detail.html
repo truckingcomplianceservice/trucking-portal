@@ -1,0 +1,53 @@
+{% extends "operations/app_base.html" %}
+{% load humanize %}
+{% block title %}Unit {{ v.unit_number }} — P&L detail{% endblock %}
+{% block page_title %}Unit {{ v.unit_number }} — profit &amp; loss{% endblock %}
+{% block content %}
+<a href="/reports/pnl/truck/" class="sub" style="color:var(--blue)">&larr; Per-truck P&amp;L</a>
+<div class="toolbar">
+ <form method="get" style="display:flex;gap:8px;align-items:end">
+  <div class="fld"><label class="sub">From</label><input type="date" name="start" value="{{ start }}" style="padding:7px 9px;border:1px solid var(--line);border-radius:7px"></div>
+  <div class="fld"><label class="sub">To</label><input type="date" name="end" value="{{ end }}" style="padding:7px 9px;border:1px solid var(--line);border-radius:7px"></div>
+  <button class="btn amber" type="submit">Apply</button>
+ </form>
+ <div class="spacer"></div>
+ <button class="btn ghost" onclick="window.print()">Print</button>
+ <a class="btn navy" href="/reports/truck/{{ v.id }}/pdf/?start={{ start }}&end={{ end }}">Download PDF</a>
+</div>
+
+<div class="kpis" style="grid-template-columns:repeat(5,1fr)">
+ <div class="kpi"><div class="l">Revenue</div><div class="n" style="color:#137a51">${{ revenue|floatformat:0|intcomma }}</div></div>
+ <div class="kpi"><div class="l">Fuel</div><div class="n">${{ fuel_total|floatformat:0|intcomma }}</div></div>
+ <div class="kpi"><div class="l">Maintenance</div><div class="n">${{ maint_total|floatformat:0|intcomma }}</div></div>
+ <div class="kpi"><div class="l">Other expenses</div><div class="n">${{ exp_total|floatformat:0|intcomma }}</div></div>
+ <div class="kpi"><div class="l">Net</div><div class="n" style="color:{% if net >= 0 %}#137a51{% else %}#c0392b{% endif %}">${{ net|floatformat:0|intcomma }}</div></div>
+</div>
+
+<div class="card" style="margin-bottom:14px"><div class="card-h"><h3>Loads / income ({{ loads_count }})</h3></div>
+{% if loads %}<table><thead><tr><th>Pickup</th><th>Ref</th><th>Customer</th><th>Route</th><th>Driver</th><th class="n">Rate</th></tr></thead><tbody>
+{% for l in loads %}<tr onclick="location.href='/app/loads/{{ l.id }}/'" style="cursor:pointer">
+ <td>{{ l.pickup_date|default:"—" }}</td><td class="mono">{{ l.reference }}</td>
+ <td>{% if l.broker %}{{ l.broker.name }}{% else %}{{ l.customer|default:"—" }}{% endif %}</td>
+ <td class="sub">{{ l.origin }} → {{ l.destination }}</td><td>{{ l.driver|default:"—" }}</td>
+ <td class="n" style="font-weight:600">${{ l.rate|floatformat:2|intcomma }}</td>
+</tr>{% endfor %}</tbody><tfoot><tr><td colspan="5" style="text-align:right"><b>Total revenue</b></td><td class="n"><b>${{ revenue|floatformat:2|intcomma }}</b></td></tr></tfoot></table>
+{% else %}<div class="empty">No loads for this truck in range.</div>{% endif %}</div>
+
+<div class="card" style="margin-bottom:14px"><div class="card-h"><h3>Fuel ({{ fuel_gal|floatformat:0 }} gal)</h3></div>
+{% if fuel %}<table><thead><tr><th>Date</th><th>Location</th><th>Card</th><th class="n">Gallons</th><th class="n">Amount</th></tr></thead><tbody>
+{% for f in fuel %}<tr><td>{{ f.date|default:"—" }}</td><td>{{ f.location|default:"—" }}</td><td class="sub">{% if f.card_last4 %}••{{ f.card_last4 }}{% endif %}</td><td class="n">{{ f.gallons|floatformat:1 }}</td><td class="n">${{ f.amount|floatformat:2|intcomma }}</td></tr>{% endfor %}
+</tbody><tfoot><tr><td colspan="4" style="text-align:right"><b>Total fuel</b></td><td class="n"><b>${{ fuel_total|floatformat:2|intcomma }}</b></td></tr></tfoot></table>
+{% else %}<div class="empty">No fuel for this truck in range.</div>{% endif %}</div>
+
+<div class="card" style="margin-bottom:14px"><div class="card-h"><h3>Maintenance</h3></div>
+{% if maint %}<table><thead><tr><th>Date</th><th>Part / service</th><th>Vendor</th><th class="n">Parts</th><th class="n">Labor</th><th class="n">Total</th></tr></thead><tbody>
+{% for m in maint %}<tr><td>{{ m.date }}</td><td>{{ m.part }}</td><td class="sub">{{ m.vendor|default:"—" }}</td><td class="n">${{ m.parts_cost|floatformat:2 }}</td><td class="n">${{ m.labor_cost|floatformat:2 }}</td><td class="n" style="font-weight:600">${{ m.total|floatformat:2 }}</td></tr>{% endfor %}
+</tbody><tfoot><tr><td colspan="5" style="text-align:right"><b>Total maintenance</b></td><td class="n"><b>${{ maint_total|floatformat:2|intcomma }}</b></td></tr></tfoot></table>
+{% else %}<div class="empty">No maintenance for this truck in range.</div>{% endif %}</div>
+
+<div class="card"><div class="card-h"><h3>Other expenses</h3></div>
+{% if exp %}<table><thead><tr><th>Date</th><th>Category</th><th>Vendor</th><th class="n">Amount</th></tr></thead><tbody>
+{% for e in exp %}<tr><td>{{ e.date }}</td><td>{{ e.category }}</td><td class="sub">{{ e.vendor|default:"—" }}</td><td class="n">${{ e.amount|floatformat:2|intcomma }}</td></tr>{% endfor %}
+</tbody><tfoot><tr><td colspan="3" style="text-align:right"><b>Total other</b></td><td class="n"><b>${{ exp_total|floatformat:2|intcomma }}</b></td></tr></tfoot></table>
+{% else %}<div class="empty">No other expenses for this truck in range.</div>{% endif %}</div>
+{% endblock %}

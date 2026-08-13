@@ -242,6 +242,7 @@ class Expense(models.Model):
     vehicle = models.ForeignKey(Vehicle, on_delete=models.SET_NULL, null=True, blank=True)
     load = models.ForeignKey(Load, on_delete=models.SET_NULL, null=True, blank=True)
     receipt = models.FileField(upload_to="expenses/", blank=True)
+    out_of_pocket = models.BooleanField("Driver paid from own pocket (reimburse)", default=False)
     notes = models.TextField(blank=True)
 
     class Meta:
@@ -259,14 +260,28 @@ class Settlement(models.Model):
     period_end = models.DateField()
     gross_pay = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     deductions = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    paid = models.BooleanField(default=False)
+    paid_date = models.DateField(null=True, blank=True)
+    payment_method = models.CharField(max_length=40, blank=True,
+        help_text="e.g. Check, Zelle, ACH, Cash")
+    payment_reference = models.CharField(max_length=60, blank=True,
+        help_text="Check number, Zelle/ACH confirmation, etc.")
     notes = models.TextField(blank=True)
 
-    class Meta:
-        ordering = ["-period_end"]
+    @property
+    def reimbursements(self):
+        """Out-of-pocket expenses for this driver during the period, to add back."""
+        from django.db.models import Sum as _S
+        return Expense.objects.filter(driver=self.driver, out_of_pocket=True,
+                                      date__gte=self.period_start, date__lte=self.period_end
+                                      ).aggregate(s=_S("amount"))["s"] or 0
 
     @property
     def net_pay(self):
-        return self.gross_pay - self.deductions
+        return (self.gross_pay or 0) - (self.deductions or 0) + self.reimbursements
+
+    class Meta:
+        ordering = ["-period_end"]
 
     def __str__(self):
         return f"{self.driver} · {self.period_start} to {self.period_end}"

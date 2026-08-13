@@ -1,0 +1,40 @@
+{% extends "operations/app_base.html" %}
+{% load humanize %}
+{% block title %}Driver pay — Fleetline{% endblock %}
+{% block page_title %}Driver pay &amp; settlements{% endblock %}
+{% block content %}
+{% if messages %}{% for m in messages %}<div style="margin:8px 0;padding:10px 14px;border-radius:8px;font-size:13px;background:{% if m.tags == 'error' %}#fbe7e5;color:#b02b24{% else %}#e4f4ec;color:#137a51{% endif %}">{{ m }}</div>{% endfor %}{% endif %}
+<div class="grid2" style="align-items:start">
+ <div>
+  <div style="display:flex;gap:6px;margin-bottom:12px">
+   <a class="btn {% if show == 'all' %}amber{% else %}ghost{% endif %}" href="?show=all">All</a>
+   <a class="btn {% if show == 'unpaid' %}amber{% else %}ghost{% endif %}" href="?show=unpaid">Unpaid</a>
+   <a class="btn {% if show == 'paid' %}amber{% else %}ghost{% endif %}" href="?show=paid">Paid</a>
+  </div>
+  <div class="card">
+   {% if rows %}<table><thead><tr><th>Driver</th><th>Week</th><th class="n">Net pay</th><th>Status</th><th>Reference</th></tr></thead><tbody>
+   {% for s in rows %}<tr onclick="location.href='/app/pay/{{ s.id }}/'" style="cursor:pointer">
+    <td><b>{{ s.driver }}</b></td>
+    <td class="sub">{{ s.period_start }} – {{ s.period_end }}</td>
+    <td class="n" style="font-weight:700">${{ s.net_pay|floatformat:2|intcomma }}</td>
+    <td>{% if s.paid %}<span class="chip c-green"><span class="d"></span>Paid</span>{% else %}<span class="chip c-amber"><span class="d"></span>Unpaid</span>{% endif %}</td>
+    <td class="sub">{% if s.payment_reference %}{{ s.payment_reference }}{% else %}—{% endif %}</td>
+   </tr>{% endfor %}</tbody></table>
+   {% else %}<div class="empty">No settlements yet. Create one for a driver's week →</div>{% endif %}
+  </div>
+ </div>
+ <div class="card" style="align-self:start"><div class="card-h"><h3>New weekly settlement</h3></div>
+  <form method="post" action="/app/pay/new/" style="padding:16px 18px">{% csrf_token %}
+   <label class="sub">Driver</label><select name="driver" required style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;margin-bottom:8px">{% for d in drivers %}<option value="{{ d.id }}">{{ d }}</option>{% endfor %}</select>
+   <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+    <div><label class="sub">Week start</label><input type="date" name="period_start" value="{{ week_start }}" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px"></div>
+    <div><label class="sub">Week end</label><input type="date" name="period_end" value="{{ week_end }}" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px"></div>
+   </div>
+   <label class="sub" style="margin-top:8px;display:block">Gross pay ($)</label><input name="gross_pay" placeholder="0.00" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;margin-bottom:8px">
+   <label class="sub">Deductions ($)</label><input name="deductions" placeholder="0.00" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;margin-bottom:8px">
+   <div class="sub" style="margin-bottom:8px">Out-of-pocket expenses in that week are added automatically.</div>
+   <button class="btn amber" type="submit">Create &amp; review</button>
+  </form>
+ </div>
+</div>
+{% endblock %}

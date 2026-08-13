@@ -1,0 +1,22 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+ body{font-family:Helvetica,Arial,sans-serif;color:#222;font-size:12px}
+ table{width:100%;border-collapse:collapse;margin:10px 0}
+ td{padding:6px 8px;border-bottom:1px solid #eee}
+ .n{text-align:right}
+ h2{color:#1e2d45;margin:8px 0}
+ .tot{font-size:16px;font-weight:bold}
+</style></head><body>
+{% include "operations/_letterhead_pdf.html" %}
+<h2>Driver settlement</h2>
+<p><b>Driver:</b> {{ s.driver }}<br><b>Period:</b> {{ s.period_start }} to {{ s.period_end }}</p>
+<table><tbody>
+ <tr><td>Gross pay</td><td class="n">${{ s.gross_pay|floatformat:2 }}</td></tr>
+ <tr><td>Deductions</td><td class="n">- ${{ s.deductions|floatformat:2 }}</td></tr>
+ <tr><td>Reimbursements (out-of-pocket expenses)</td><td class="n">+ ${{ s.reimbursements|floatformat:2 }}</td></tr>
+ <tr><td class="tot">NET PAY</td><td class="n tot">${{ s.net_pay|floatformat:2 }}</td></tr>
+</tbody></table>
+{% if oop %}<h2 style="font-size:13px">Reimbursed out-of-pocket expenses</h2>
+<table><tbody>{% for e in oop %}<tr><td>{{ e.date }} — {{ e.category }}{% if e.vendor %} ({{ e.vendor }}){% endif %}</td><td class="n">${{ e.amount|floatformat:2 }}</td></tr>{% endfor %}</tbody></table>{% endif %}
+{% if s.paid %}<p><b>Paid:</b> {{ s.paid_date }} via {{ s.payment_method }} — Reference: {{ s.payment_reference }}</p>{% endif %}
+{% if s.notes %}<p><b>Notes:</b> {{ s.notes }}</p>{% endif %}
+</body></html>

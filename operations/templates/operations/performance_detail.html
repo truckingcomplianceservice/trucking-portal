@@ -4,6 +4,7 @@
 {% block page_title %}{{ name }} — performance{% endblock %}
 {% block content %}
 <a href="/app/performance/" class="sub" style="color:var(--blue)">&larr; Performance</a>
+{% if kind == 'driver' %}<div style="margin:8px 0"><a class="btn navy" href="/reports/driver/{{ subj.id }}/">Full report (loads · pay · expenses)</a></div>{% endif %}
 {% if messages %}{% for m in messages %}<div style="margin:8px 0;padding:10px 14px;border-radius:8px;font-size:13px;background:{% if m.tags == 'error' %}#fbe7e5;color:#b02b24{% else %}#e4f4ec;color:#137a51{% endif %}">{{ m }}</div>{% endfor %}{% endif %}
 
 <div class="kpis" style="margin-top:8px">

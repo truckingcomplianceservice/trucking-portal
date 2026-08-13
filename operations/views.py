@@ -1987,3 +1987,208 @@ def team_note_pin(request, pk):
         n.pinned = not n.pinned
         n.save()
     return redirect(request.POST.get("next", "/app/board/"))
+
+
+# ================= Driver weekly settlements / pay =================
+@require_section("reports")
+@login_required
+def driver_pay(request):
+    cs = _companies(request)
+    settlements = Settlement.objects.filter(company__in=cs).select_related("driver", "company")
+    show = request.GET.get("show", "all")
+    if show == "unpaid":
+        settlements = settlements.filter(paid=False)
+    elif show == "paid":
+        settlements = settlements.filter(paid=True)
+    rows = list(settlements.order_by("-period_end"))
+    drivers = Driver.objects.filter(company__in=cs).order_by("first_name")
+    # default the "new" week to the last 7 days
+    today = _dt.date.today()
+    monday = today - _dt.timedelta(days=today.weekday())
+    return render(request, "operations/driver_pay.html", {
+        "rows": rows, "drivers": drivers, "show": show,
+        "week_start": (monday - _dt.timedelta(days=7)).isoformat(),
+        "week_end": (monday - _dt.timedelta(days=1)).isoformat(),
+        "companies": cs,
+    })
+
+
+@require_section("reports")
+@login_required
+def driver_pay_new(request):
+    if request.method != "POST":
+        return redirect("driver_pay")
+    cs = _companies(request)
+    d = Driver.objects.filter(pk=request.POST.get("driver"), company__in=cs).first()
+    if not d:
+        _messages.error(request, "Pick a driver."); return redirect("driver_pay")
+    s = Settlement.objects.create(
+        company=d.company, driver=d,
+        period_start=_parse_date(request.POST.get("period_start")) or _dt.date.today(),
+        period_end=_parse_date(request.POST.get("period_end")) or _dt.date.today(),
+        gross_pay=_num(request.POST.get("gross_pay", "0")),
+        deductions=_num(request.POST.get("deductions", "0")),
+        notes=request.POST.get("notes", "").strip())
+    return redirect("driver_pay_detail", pk=s.id)
+
+
+@require_section("reports")
+@login_required
+def driver_pay_detail(request, pk):
+    cs = _companies(request)
+    s = _get(Settlement, pk=pk, company__in=cs)
+    if request.method == "POST":
+        action = request.POST.get("action")
+        if action == "edit":
+            s.gross_pay = _num(request.POST.get("gross_pay", "0"))
+            s.deductions = _num(request.POST.get("deductions", "0"))
+            s.notes = request.POST.get("notes", "").strip()
+            s.save(); _messages.success(request, "Updated.")
+        elif action == "pay":
+            s.paid = True
+            s.paid_date = _parse_date(request.POST.get("paid_date")) or _dt.date.today()
+            s.payment_method = request.POST.get("payment_method", "").strip()
+            s.payment_reference = request.POST.get("payment_reference", "").strip()
+            s.save()
+            ActivityLog.objects.create(company=s.company, user=request.user, category="pay",
+                text=f"Paid {s.driver} ${s.net_pay} ref {s.payment_reference}")
+            _messages.success(request, "Marked as paid.")
+        elif action == "unpay":
+            s.paid = False; s.save()
+        return redirect("driver_pay_detail", pk=pk)
+    oop = Expense.objects.filter(driver=s.driver, out_of_pocket=True,
+                                 date__gte=s.period_start, date__lte=s.period_end)
+    return render(request, "operations/driver_pay_detail.html",
+                  {"s": s, "oop": oop, "company": s.company})
+
+
+@require_section("reports")
+@login_required
+def driver_pay_pdf(request, pk):
+    from django.http import HttpResponse
+    s = _get(Settlement, pk=pk, company__in=_companies(request))
+    oop = Expense.objects.filter(driver=s.driver, out_of_pocket=True,
+                                 date__gte=s.period_start, date__lte=s.period_end)
+    pdf = _render_pdf("operations/driver_pay_pdf.html", {"s": s, "oop": oop, "company": s.company})
+    resp = HttpResponse(pdf, content_type="application/pdf")
+    resp["Content-Disposition"] = f'attachment; filename="settlement-{s.driver}-{s.period_end}.pdf"'
+    return resp
+
+
+@require_section("reports")
+@login_required
+def driver_pay_email(request, pk):
+    s = _get(Settlement, pk=pk, company__in=_companies(request))
+    if not s.driver.email:
+        _messages.error(request, f"{s.driver} has no email on file. Add one on the driver's record.")
+        return redirect("driver_pay_detail", pk=pk)
+    if not getattr(settings, "EMAIL_HOST", ""):
+        _messages.error(request, "Email isn't connected yet.")
+        return redirect("driver_pay_detail", pk=pk)
+    oop = Expense.objects.filter(driver=s.driver, out_of_pocket=True,
+                                 date__gte=s.period_start, date__lte=s.period_end)
+    pdf = _render_pdf("operations/driver_pay_pdf.html", {"s": s, "oop": oop, "company": s.company})
+    try:
+        from django.core.mail import EmailMessage
+        msg = EmailMessage(
+            subject=f"Your settlement — {s.period_start} to {s.period_end}",
+            body=f"Hi {s.driver.first_name},\n\nAttached is your pay statement for "
+                 f"{s.period_start} to {s.period_end}. Net pay: ${s.net_pay:.2f}."
+                 + (f"\nPaid via {s.payment_method} ref {s.payment_reference}." if s.paid else ""),
+            from_email=settings.DEFAULT_FROM_EMAIL, to=[s.driver.email])
+        msg.attach(f"settlement-{s.period_end}.pdf", pdf, "application/pdf")
+        msg.send(fail_silently=False)
+        _messages.success(request, f"Statement emailed to {s.driver.email}.")
+    except Exception as e:
+        _messages.error(request, f"Could not send: {e}")
+    return redirect("driver_pay_detail", pk=pk)
+
+
+# ================= Single-truck P&L detail (drill-down) =================
+def _truck_detail_data(request, pk):
+    from .models import MaintenanceRecord
+    cs = _companies(request)
+    v = _get(Vehicle, pk=pk, company__in=cs)
+    start = _parse_date(request.GET.get("start", ""))
+    end = _parse_date(request.GET.get("end", ""))
+    loads = Load.objects.filter(vehicle=v).select_related("broker", "driver").order_by("-pickup_date")
+    fuel = FuelTransaction.objects.filter(vehicle=v).order_by("-date")
+    maint = MaintenanceRecord.objects.filter(vehicle=v).order_by("-date")
+    exp = Expense.objects.filter(vehicle=v).order_by("-date")
+    if start:
+        loads = loads.filter(pickup_date__gte=start); fuel = fuel.filter(date__gte=start)
+        maint = maint.filter(date__gte=start); exp = exp.filter(date__gte=start)
+    if end:
+        loads = loads.filter(pickup_date__lte=end); fuel = fuel.filter(date__lte=end)
+        maint = maint.filter(date__lte=end); exp = exp.filter(date__lte=end)
+    revenue = loads.aggregate(s=Sum("rate"))["s"] or 0
+    fuel_total = fuel.aggregate(s=Sum("amount"))["s"] or 0
+    maint_total = sum((r.parts_cost or 0) + (r.labor_cost or 0) for r in maint)
+    exp_total = exp.aggregate(s=Sum("amount"))["s"] or 0
+    net = revenue - fuel_total - maint_total - exp_total
+    return {
+        "v": v, "company": v.company, "loads": loads, "fuel": fuel, "maint": maint, "exp": exp,
+        "revenue": revenue, "fuel_total": fuel_total, "maint_total": maint_total,
+        "exp_total": exp_total, "net": net,
+        "start": request.GET.get("start", ""), "end": request.GET.get("end", ""),
+        "loads_count": loads.count(), "fuel_gal": fuel.aggregate(s=Sum("gallons"))["s"] or 0,
+    }
+
+
+@require_section("reports")
+@login_required
+def truck_detail(request, pk):
+    return render(request, "operations/truck_detail.html", _truck_detail_data(request, pk))
+
+
+@require_section("reports")
+@login_required
+def truck_detail_pdf(request, pk):
+    from django.http import HttpResponse
+    data = _truck_detail_data(request, pk)
+    pdf = _render_pdf("operations/truck_detail_pdf.html", data)
+    resp = HttpResponse(pdf, content_type="application/pdf")
+    resp["Content-Disposition"] = f'attachment; filename="truck-{data["v"].unit_number}-pnl.pdf"'
+    return resp
+
+
+# ================= Single-driver detail (loads + pay + expenses) =================
+def _driver_report_data(request, pk):
+    cs = _companies(request)
+    d = _get(Driver, pk=pk, company__in=cs)
+    start = _parse_date(request.GET.get("start", ""))
+    end = _parse_date(request.GET.get("end", ""))
+    loads = Load.objects.filter(driver=d).select_related("broker", "vehicle").order_by("-pickup_date")
+    setts = Settlement.objects.filter(driver=d).order_by("-period_end")
+    exp = Expense.objects.filter(driver=d).order_by("-date")
+    if start:
+        loads = loads.filter(pickup_date__gte=start); setts = setts.filter(period_end__gte=start); exp = exp.filter(date__gte=start)
+    if end:
+        loads = loads.filter(pickup_date__lte=end); setts = setts.filter(period_start__lte=end); exp = exp.filter(date__lte=end)
+    revenue = loads.aggregate(s=Sum("rate"))["s"] or 0
+    total_paid = sum(s.net_pay for s in setts if s.paid)
+    total_unpaid = sum(s.net_pay for s in setts if not s.paid)
+    oop_total = exp.filter(out_of_pocket=True).aggregate(s=Sum("amount"))["s"] or 0
+    return {
+        "d": d, "company": d.company, "loads": loads, "setts": setts, "exp": exp,
+        "revenue": revenue, "loads_count": loads.count(),
+        "total_paid": total_paid, "total_unpaid": total_unpaid, "oop_total": oop_total,
+        "start": request.GET.get("start", ""), "end": request.GET.get("end", ""),
+    }
+
+
+@require_section("reports")
+@login_required
+def driver_report(request, pk):
+    return render(request, "operations/driver_report.html", _driver_report_data(request, pk))
+
+
+@require_section("reports")
+@login_required
+def driver_report_pdf(request, pk):
+    from django.http import HttpResponse
+    data = _driver_report_data(request, pk)
+    pdf = _render_pdf("operations/driver_report_pdf.html", data)
+    resp = HttpResponse(pdf, content_type="application/pdf")
+    resp["Content-Disposition"] = f'attachment; filename="driver-{data["d"]}-report.pdf"'
+    return resp

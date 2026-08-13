@@ -1,0 +1,48 @@
+{% extends "operations/app_base.html" %}
+{% load humanize %}
+{% block title %}Settlement — {{ s.driver }}{% endblock %}
+{% block page_title %}Settlement — {{ s.driver }}{% endblock %}
+{% block content %}
+<a href="/app/pay/" class="sub" style="color:var(--blue)">&larr; Driver pay</a>
+{% if messages %}{% for m in messages %}<div style="margin:8px 0;padding:10px 14px;border-radius:8px;font-size:13px;background:{% if m.tags == 'error' %}#fbe7e5;color:#b02b24{% else %}#e4f4ec;color:#137a51{% endif %}">{{ m }}</div>{% endfor %}{% endif %}
+
+<div class="toolbar"><div class="spacer"></div>
+ <a class="btn ghost" href="/app/pay/{{ s.id }}/pdf/" target="_blank">Download PDF</a>
+ <a class="btn navy" href="/app/pay/{{ s.id }}/email/">Email to {{ s.driver.first_name }}</a>
+</div>
+
+<div class="grid2" style="align-items:start">
+ <div class="card"><div class="card-h"><h3>{{ s.period_start }} – {{ s.period_end }}</h3>{% if s.paid %}<span class="chip c-green"><span class="d"></span>Paid</span>{% else %}<span class="chip c-amber"><span class="d"></span>Unpaid</span>{% endif %}</div>
+  <div style="padding:16px 18px">
+   <table><tbody>
+    <tr><td>Gross pay</td><td class="n">${{ s.gross_pay|floatformat:2|intcomma }}</td></tr>
+    <tr><td>Deductions</td><td class="n">− ${{ s.deductions|floatformat:2|intcomma }}</td></tr>
+    <tr><td>Reimbursements (out-of-pocket)</td><td class="n">+ ${{ s.reimbursements|floatformat:2|intcomma }}</td></tr>
+    <tr style="border-top:2px solid var(--line)"><td><b>Net pay</b></td><td class="n" style="font-weight:800;font-size:16px">${{ s.net_pay|floatformat:2|intcomma }}</td></tr>
+   </tbody></table>
+   {% if oop %}<div style="margin-top:14px"><b style="font-size:13px">Out-of-pocket expenses reimbursed</b>
+    <table style="margin-top:6px"><tbody>{% for e in oop %}<tr><td>{{ e.date }} · {{ e.category }}{% if e.vendor %} · {{ e.vendor }}{% endif %}</td><td class="n">${{ e.amount|floatformat:2 }}</td></tr>{% endfor %}</tbody></table></div>{% endif %}
+   {% if s.paid %}<div class="sub" style="margin-top:12px">Paid {{ s.paid_date }} via {{ s.payment_method|default:"—" }} · Ref: <b>{{ s.payment_reference|default:"—" }}</b></div>{% endif %}
+  </div>
+ </div>
+
+ <div style="display:grid;gap:14px;align-self:start">
+  {% if not s.paid %}<div class="card"><div class="card-h"><h3>Mark as paid</h3></div>
+   <form method="post" style="padding:16px 18px">{% csrf_token %}<input type="hidden" name="action" value="pay">
+    <label class="sub">Date paid</label><input type="date" name="paid_date" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;margin-bottom:8px">
+    <label class="sub">Method</label><input name="payment_method" placeholder="Check / Zelle / ACH / Cash" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;margin-bottom:8px">
+    <label class="sub">Reference number</label><input name="payment_reference" placeholder="Check # or confirmation" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px">
+    <button class="btn amber" type="submit" style="margin-top:12px">Mark paid</button>
+   </form></div>
+  {% else %}<div class="card"><div style="padding:16px 18px"><form method="post">{% csrf_token %}<input type="hidden" name="action" value="unpay"><button class="btn ghost" type="submit">Undo paid</button></form></div></div>{% endif %}
+
+  <div class="card"><div class="card-h"><h3>Edit amounts</h3></div>
+   <form method="post" style="padding:16px 18px">{% csrf_token %}<input type="hidden" name="action" value="edit">
+    <label class="sub">Gross pay ($)</label><input name="gross_pay" value="{{ s.gross_pay }}" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;margin-bottom:8px">
+    <label class="sub">Deductions ($)</label><input name="deductions" value="{{ s.deductions }}" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;margin-bottom:8px">
+    <label class="sub">Notes</label><textarea name="notes" rows="2" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px">{{ s.notes }}</textarea>
+    <button class="btn ghost" type="submit" style="margin-top:10px">Save</button>
+   </form></div>
+ </div>
+</div>
+{% endblock %}

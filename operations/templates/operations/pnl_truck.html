@@ -17,7 +17,7 @@
 {% for g in groups %}
 <div class="card" style="margin-bottom:14px"><div class="card-h"><h3>{{ g.company.name }}</h3></div>
 <table><thead><tr><th>Truck</th><th class="n">Loads</th><th class="n">Revenue</th><th class="n">Fuel</th><th class="n">Maintenance</th><th class="n">Net</th></tr></thead><tbody>
-{% for t in g.trucks %}<tr>
+{% for t in g.trucks %}<tr onclick="location.href='/reports/truck/{{ t.v.id }}/'" style="cursor:pointer">
  <td><b>Unit {{ t.v.unit_number }}</b></td>
  <td class="n">{{ t.loads }}</td>
  <td class="n">${{ t.rev|floatformat:2|intcomma }}</td>

@@ -1,0 +1,51 @@
+{% extends "operations/app_base.html" %}
+{% load humanize %}
+{% block title %}{{ d }} — driver report{% endblock %}
+{% block page_title %}{{ d }} — full report{% endblock %}
+{% block content %}
+<a href="/app/performance/" class="sub" style="color:var(--blue)">&larr; Performance</a>
+<div class="toolbar">
+ <form method="get" style="display:flex;gap:8px;align-items:end">
+  <div class="fld"><label class="sub">From</label><input type="date" name="start" value="{{ start }}" style="padding:7px 9px;border:1px solid var(--line);border-radius:7px"></div>
+  <div class="fld"><label class="sub">To</label><input type="date" name="end" value="{{ end }}" style="padding:7px 9px;border:1px solid var(--line);border-radius:7px"></div>
+  <button class="btn amber" type="submit">Apply</button>
+ </form>
+ <div class="spacer"></div>
+ <button class="btn ghost" onclick="window.print()">Print</button>
+ <a class="btn navy" href="/reports/driver/{{ d.id }}/pdf/?start={{ start }}&end={{ end }}">Download PDF</a>
+</div>
+
+<div class="kpis" style="grid-template-columns:repeat(5,1fr)">
+ <div class="kpi"><div class="l">Loads</div><div class="n">{{ loads_count }}</div></div>
+ <div class="kpi"><div class="l">Load revenue</div><div class="n">${{ revenue|floatformat:0|intcomma }}</div></div>
+ <div class="kpi"><div class="l">Paid to driver</div><div class="n" style="color:#137a51">${{ total_paid|floatformat:0|intcomma }}</div></div>
+ <div class="kpi"><div class="l">Unpaid</div><div class="n" style="color:#b9791a">${{ total_unpaid|floatformat:0|intcomma }}</div></div>
+ <div class="kpi"><div class="l">Out-of-pocket</div><div class="n">${{ oop_total|floatformat:0|intcomma }}</div></div>
+</div>
+
+<div class="card" style="margin-bottom:14px"><div class="card-h"><h3>Loads ({{ loads_count }})</h3></div>
+{% if loads %}<table><thead><tr><th>Pickup</th><th>Ref</th><th>Customer</th><th>Route</th><th>Truck</th><th class="n">Rate</th></tr></thead><tbody>
+{% for l in loads %}<tr onclick="location.href='/app/loads/{{ l.id }}/'" style="cursor:pointer">
+ <td>{{ l.pickup_date|default:"—" }}</td><td class="mono">{{ l.reference }}</td>
+ <td>{% if l.broker %}{{ l.broker.name }}{% else %}{{ l.customer|default:"—" }}{% endif %}</td>
+ <td class="sub">{{ l.origin }} → {{ l.destination }}</td><td>{% if l.vehicle %}Unit {{ l.vehicle.unit_number }}{% else %}—{% endif %}</td>
+ <td class="n" style="font-weight:600">${{ l.rate|floatformat:2|intcomma }}</td>
+</tr>{% endfor %}</tbody></table>
+{% else %}<div class="empty">No loads in range.</div>{% endif %}</div>
+
+<div class="card" style="margin-bottom:14px"><div class="card-h"><h3>Pay / settlements</h3></div>
+{% if setts %}<table><thead><tr><th>Week</th><th class="n">Net pay</th><th>Status</th><th>Reference</th></tr></thead><tbody>
+{% for s in setts %}<tr onclick="location.href='/app/pay/{{ s.id }}/'" style="cursor:pointer">
+ <td>{{ s.period_start }} – {{ s.period_end }}</td>
+ <td class="n" style="font-weight:600">${{ s.net_pay|floatformat:2|intcomma }}</td>
+ <td>{% if s.paid %}<span class="chip c-green"><span class="d"></span>Paid</span>{% else %}<span class="chip c-amber"><span class="d"></span>Unpaid</span>{% endif %}</td>
+ <td class="sub">{{ s.payment_reference|default:"—" }}</td>
+</tr>{% endfor %}</tbody></table>
+{% else %}<div class="empty">No settlements in range.</div>{% endif %}</div>
+
+<div class="card"><div class="card-h"><h3>Expenses</h3></div>
+{% if exp %}<table><thead><tr><th>Date</th><th>Category</th><th>Vendor</th><th>Out-of-pocket?</th><th class="n">Amount</th></tr></thead><tbody>
+{% for e in exp %}<tr><td>{{ e.date }}</td><td>{{ e.category }}</td><td class="sub">{{ e.vendor|default:"—" }}</td><td>{% if e.out_of_pocket %}<span class="chip c-amber"><span class="d"></span>Reimbursable</span>{% else %}—{% endif %}</td><td class="n">${{ e.amount|floatformat:2|intcomma }}</td></tr>{% endfor %}
+</tbody></table>
+{% else %}<div class="empty">No expenses in range.</div>{% endif %}</div>
+{% endblock %}
