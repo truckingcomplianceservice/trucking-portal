@@ -18,9 +18,9 @@
 </tbody></table>
 {% if oop %}<h2 style="font-size:13px">Reimbursed out-of-pocket expenses</h2>
 <table><tbody>{% for e in oop %}<tr><td>{{ e.date }} — {{ e.category }}{% if e.vendor %} ({{ e.vendor }}){% endif %}</td><td class="n">${{ e.amount|floatformat:2 }}</td></tr>{% endfor %}</tbody></table>{% endif %}
-{% if settle_loads %}<h2 style="font-size:13px">Loads covered</h2>
-<table><thead><tr><th>Pickup</th><th>Ref</th><th>Route</th><th class="n">Rate</th></tr></thead><tbody>
-{% for l in settle_loads %}<tr><td>{{ l.pickup_date|default:"—" }}</td><td>{{ l.reference }}</td><td>{{ l.origin }} &rarr; {{ l.destination }}</td><td class="n">${{ l.rate|floatformat:2 }}</td></tr>{% endfor %}
+{% if settle_loads %}<h2 style="font-size:13px">Loads covered (what this pay is for)</h2>
+<table><thead><tr><th>Pickup date</th><th>Load #</th><th>From</th><th>To</th><th class="n">Rate</th></tr></thead><tbody>
+{% for l in settle_loads %}<tr><td>{{ l.pickup_date|default:"—" }}</td><td>{{ l.reference }}</td><td>{{ l.origin|default:"—" }}</td><td>{{ l.destination|default:"—" }}</td><td class="n">${{ l.rate|floatformat:2 }}</td></tr>{% endfor %}
 </tbody></table>{% endif %}
 {% if s.paid %}<p><b>Paid:</b> {{ s.paid_date }} via {{ s.payment_method }} — Reference: {{ s.payment_reference }}</p>{% endif %}
 {% if s.notes %}<p><b>Notes:</b> {{ s.notes }}</p>{% endif %}

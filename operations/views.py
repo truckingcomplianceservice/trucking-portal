@@ -2105,7 +2105,8 @@ def driver_pay_pdf(request, pk):
     s = _get(Settlement, pk=pk, company__in=_companies(request))
     oop = Expense.objects.filter(driver=s.driver, out_of_pocket=True,
                                  date__gte=s.period_start, date__lte=s.period_end)
-    pdf = _render_pdf("operations/driver_pay_pdf.html", {"s": s, "oop": oop, "company": s.company})
+    pdf = _render_pdf("operations/driver_pay_pdf.html", {"s": s, "oop": oop, "company": s.company,
+                       "settle_loads": s.loads.order_by("pickup_date")})
     resp = HttpResponse(pdf, content_type="application/pdf")
     resp["Content-Disposition"] = f'attachment; filename="settlement-{s.driver}-{s.period_end}.pdf"'
     return resp
