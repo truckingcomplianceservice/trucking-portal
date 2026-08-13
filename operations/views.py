@@ -2031,8 +2031,10 @@ def driver_pay_new(request):
         notes=request.POST.get("notes", "").strip())
     # AUTO: attach this driver's loads that were delivered in the week (only ones
     # not already on another settlement). You can change these on the next screen.
-    auto_loads = Load.objects.filter(driver=d, settlement__isnull=True,
-                                     pickup_date__gte=ps, pickup_date__lte=pe)
+    from django.db.models import Q as _Q
+    auto_loads = Load.objects.filter(driver=d, settlement__isnull=True).filter(
+        _Q(pickup_date__gte=ps, pickup_date__lte=pe) |
+        _Q(delivery_date__gte=ps, delivery_date__lte=pe))
     auto_loads.update(settlement=s)
     # if no gross was typed, suggest it. Percentage drivers get their % of the
     # loads' rates; everyone else gets the full loads total (you can edit either way).
@@ -2071,6 +2073,12 @@ def driver_pay_detail(request, pk):
             l = Load.objects.filter(pk=request.POST.get("load_id"), company__in=cs, driver=s.driver).first()
             if l:
                 l.settlement = s; l.save(); _messages.success(request, f"Added load {l.reference}.")
+        elif action == "delete":
+            # free the attached loads, then remove the settlement
+            s.loads.update(settlement=None)
+            s.delete()
+            _messages.success(request, "Settlement deleted.")
+            return redirect("driver_pay")
         elif action == "remove_load":
             l = s.loads.filter(pk=request.POST.get("load_id")).first()
             if l:

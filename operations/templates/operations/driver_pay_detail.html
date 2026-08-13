@@ -18,6 +18,7 @@
 <div class="toolbar"><div class="spacer"></div>
  <a class="btn ghost" href="/app/pay/{{ s.id }}/pdf/" target="_blank">Download PDF</a>
  <a class="btn navy" href="/app/pay/{{ s.id }}/email/">Email to {{ s.driver.first_name }}</a>
+ <form method="post" style="display:inline" onsubmit="return confirm('Delete this settlement? Its loads will be freed up. This cannot be undone.');">{% csrf_token %}<input type="hidden" name="action" value="delete"><button class="btn ghost" type="submit" style="color:#c0392b">Delete</button></form>
 </div>
 
 <div class="grid2" style="align-items:start">
