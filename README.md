@@ -1,23 +1,24 @@
 # Trucking Compliance Services — Operations Portal (COMPLETE)
 
-Adds per-driver full report (loads + pay + expenses in one view).
+Settlements now show WHICH LOADS the pay covers (auto + you can override).
 
-## Deploy (one upload — this zip has everything)
-1. Unzip -> copy ALL contents into your trucking-portal folder -> Replace all.
-2. GitHub Desktop -> Commit -> Push -> wait for Railway "Successful".
-3. Hard-refresh (Ctrl/Cmd + Shift + R).
+## Deploy
+1. Download this zip, then in Terminal:
+   cd ~/Documents/GitHub/trucking-portal && rm -rf operations trucking_ops templates manage.py requirements.txt Procfile README.md && unzip -o ~/Downloads/<THIS-FILE>.zip -d . && echo DONE
+2. GitHub Desktop -> type Summary -> Commit to main -> Push origin.
+3. Hard-refresh (Cmd+Shift+R).
 
-## New: full driver report
-Performance -> click a driver -> "Full report (loads · pay · expenses)".
-Shows for that one driver:
-- Loads: every load (date, ref, customer, route, truck, rate) + revenue total
-- Pay: every weekly settlement, net pay, Paid/Unpaid, reference number
-- Expenses: every expense, flagged if reimbursable (out-of-pocket)
-- Summary KPIs: loads, load revenue, paid, unpaid, out-of-pocket
-Date-range filter, Print, Download PDF (company letterhead).
+## New on driver settlements
+When you create a weekly settlement, it AUTOMATICALLY attaches the driver's loads
+delivered/picked up in that week, and suggests the gross from their rates.
+On the settlement you can then:
+- See the "Loads covered" list (ref, route, rate) with a total
+- Remove any load, or Add another load (dropdown of his other loads)
+- Click "Use loads total as gross" to set pay from the loads, OR type your own gross
+The driver's PDF/emailed statement now lists exactly which loads the pay is for.
 
-Now you have click-through detail for BOTH trucks and drivers.
+Auto by default, fully editable by you or your team — you decide the final pay.
 
 ## Includes everything to date
-Per-driver + per-truck detail, driver pay/settlements, team communication,
-tasks + performance, branded portal login, role-based access, logos, email.
+Settlement loads breakdown, driver pay, per-truck & per-driver detail, team
+communication, tasks + performance, branded portals, role-based access, email.

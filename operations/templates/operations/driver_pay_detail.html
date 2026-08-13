@@ -12,17 +12,35 @@
 </div>
 
 <div class="grid2" style="align-items:start">
- <div class="card"><div class="card-h"><h3>{{ s.period_start }} – {{ s.period_end }}</h3>{% if s.paid %}<span class="chip c-green"><span class="d"></span>Paid</span>{% else %}<span class="chip c-amber"><span class="d"></span>Unpaid</span>{% endif %}</div>
-  <div style="padding:16px 18px">
-   <table><tbody>
-    <tr><td>Gross pay</td><td class="n">${{ s.gross_pay|floatformat:2|intcomma }}</td></tr>
-    <tr><td>Deductions</td><td class="n">− ${{ s.deductions|floatformat:2|intcomma }}</td></tr>
-    <tr><td>Reimbursements (out-of-pocket)</td><td class="n">+ ${{ s.reimbursements|floatformat:2|intcomma }}</td></tr>
-    <tr style="border-top:2px solid var(--line)"><td><b>Net pay</b></td><td class="n" style="font-weight:800;font-size:16px">${{ s.net_pay|floatformat:2|intcomma }}</td></tr>
-   </tbody></table>
-   {% if oop %}<div style="margin-top:14px"><b style="font-size:13px">Out-of-pocket expenses reimbursed</b>
-    <table style="margin-top:6px"><tbody>{% for e in oop %}<tr><td>{{ e.date }} · {{ e.category }}{% if e.vendor %} · {{ e.vendor }}{% endif %}</td><td class="n">${{ e.amount|floatformat:2 }}</td></tr>{% endfor %}</tbody></table></div>{% endif %}
-   {% if s.paid %}<div class="sub" style="margin-top:12px">Paid {{ s.paid_date }} via {{ s.payment_method|default:"—" }} · Ref: <b>{{ s.payment_reference|default:"—" }}</b></div>{% endif %}
+ <div>
+  <div class="card"><div class="card-h"><h3>{{ s.period_start }} – {{ s.period_end }}</h3>{% if s.paid %}<span class="chip c-green"><span class="d"></span>Paid</span>{% else %}<span class="chip c-amber"><span class="d"></span>Unpaid</span>{% endif %}</div>
+   <div style="padding:16px 18px">
+    <table><tbody>
+     <tr><td>Gross pay</td><td class="n">${{ s.gross_pay|floatformat:2|intcomma }}</td></tr>
+     <tr><td>Deductions</td><td class="n">− ${{ s.deductions|floatformat:2|intcomma }}</td></tr>
+     <tr><td>Reimbursements (out-of-pocket)</td><td class="n">+ ${{ s.reimbursements|floatformat:2|intcomma }}</td></tr>
+     <tr style="border-top:2px solid var(--line)"><td><b>Net pay</b></td><td class="n" style="font-weight:800;font-size:16px">${{ s.net_pay|floatformat:2|intcomma }}</td></tr>
+    </tbody></table>
+    {% if oop %}<div style="margin-top:14px"><b style="font-size:13px">Out-of-pocket expenses reimbursed</b>
+     <table style="margin-top:6px"><tbody>{% for e in oop %}<tr><td>{{ e.date }} · {{ e.category }}{% if e.vendor %} · {{ e.vendor }}{% endif %}</td><td class="n">${{ e.amount|floatformat:2 }}</td></tr>{% endfor %}</tbody></table></div>{% endif %}
+    {% if s.paid %}<div class="sub" style="margin-top:12px">Paid {{ s.paid_date }} via {{ s.payment_method|default:"—" }} · Ref: <b>{{ s.payment_reference|default:"—" }}</b></div>{% endif %}
+   </div>
+  </div>
+
+  <div class="card" style="margin-top:14px"><div class="card-h"><h3>Loads covered ({{ settle_loads.count }})</h3>
+   <form method="post" style="display:inline">{% csrf_token %}<input type="hidden" name="action" value="use_loads_total"><button class="btn ghost" style="padding:5px 10px;font-size:12px" type="submit">Use loads total (${{ loads_total|floatformat:2|intcomma }}) as gross</button></form></div>
+   <div style="padding:14px 16px">
+    {% if settle_loads %}<table><thead><tr><th>Pickup</th><th>Ref</th><th>Route</th><th class="n">Rate</th><th></th></tr></thead><tbody>
+    {% for l in settle_loads %}<tr>
+     <td>{{ l.pickup_date|default:"—" }}</td><td class="mono">{{ l.reference }}</td>
+     <td class="sub">{{ l.origin }} → {{ l.destination }}</td><td class="n">${{ l.rate|floatformat:2|intcomma }}</td>
+     <td class="n"><form method="post" style="display:inline">{% csrf_token %}<input type="hidden" name="action" value="remove_load"><input type="hidden" name="load_id" value="{{ l.id }}"><button class="btn ghost" style="padding:3px 8px;font-size:11px" type="submit">Remove</button></form></td>
+    </tr>{% endfor %}</tbody><tfoot><tr><td colspan="3" style="text-align:right"><b>Loads total</b></td><td class="n"><b>${{ loads_total|floatformat:2|intcomma }}</b></td><td></td></tr></tfoot></table>
+    {% else %}<div class="sub">No loads attached. Add the ones this pay covers below.</div>{% endif %}
+    {% if addable %}<form method="post" style="margin-top:12px;display:flex;gap:8px;align-items:center">{% csrf_token %}<input type="hidden" name="action" value="add_load">
+     <select name="load_id" style="flex:1;padding:8px 10px;border:1px solid var(--line);border-radius:8px"><option value="">+ Add a load…</option>{% for l in addable %}<option value="{{ l.id }}">{{ l.reference }} · {{ l.pickup_date|default:"" }} · {{ l.origin }}→{{ l.destination }} · ${{ l.rate }}</option>{% endfor %}</select>
+     <button class="btn ghost" type="submit">Add</button></form>{% endif %}
+   </div>
   </div>
  </div>
 

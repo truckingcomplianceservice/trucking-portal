@@ -2022,13 +2022,22 @@ def driver_pay_new(request):
     d = Driver.objects.filter(pk=request.POST.get("driver"), company__in=cs).first()
     if not d:
         _messages.error(request, "Pick a driver."); return redirect("driver_pay")
+    ps = _parse_date(request.POST.get("period_start")) or _dt.date.today()
+    pe = _parse_date(request.POST.get("period_end")) or _dt.date.today()
     s = Settlement.objects.create(
-        company=d.company, driver=d,
-        period_start=_parse_date(request.POST.get("period_start")) or _dt.date.today(),
-        period_end=_parse_date(request.POST.get("period_end")) or _dt.date.today(),
+        company=d.company, driver=d, period_start=ps, period_end=pe,
         gross_pay=_num(request.POST.get("gross_pay", "0")),
         deductions=_num(request.POST.get("deductions", "0")),
         notes=request.POST.get("notes", "").strip())
+    # AUTO: attach this driver's loads that were delivered in the week (only ones
+    # not already on another settlement). You can change these on the next screen.
+    auto_loads = Load.objects.filter(driver=d, settlement__isnull=True,
+                                     pickup_date__gte=ps, pickup_date__lte=pe)
+    auto_loads.update(settlement=s)
+    # if no gross was typed, suggest it from those loads' rates
+    if not s.gross_pay:
+        s.gross_pay = s.loads.aggregate(x=Sum("rate"))["x"] or 0
+        s.save()
     return redirect("driver_pay_detail", pk=s.id)
 
 
@@ -2044,6 +2053,17 @@ def driver_pay_detail(request, pk):
             s.deductions = _num(request.POST.get("deductions", "0"))
             s.notes = request.POST.get("notes", "").strip()
             s.save(); _messages.success(request, "Updated.")
+        elif action == "use_loads_total":
+            s.gross_pay = s.loads.aggregate(x=Sum("rate"))["x"] or 0
+            s.save(); _messages.success(request, "Gross pay set from the attached loads.")
+        elif action == "add_load":
+            l = Load.objects.filter(pk=request.POST.get("load_id"), company__in=cs, driver=s.driver).first()
+            if l:
+                l.settlement = s; l.save(); _messages.success(request, f"Added load {l.reference}.")
+        elif action == "remove_load":
+            l = s.loads.filter(pk=request.POST.get("load_id")).first()
+            if l:
+                l.settlement = None; l.save(); _messages.success(request, f"Removed load {l.reference}.")
         elif action == "pay":
             s.paid = True
             s.paid_date = _parse_date(request.POST.get("paid_date")) or _dt.date.today()
@@ -2058,8 +2078,13 @@ def driver_pay_detail(request, pk):
         return redirect("driver_pay_detail", pk=pk)
     oop = Expense.objects.filter(driver=s.driver, out_of_pocket=True,
                                  date__gte=s.period_start, date__lte=s.period_end)
+    settle_loads = s.loads.select_related("broker", "vehicle").order_by("pickup_date")
+    loads_total = settle_loads.aggregate(x=Sum("rate"))["x"] or 0
+    # loads for this driver not yet on any settlement (available to add)
+    addable = Load.objects.filter(driver=s.driver, settlement__isnull=True).order_by("-pickup_date")[:50]
     return render(request, "operations/driver_pay_detail.html",
-                  {"s": s, "oop": oop, "company": s.company})
+                  {"s": s, "oop": oop, "company": s.company,
+                   "settle_loads": settle_loads, "loads_total": loads_total, "addable": addable})
 
 
 @require_section("reports")
@@ -2087,7 +2112,8 @@ def driver_pay_email(request, pk):
         return redirect("driver_pay_detail", pk=pk)
     oop = Expense.objects.filter(driver=s.driver, out_of_pocket=True,
                                  date__gte=s.period_start, date__lte=s.period_end)
-    pdf = _render_pdf("operations/driver_pay_pdf.html", {"s": s, "oop": oop, "company": s.company})
+    pdf = _render_pdf("operations/driver_pay_pdf.html", {"s": s, "oop": oop, "company": s.company,
+                       "settle_loads": s.loads.order_by("pickup_date")})
     try:
         from django.core.mail import EmailMessage
         msg = EmailMessage(

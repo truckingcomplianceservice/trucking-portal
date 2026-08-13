@@ -210,6 +210,7 @@ class Load(models.Model):
     payment_status = models.CharField(max_length=18, choices=PAYMENT_CHOICES, default="unpaid")
     driver = models.ForeignKey(Driver, on_delete=models.SET_NULL, null=True, blank=True)
     vehicle = models.ForeignKey(Vehicle, on_delete=models.SET_NULL, null=True, blank=True)
+    settlement = models.ForeignKey("Settlement", on_delete=models.SET_NULL, null=True, blank=True, related_name="loads")
     invoice_number = models.CharField(max_length=40, blank=True)
     bill_of_lading = models.FileField("Bill of Lading (BOL)", upload_to="loads/bol/", blank=True)
     proof_of_delivery = models.FileField("Proof of Delivery (POD)", upload_to="loads/pod/", blank=True)
