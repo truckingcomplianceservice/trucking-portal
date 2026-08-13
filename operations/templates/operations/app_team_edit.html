@@ -13,7 +13,7 @@
     <div><label class="sub">Email</label><input name="email" type="email" value="{{ m.email }}" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px"></div>
     <div><label class="sub">Phone</label><input name="phone" value="{{ prof.phone }}" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px"></div>
    </div>
-   <div style="margin-top:10px"><label class="sub">Role</label><select name="role" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px">{% for code,label in roles %}<option value="{{ code }}"{% if prof.role == code %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+   <div style="margin-top:10px"><label class="sub">Role</label><select name="role" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px">{% for code,label in roles %}{% if code != "admin" or can_assign_admin %}<option value="{{ code }}"{% if prof.role == code %} selected{% endif %}>{{ label }}</option>{% endif %}{% endfor %}</select></div>
    <div style="margin-top:10px"><label class="sub">Companies (Ctrl/Cmd-click for more than one)</label>
     <select name="companies" multiple size="4" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px">
      {% for c in all_companies %}<option value="{{ c.id }}"{% if c.id in member_company_ids %} selected{% endif %}>{{ c.name }}</option>{% endfor %}</select></div>

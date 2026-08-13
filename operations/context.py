@@ -6,6 +6,8 @@ def nav(request):
     companies = Company.objects.all()
     if not request.user.is_superuser:
         companies = companies.filter(pk__in=request.user.profile.companies.all())
+    from .access import sections_for
     return {"nav_companies": companies,
             "active_company_id": request.session.get("active_company", "all"),
-            "multi_company": companies.count() > 1}
+            "multi_company": companies.count() > 1,
+            "nav_allowed": sections_for(request.user)}

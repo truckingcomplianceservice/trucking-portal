@@ -10,6 +10,23 @@ from .models import (Company, Load, Expense, Settlement, Driver, Vehicle, Applic
                      ComplianceDocument, Broker, FuelTransaction, notify)
 
 
+def require_section(section):
+    """Block direct access to a section a user's role isn't allowed to reach."""
+    from functools import wraps
+
+    def deco(viewfunc):
+        @wraps(viewfunc)
+        def wrapper(request, *args, **kwargs):
+            from django.contrib import messages
+            from .access import can
+            if not can(request.user, section):
+                messages.error(request, "You don't have access to that area.")
+                return redirect("dashboard")
+            return viewfunc(request, *args, **kwargs)
+        return wrapper
+    return deco
+
+
 # ---------------- P&L ----------------
 @login_required
 def pnl_report(request):
@@ -137,6 +154,7 @@ def reports_index(request):
     return render(request, "operations/reports_index.html")
 
 
+@require_section("tax")
 @login_required
 def tax_report(request):
     companies = _scoped_companies(request)
@@ -272,6 +290,7 @@ def _exp_chip(expiry):
     return {"cls": "c-green", "label": "Valid"}
 
 
+@require_section("dispatch")
 @login_required
 def app_loads(request):
     cs = _companies(request)
@@ -312,6 +331,7 @@ def app_loads(request):
     })
 
 
+@require_section("dispatch")
 @login_required
 def app_load_detail(request, pk):
     l = _get(Load, pk=pk, company__in=_companies_all(request))
@@ -320,6 +340,7 @@ def app_load_detail(request, pk):
                    "pc": PAY_CLASS.get(l.payment_status, "c-gray")})
 
 
+@require_section("drivers")
 @login_required
 def app_drivers(request):
     cs = _companies(request)
@@ -330,6 +351,7 @@ def app_drivers(request):
     return render(request, "operations/app_drivers.html", {"rows": rows})
 
 
+@require_section("drivers")
 @login_required
 def app_driver_detail(request, pk):
     d = _get(Driver, pk=pk, company__in=_companies_all(request))
@@ -359,6 +381,7 @@ def _service_chip(v):
     return {"cls": "c-gray", "label": "Not tracked"}
 
 
+@require_section("vehicles")
 @login_required
 def app_vehicles(request):
     cs = _companies(request)
@@ -368,6 +391,7 @@ def app_vehicles(request):
     return render(request, "operations/app_vehicles.html", {"rows": rows})
 
 
+@require_section("vehicles")
 @login_required
 def app_vehicle_detail(request, pk):
     v = _get(Vehicle, pk=pk, company__in=_companies_all(request))
@@ -416,6 +440,7 @@ def maintenance_add(request, pk):
     return redirect("app_vehicle_detail", pk=v.id)
 
 
+@require_section("hiring")
 @login_required
 def app_hiring(request):
     cs = _companies(request)
@@ -428,6 +453,7 @@ def app_hiring(request):
     return render(request, "operations/app_hiring.html", {"cols": cols})
 
 
+@require_section("compliance")
 @login_required
 def app_compliance(request):
     items = _expiring_items(_companies(request))
@@ -438,6 +464,7 @@ def app_compliance(request):
                   {"overdue": overdue, "soon": soon, "ok": ok, "count": len(overdue) + len(soon)})
 
 
+@require_section("accounting")
 @login_required
 def app_accounting(request):
     cs = _companies(request)
@@ -544,6 +571,7 @@ import io as _io
 from django.db.models import Count as _Count
 
 
+@require_section("brokers")
 @login_required
 def app_brokers(request):
     cs = _companies(request)
@@ -569,6 +597,7 @@ def app_brokers(request):
                   {"per_company": per_company, "brokers": brokers})
 
 
+@require_section("fuel")
 @login_required
 def app_fuel(request):
     cs = _companies(request)
@@ -623,6 +652,7 @@ def _parse_date(val):
     return None
 
 
+@require_section("fuel")
 @login_required
 def fuel_import(request):
     companies = _companies_all(request)
@@ -755,30 +785,35 @@ ROLE_PERMS = {
     "dispatcher": ["load", "driver", "vehicle", "broker"],
     "compliance": ["compliancedocument", "applicant", "driver", "vehicle"],
     "safety": ["compliancedocument", "driver", "vehicle"],
-    "accountant": ["expense", "settlement", "fueltransaction"],
-    "billing": ["expense", "settlement", "load"],
+    "accountant": ["expense", "settlement", "fueltransaction", "invoice", "payment"],
+    "billing": ["invoice", "payment", "expense", "load"],
     "driver": [],
 }
 
+# Only the owner (superuser) can touch these or delete anything.
+OWNER_ONLY_MODELS = {"notificationrule"}
+
 
 def _apply_role(user, role):
-    """Give a team member a Django group with permissions matching their role."""
+    """Give a team member a Django group with permissions matching their role.
+    No one but the owner (superuser) gets delete rights or owner-only models."""
     user.is_staff = True
     user.save()
     group, _ = Group.objects.get_or_create(name=f"role_{role}")
-    perms = Permission.objects.filter(content_type__app_label="operations")
-    models_allowed = ROLE_PERMS.get(role, [])
-    if models_allowed != "ALL":
-        keep = []
-        for p in perms:
-            model = p.content_type.model
-            action = p.codename.split("_")[0]
-            if model in models_allowed and action in ("add", "change", "view"):
-                keep.append(p.id)
-            elif action == "view":
-                keep.append(p.id)  # everyone can view
-        perms = Permission.objects.filter(id__in=keep)
-    group.permissions.set(list(perms))
+    allowed = ROLE_PERMS.get(role, [])
+    keep = []
+    for p in Permission.objects.filter(content_type__app_label="operations"):
+        model = p.content_type.model
+        action = p.codename.split("_")[0]
+        if model in OWNER_ONLY_MODELS:
+            continue
+        if action == "delete":            # delete = owner only
+            continue
+        if action not in ("add", "change", "view"):
+            continue
+        if allowed == "ALL" or model in allowed:
+            keep.append(p.id)
+    group.permissions.set(Permission.objects.filter(id__in=keep))
     user.groups.clear()
     user.groups.add(group)
 
@@ -792,6 +827,7 @@ def _is_manager(user):
         return False
 
 
+@require_section("team")
 @login_required
 def app_team(request):
     users = _User.objects.select_related("profile").order_by("-is_active", "first_name", "username")
@@ -838,6 +874,7 @@ def clock_toggle(request):
     return redirect("app_team")
 
 
+@require_section("team")
 @login_required
 def team_add(request):
     if not _is_manager(request.user):
@@ -868,6 +905,7 @@ def team_add(request):
     return redirect("app_team")
 
 
+@require_section("team")
 @login_required
 def team_toggle_active(request, pk):
     if not _is_manager(request.user):
@@ -1016,6 +1054,7 @@ from .models import Invoice, Payment
 INV_STATUS_CLASS = {"paid": "c-green", "partial": "c-blue", "unpaid": "c-gray"}
 
 
+@require_section("billing")
 @login_required
 def app_billing(request):
     cs = _companies(request)
@@ -1052,6 +1091,7 @@ def app_billing(request):
     })
 
 
+@require_section("billing")
 @login_required
 def invoice_detail(request, pk):
     inv = _get(Invoice, pk=pk, company__in=_companies_all(request))
@@ -1117,6 +1157,7 @@ def payment_add(request, pk):
     return redirect("invoice_detail", pk=inv.id)
 
 
+@require_section("billing")
 @login_required
 def invoice_print(request, pk):
     inv = _get(Invoice, pk=pk, company__in=_companies_all(request))
@@ -1418,6 +1459,7 @@ def _ratecon_heuristic(text):
     return d
 
 
+@require_section("dispatch")
 @login_required
 def load_from_ratecon(request):
     companies = _companies_all(request)
@@ -1460,6 +1502,7 @@ def load_from_ratecon(request):
 
 
 # ================= Portfolio: all-companies command center =================
+@require_section("portfolio")
 @login_required
 def portfolio(request):
     companies = _companies_all(request)
@@ -1499,12 +1542,16 @@ from django.utils.encoding import force_bytes as _fbytes
 from django.urls import reverse as _reverse
 
 
+@require_section("team")
 @login_required
 def team_edit(request, pk):
     if not _is_manager(request.user):
         _messages.error(request, "Only managers can edit team members.")
         return redirect("app_team")
     m = _get(_User, pk=pk)
+    if m.is_superuser and not request.user.is_superuser:
+        _messages.error(request, "Only the owner can edit the owner account.")
+        return redirect("app_team")
     prof, _ = Profile.objects.get_or_create(user=m)
     if request.method == "POST":
         action = request.POST.get("action")
@@ -1515,6 +1562,8 @@ def team_edit(request, pk):
             m.save()
             prof.phone = request.POST.get("phone", "").strip()
             role = request.POST.get("role", prof.role)
+            if role == "admin" and not request.user.is_superuser:
+                role = prof.role  # only the owner can grant Admin
             prof.role = role
             prof.save()
             prof.companies.set(request.POST.getlist("companies"))
@@ -1536,9 +1585,11 @@ def team_edit(request, pk):
         "m": m, "prof": prof, "roles": Profile.ROLE_CHOICES,
         "all_companies": _companies_all(request),
         "member_company_ids": list(prof.companies.values_list("id", flat=True)),
+        "can_assign_admin": request.user.is_superuser,
     })
 
 
+@require_section("team")
 @login_required
 def team_send_reset(request, pk):
     if not _is_manager(request.user):

@@ -1,22 +1,30 @@
 # Trucking Compliance Services — Operations Portal (COMPLETE)
 
-Complete current app. Fixes the "saving a load hangs" problem and everything prior.
+Adds role-based access: each user only sees and reaches their own areas.
 
 ## Deploy (one upload — this zip has everything)
-1. Unzip COMPLETE-trucking-portal-LATEST.zip
-2. Copy ALL contents into your trucking-portal folder -> Replace all
-3. GitHub Desktop -> Commit -> Push -> wait for Railway "Successful"
+1. Unzip -> copy ALL contents into your trucking-portal folder -> Replace all.
+2. GitHub Desktop -> Commit -> Push -> wait for Railway "Successful".
 
-## The save-hang fix
-When a load's payment status changed, the app sent a notification email. With the
-email variables set to port 465 on the old code (no timeout), that connection hung
-and the Save spun forever. Now:
-- Notification emails send in the BACKGROUND — saving a load/expense is never
-  delayed by email, even if the mail server is slow or misconfigured.
-- Email uses the right security automatically (465=SSL, 587=TLS) with a 20s timeout.
+## How role access works now
+Set each person's Role on Team -> Edit. The menu hides what they can't use, and
+pages block direct access too (no sneaking in by URL).
+
+- Owner (you): everything. ONLY you can see All Companies (portfolio money),
+  delete records, grant the Admin role, and change notification rules.
+- Manager: all operations + manage team. Cannot see the all-companies money
+  view, cannot delete, cannot make someone an Admin.
+- Dispatcher: Dashboard, Dispatch/Loads, Brokers, Drivers, Vehicles.
+- Billing: Dashboard, Billing, Accounting, Tax/1099s, Reports.
+- Accountant: same as Billing plus Fuel.
+- Compliance: Dashboard, Drivers, Vehicles, Hiring, Compliance.
+- Safety: Dashboard, Drivers, Vehicles, Compliance.
+- Driver: Dashboard only (they use the public upload link).
+
+Company separation still applies on top of this: people only see the companies
+you assigned them.
 
 ## Includes everything to date
-Email 465/SSL support, load filters + status tabs, team edit/reset/invite,
-fuel fixes (self-contained import, correct amount detection, right-company default,
-duplicate protection, edit/delete), expense-upload fix, portfolio, factoring aging,
-maintenance, DQF, billing + aging, letterheads.
+Role-based access, background email (never hangs a save), email 465/SSL support,
+load filters, team edit/reset/invite, all fuel fixes + dedup + edit/delete,
+expense fix, portfolio, factoring aging, maintenance, DQF, billing + aging.
