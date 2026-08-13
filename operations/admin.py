@@ -251,3 +251,17 @@ class MaintenanceRecordAdmin(CompanyScopedAdmin):
     list_filter = ("company", "vehicle")
     search_fields = ("part", "vendor")
     date_hierarchy = "date"
+
+
+from .models import Task, PerformanceNote
+
+@admin.register(Task)
+class TaskAdmin(CompanyScopedAdmin):
+    list_display = ("title", "company", "assignee", "driver", "vehicle", "priority", "status", "due_date")
+    list_filter = ("status", "priority", "company")
+    search_fields = ("title", "details")
+
+@admin.register(PerformanceNote)
+class PerformanceNoteAdmin(CompanyScopedAdmin):
+    list_display = ("date", "company", "driver", "vehicle", "member", "rating")
+    list_filter = ("company", "rating")

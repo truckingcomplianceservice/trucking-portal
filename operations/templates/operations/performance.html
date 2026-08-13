@@ -1,0 +1,52 @@
+{% extends "operations/app_base.html" %}
+{% load humanize %}
+{% block title %}Performance — Fleetline{% endblock %}
+{% block page_title %}Performance{% endblock %}
+{% block content %}
+{% if messages %}{% for m in messages %}<div style="margin:8px 0;padding:10px 14px;border-radius:8px;font-size:13px;background:{% if m.tags == 'error' %}#fbe7e5;color:#b02b24{% else %}#e4f4ec;color:#137a51{% endif %}">{{ m }}</div>{% endfor %}{% endif %}
+<div class="toolbar">
+ <form method="get" style="display:flex;gap:8px;align-items:end">
+  <div class="fld"><label class="sub">From</label><input type="date" name="start" value="{{ start }}" style="padding:7px 9px;border:1px solid var(--line);border-radius:7px"></div>
+  <div class="fld"><label class="sub">To</label><input type="date" name="end" value="{{ end }}" style="padding:7px 9px;border:1px solid var(--line);border-radius:7px"></div>
+  <button class="btn amber" type="submit">Apply</button>
+ </form>
+</div>
+
+<div class="card" style="margin-bottom:14px"><div class="card-h"><h3>Drivers</h3></div>
+<table><thead><tr><th>Driver</th><th class="n">Loads</th><th class="n">Revenue</th><th class="n">Avg rating</th><th class="n">Notes</th><th></th></tr></thead><tbody>
+{% for r in drivers %}<tr>
+ <td><b>{{ r.d }}</b></td><td class="n">{{ r.loads }}</td><td class="n">${{ r.revenue|floatformat:0|intcomma }}</td>
+ <td class="n">{% if r.avg %}{{ r.avg }}/5{% else %}—{% endif %}</td><td class="n">{{ r.notes }}</td>
+ <td class="n"><a href="#" class="sub" style="color:var(--blue)" onclick="noteBox('driver',{{ r.d.id }},'{{ r.d }}');return false">+ note</a></td>
+</tr>{% empty %}<tr><td colspan="6" class="sub">No drivers.</td></tr>{% endfor %}</tbody></table></div>
+
+<div class="card" style="margin-bottom:14px"><div class="card-h"><h3>Trucks</h3></div>
+<table><thead><tr><th>Truck</th><th class="n">Loads</th><th class="n">Revenue</th><th class="n">Fuel</th><th class="n">Avg rating</th><th class="n">Notes</th><th></th></tr></thead><tbody>
+{% for r in trucks %}<tr>
+ <td><b>Unit {{ r.v.unit_number }}</b></td><td class="n">{{ r.loads }}</td><td class="n">${{ r.revenue|floatformat:0|intcomma }}</td>
+ <td class="n">${{ r.fuel|floatformat:0|intcomma }}</td><td class="n">{% if r.avg %}{{ r.avg }}/5{% else %}—{% endif %}</td><td class="n">{{ r.notes }}</td>
+ <td class="n"><a href="#" class="sub" style="color:var(--blue)" onclick="noteBox('vehicle',{{ r.v.id }},'Unit {{ r.v.unit_number }}');return false">+ note</a></td>
+</tr>{% empty %}<tr><td colspan="7" class="sub">No trucks.</td></tr>{% endfor %}</tbody></table></div>
+
+{% if members %}<div class="card" style="margin-bottom:14px"><div class="card-h"><h3>Team members</h3></div>
+<table><thead><tr><th>Member</th><th class="n">Tasks assigned</th><th class="n">Done</th><th class="n">Open</th><th></th></tr></thead><tbody>
+{% for r in members %}<tr>
+ <td><b>{{ r.u.get_full_name|default:r.u.username }}</b></td><td class="n">{{ r.assigned }}</td><td class="n">{{ r.done }}</td><td class="n">{{ r.open }}</td>
+ <td class="n"><a href="#" class="sub" style="color:var(--blue)" onclick="noteBox('member',{{ r.u.id }},'{{ r.u.get_full_name|default:r.u.username }}');return false">+ note</a></td>
+</tr>{% endfor %}</tbody></table></div>{% endif %}
+
+<div id="notemodal" style="display:none;position:fixed;inset:0;background:rgba(20,28,43,.4);z-index:50;align-items:center;justify-content:center">
+ <div class="card" style="width:420px;max-width:92vw"><div class="card-h"><h3 id="noteTitle">Add note</h3></div>
+  <form method="post" action="/app/performance/note/" style="padding:16px 18px">{% csrf_token %}
+   <input type="hidden" name="subject_type" id="stype"><input type="hidden" name="subject_id" id="sid">
+   <label class="sub">Rating (optional)</label>
+   <select name="rating" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;margin-bottom:8px"><option value="">— no rating —</option><option value="5">5 — Great</option><option value="4">4 — Good</option><option value="3">3 — OK</option><option value="2">2 — Below</option><option value="1">1 — Poor</option></select>
+   <label class="sub">Note</label><textarea name="note" rows="3" required style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px"></textarea>
+   <div style="margin-top:12px;display:flex;gap:8px"><button class="btn amber" type="submit">Save note</button><button class="btn ghost" type="button" onclick="document.getElementById('notemodal').style.display='none'">Cancel</button></div>
+  </form>
+ </div>
+</div>
+<script>
+function noteBox(type,id,name){document.getElementById('stype').value=type;document.getElementById('sid').value=id;document.getElementById('noteTitle').textContent='Note for '+name;document.getElementById('notemodal').style.display='flex';}
+</script>
+{% endblock %}

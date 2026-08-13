@@ -1704,3 +1704,172 @@ def portal_login(request, slug=None):
         error = "Wrong username or password."
     return render(request, "registration/portal_login.html",
                   {"company": company, "error": error, "slug": slug or ""})
+
+
+# ================= Tasks =================
+from .models import Task, PerformanceNote
+
+
+@require_section("dashboard")
+@login_required
+def tasks_page(request):
+    cs = _companies(request)
+    tasks = Task.objects.filter(company__in=cs).select_related(
+        "assignee", "driver", "vehicle", "load", "company")
+    # non-managers see only tasks assigned to them
+    if not _is_manager(request.user):
+        tasks = tasks.filter(assignee=request.user)
+    status = request.GET.get("status", "active")
+    if status == "active":
+        tasks = tasks.exclude(status__in=["done", "cancelled"])
+    elif status and status != "all":
+        tasks = tasks.filter(status=status)
+    rows = list(tasks)
+    # data for the "new task" form
+    members = _User.objects.filter(is_active=True, is_staff=True).order_by("first_name", "username") \
+        if _is_manager(request.user) else _User.objects.filter(pk=request.user.pk)
+    drivers = Driver.objects.filter(company__in=cs).order_by("first_name")
+    vehicles = Vehicle.objects.filter(company__in=cs).order_by("unit_number")
+    return render(request, "operations/tasks.html", {
+        "tasks": rows, "status": status, "can_assign": _is_manager(request.user),
+        "members": members, "drivers": drivers, "vehicles": vehicles,
+        "companies": cs, "priorities": Task.PRIORITY, "statuses": Task.STATUS,
+        "open_count": Task.objects.filter(company__in=cs).exclude(status__in=["done", "cancelled"])
+            .filter(**({} if _is_manager(request.user) else {"assignee": request.user})).count(),
+    })
+
+
+@login_required
+def task_create(request):
+    if request.method != "POST":
+        return redirect("tasks_page")
+    if not _is_manager(request.user):
+        # non-managers can only self-assign
+        pass
+    cs = _companies(request)
+    company = cs.filter(pk=request.POST.get("company")).first() or cs.first()
+    if not company:
+        _messages.error(request, "Pick a company first."); return redirect("tasks_page")
+    t = Task(company=company, title=request.POST.get("title", "").strip(),
+             details=request.POST.get("details", "").strip(),
+             priority=request.POST.get("priority", "normal"),
+             created_by=request.user)
+    if not t.title:
+        _messages.error(request, "Task needs a title."); return redirect("tasks_page")
+    aid = request.POST.get("assignee")
+    if aid:
+        t.assignee = _User.objects.filter(pk=aid).first()
+    if not _is_manager(request.user):
+        t.assignee = request.user
+    did = request.POST.get("driver")
+    if did:
+        t.driver = Driver.objects.filter(pk=did, company__in=cs).first()
+    vid = request.POST.get("vehicle")
+    if vid:
+        t.vehicle = Vehicle.objects.filter(pk=vid, company__in=cs).first()
+    due = _parse_date(request.POST.get("due_date", ""))
+    if due:
+        t.due_date = due
+    t.save()
+    ActivityLog.objects.create(company=company, user=request.user, category="task",
+                               text=f"Task assigned: {t.title}")
+    _messages.success(request, "Task created.")
+    return redirect("tasks_page")
+
+
+@login_required
+def task_status(request, pk):
+    if request.method != "POST":
+        return redirect("tasks_page")
+    t = _get(Task, pk=pk, company__in=_companies(request))
+    # only a manager or the assignee can change it
+    if not (_is_manager(request.user) or t.assignee_id == request.user.id):
+        _messages.error(request, "You can't change that task."); return redirect("tasks_page")
+    new = request.POST.get("status")
+    if new in dict(Task.STATUS):
+        t.status = new
+        if new == "done" and not t.completed_at:
+            from django.utils import timezone
+            t.completed_at = timezone.now()
+        t.save()
+    return redirect("tasks_page")
+
+
+# ================= Performance (people + trucks) =================
+@require_section("reports")
+@login_required
+def performance_page(request):
+    cs = _companies(request)
+    start = _parse_date(request.GET.get("start", ""))
+    end = _parse_date(request.GET.get("end", ""))
+
+    def date_filter(qs, field):
+        if start: qs = qs.filter(**{f"{field}__gte": start})
+        if end: qs = qs.filter(**{f"{field}__lte": end})
+        return qs
+
+    # Drivers: loads, revenue, tasks done, avg rating
+    drivers = []
+    for d in Driver.objects.filter(company__in=cs).order_by("first_name"):
+        lq = date_filter(Load.objects.filter(driver=d), "pickup_date")
+        ratings = [n.rating for n in d.perf_notes.all() if n.rating]
+        drivers.append({
+            "d": d, "loads": lq.count(),
+            "revenue": lq.aggregate(s=Sum("rate"))["s"] or 0,
+            "notes": d.perf_notes.count(),
+            "avg": round(sum(ratings) / len(ratings), 1) if ratings else None,
+        })
+    # Trucks: loads, revenue, fuel
+    trucks = []
+    for v in Vehicle.objects.filter(company__in=cs).order_by("unit_number"):
+        lq = date_filter(Load.objects.filter(vehicle=v), "pickup_date")
+        fq = date_filter(FuelTransaction.objects.filter(vehicle=v), "date")
+        ratings = [n.rating for n in v.perf_notes.all() if n.rating]
+        trucks.append({
+            "v": v, "loads": lq.count(),
+            "revenue": lq.aggregate(s=Sum("rate"))["s"] or 0,
+            "fuel": fq.aggregate(s=Sum("amount"))["s"] or 0,
+            "notes": v.perf_notes.count(),
+            "avg": round(sum(ratings) / len(ratings), 1) if ratings else None,
+        })
+    # Team members: tasks assigned/done
+    members = []
+    if _is_manager(request.user):
+        for u in _User.objects.filter(is_staff=True, is_active=True).order_by("first_name", "username"):
+            tq = Task.objects.filter(assignee=u, company__in=cs)
+            done = tq.filter(status="done").count()
+            members.append({"u": u, "assigned": tq.count(), "done": done,
+                            "open": tq.exclude(status__in=["done", "cancelled"]).count()})
+    return render(request, "operations/performance.html", {
+        "drivers": drivers, "trucks": trucks, "members": members,
+        "start": request.GET.get("start", ""), "end": request.GET.get("end", ""),
+    })
+
+
+@login_required
+def perf_note_add(request):
+    if request.method != "POST":
+        return redirect("performance_page")
+    cs = _companies(request)
+    subject_type = request.POST.get("subject_type")  # driver | vehicle | member
+    subject_id = request.POST.get("subject_id")
+    note = request.POST.get("note", "").strip()
+    rating = request.POST.get("rating") or None
+    if not note:
+        _messages.error(request, "Write a note first."); return redirect("performance_page")
+    pn = PerformanceNote(note=note, author=request.user,
+                         rating=int(rating) if rating else None)
+    if subject_type == "driver":
+        d = Driver.objects.filter(pk=subject_id, company__in=cs).first()
+        if d: pn.driver = d; pn.company = d.company
+    elif subject_type == "vehicle":
+        v = Vehicle.objects.filter(pk=subject_id, company__in=cs).first()
+        if v: pn.vehicle = v; pn.company = v.company
+    elif subject_type == "member":
+        m = _User.objects.filter(pk=subject_id).first()
+        if m: pn.member = m; pn.company = cs.first()
+    if not pn.company_id:
+        _messages.error(request, "Could not attach that note."); return redirect("performance_page")
+    pn.save()
+    _messages.success(request, "Performance note added.")
+    return redirect(request.POST.get("next", "/app/performance/"))

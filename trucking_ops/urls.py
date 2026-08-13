@@ -9,6 +9,11 @@ from operations import views
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("dashboard/", views.dashboard, name="dashboard"),
+    path("app/tasks/", views.tasks_page, name="tasks_page"),
+    path("app/tasks/new/", views.task_create, name="task_create"),
+    path("app/tasks/<int:pk>/status/", views.task_status, name="task_status"),
+    path("app/performance/", views.performance_page, name="performance_page"),
+    path("app/performance/note/", views.perf_note_add, name="perf_note_add"),
     path("c/<slug:slug>/", views.portal_login, name="portal_login"),
     path("login/", views.portal_login, name="portal_login_generic"),
     path("portfolio/", views.portfolio, name="portfolio"),

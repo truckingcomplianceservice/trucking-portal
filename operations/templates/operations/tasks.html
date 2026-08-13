@@ -1,0 +1,52 @@
+{% extends "operations/app_base.html" %}
+{% block title %}Tasks — Fleetline{% endblock %}
+{% block page_title %}Tasks{% endblock %}
+{% block content %}
+{% if messages %}{% for m in messages %}<div style="margin:8px 0;padding:10px 14px;border-radius:8px;font-size:13px;background:{% if m.tags == 'error' %}#fbe7e5;color:#b02b24{% else %}#e4f4ec;color:#137a51{% endif %}">{{ m }}</div>{% endfor %}{% endif %}
+
+<div class="grid2" style="align-items:start">
+ <div>
+  <div class="stabs" style="display:flex;gap:6px;margin-bottom:12px">
+   {% for code,label in statuses %}{% endfor %}
+   <a class="btn {% if status == 'active' %}amber{% else %}ghost{% endif %}" href="?status=active">Active ({{ open_count }})</a>
+   <a class="btn {% if status == 'done' %}amber{% else %}ghost{% endif %}" href="?status=done">Done</a>
+   <a class="btn {% if status == 'all' %}amber{% else %}ghost{% endif %}" href="?status=all">All</a>
+  </div>
+  <div class="card">
+   {% if tasks %}<table><thead><tr><th>Task</th><th>For</th><th>Linked</th><th>Due</th><th>Priority</th><th>Status</th></tr></thead><tbody>
+   {% for t in tasks %}<tr>
+    <td><b>{{ t.title }}</b>{% if t.details %}<div class="sub">{{ t.details|truncatechars:60 }}</div>{% endif %}</td>
+    <td>{% if t.assignee %}{{ t.assignee.get_full_name|default:t.assignee.username }}{% elif t.driver %}{{ t.driver }}{% else %}—{% endif %}</td>
+    <td class="sub">{% if t.vehicle %}Unit {{ t.vehicle.unit_number }}{% endif %}{% if t.driver and t.assignee %} · {{ t.driver }}{% endif %}{% if t.load %} · Load {{ t.load.reference }}{% endif %}</td>
+    <td>{% if t.due_date %}<span style="{% if t.is_overdue %}color:#c0392b;font-weight:700{% endif %}">{{ t.due_date }}</span>{% else %}—{% endif %}</td>
+    <td><span class="chip {% if t.priority == 'urgent' %}c-red{% elif t.priority == 'high' %}c-amber{% else %}c-gray{% endif %}"><span class="d"></span>{{ t.get_priority_display }}</span></td>
+    <td>
+     <form method="post" action="/app/tasks/{{ t.id }}/status/" style="display:inline">{% csrf_token %}
+      <select name="status" onchange="this.form.submit()" style="padding:5px 7px;border:1px solid var(--line);border-radius:7px;font-size:12px">
+       {% for code,label in statuses %}<option value="{{ code }}"{% if t.status == code %} selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select></form>
+    </td>
+   </tr>{% endfor %}</tbody></table>
+   {% else %}<div class="empty">No tasks here.</div>{% endif %}
+  </div>
+ </div>
+
+ <div class="card" style="align-self:start"><div class="card-h"><h3>{% if can_assign %}Assign a task{% else %}Add a task for me{% endif %}</h3></div>
+  <form method="post" action="/app/tasks/new/" style="padding:16px 18px">{% csrf_token %}
+   <label class="sub">Title</label><input name="title" required style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;margin-bottom:8px">
+   <label class="sub">Details</label><textarea name="details" rows="2" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;margin-bottom:8px"></textarea>
+   {% if companies.count > 1 %}<label class="sub">Company</label><select name="company" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;margin-bottom:8px">{% for c in companies %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}</select>{% endif %}
+   {% if can_assign %}
+   <label class="sub">Assign to (team member)</label><select name="assignee" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;margin-bottom:8px"><option value="">— none —</option>{% for u in members %}<option value="{{ u.id }}">{{ u.get_full_name|default:u.username }}</option>{% endfor %}</select>
+   <label class="sub">…or a driver</label><select name="driver" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;margin-bottom:8px"><option value="">— none —</option>{% for d in drivers %}<option value="{{ d.id }}">{{ d }}</option>{% endfor %}</select>
+   {% endif %}
+   <label class="sub">Link a truck (optional)</label><select name="vehicle" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;margin-bottom:8px"><option value="">— none —</option>{% for v in vehicles %}<option value="{{ v.id }}">Unit {{ v.unit_number }}</option>{% endfor %}</select>
+   <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+    <div><label class="sub">Due date</label><input type="date" name="due_date" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px"></div>
+    <div><label class="sub">Priority</label><select name="priority" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px">{% for code,label in priorities %}<option value="{{ code }}"{% if code == 'normal' %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+   </div>
+   <button class="btn amber" type="submit" style="margin-top:14px">Create task</button>
+  </form>
+ </div>
+</div>
+{% endblock %}

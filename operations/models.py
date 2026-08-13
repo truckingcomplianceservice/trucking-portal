@@ -12,6 +12,11 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 
 
+def _d_date_today():
+    import datetime
+    return datetime.date.today()
+
+
 class Company(models.Model):
     FACTOR_CHOICES = [
         ("RTS", "RTS Financial"),
@@ -623,3 +628,66 @@ class MaintenanceRecord(models.Model):
 
     def __str__(self):
         return f"{self.vehicle} - {self.part} (${self.total})"
+
+
+class Task(models.Model):
+    """A to-do you assign to a team member or a driver, optionally tied to a truck/load."""
+    STATUS = [("open", "Open"), ("in_progress", "In progress"),
+              ("done", "Done"), ("cancelled", "Cancelled")]
+    PRIORITY = [("low", "Low"), ("normal", "Normal"), ("high", "High"), ("urgent", "Urgent")]
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name="tasks")
+    title = models.CharField(max_length=200)
+    details = models.TextField(blank=True)
+    # who it's for — either a system user (team member) and/or a driver
+    assignee = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True,
+                                 related_name="tasks_assigned")
+    driver = models.ForeignKey(Driver, on_delete=models.SET_NULL, null=True, blank=True,
+                               related_name="tasks")
+    # optional links
+    vehicle = models.ForeignKey(Vehicle, on_delete=models.SET_NULL, null=True, blank=True,
+                                related_name="tasks")
+    load = models.ForeignKey(Load, on_delete=models.SET_NULL, null=True, blank=True,
+                             related_name="tasks")
+    priority = models.CharField(max_length=10, choices=PRIORITY, default="normal")
+    status = models.CharField(max_length=12, choices=STATUS, default="open")
+    due_date = models.DateField(null=True, blank=True)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True,
+                                   related_name="tasks_created")
+    created_at = models.DateTimeField(auto_now_add=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["status", "-priority", "due_date"]
+
+    def __str__(self):
+        return self.title
+
+    @property
+    def is_overdue(self):
+        import datetime as _d
+        return bool(self.due_date and self.status in ("open", "in_progress")
+                    and self.due_date < _d.date.today())
+
+
+class PerformanceNote(models.Model):
+    """A dated performance note (with optional 1-5 rating) about a person or a truck."""
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name="perf_notes")
+    driver = models.ForeignKey(Driver, on_delete=models.CASCADE, null=True, blank=True,
+                               related_name="perf_notes")
+    member = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True,
+                               related_name="perf_notes")
+    vehicle = models.ForeignKey(Vehicle, on_delete=models.CASCADE, null=True, blank=True,
+                                related_name="perf_notes")
+    date = models.DateField(default=_d_date_today)
+    rating = models.PositiveSmallIntegerField(null=True, blank=True,
+                                              help_text="Optional 1 (poor) to 5 (great).")
+    note = models.TextField()
+    author = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True,
+                               related_name="perf_notes_written")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-date", "-created_at"]
+
+    def __str__(self):
+        return f"{self.date} — {self.note[:40]}"
