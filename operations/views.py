@@ -2070,15 +2070,39 @@ def driver_pay_detail(request, pk):
             s.gross_pay = round(total * pct / 100, 2)
             s.save(); _messages.success(request, f"Gross set to {pct:.0f}% of loads (${s.gross_pay}).")
         elif action == "add_load":
-            l = Load.objects.filter(pk=request.POST.get("load_id"), company__in=cs, driver=s.driver).first()
+            lid = request.POST.get("load_id", "").strip()
+            if not lid:
+                _messages.error(request, "Pick a load from the list first.")
+                return redirect("driver_pay_detail", pk=pk)
+            l = Load.objects.filter(pk=lid, company__in=cs, driver=s.driver).first()
             if l:
                 l.settlement = s; l.save(); _messages.success(request, f"Added load {l.reference}.")
+            else:
+                _messages.error(request, "That load could not be added.")
         elif action == "delete":
             # free the attached loads, then remove the settlement
             s.loads.update(settlement=None)
             s.delete()
             _messages.success(request, "Settlement deleted.")
             return redirect("driver_pay")
+        elif action == "new_load":
+            ref = request.POST.get("nl_ref", "").strip()
+            rate = _num(request.POST.get("nl_rate", "0"))
+            if not ref and not rate:
+                _messages.error(request, "Enter at least a load # or a rate.")
+                return redirect("driver_pay_detail", pk=pk)
+            nl = Load.objects.create(
+                company=s.company, driver=s.driver, settlement=s,
+                reference=ref or "MANUAL",
+                origin=request.POST.get("nl_origin", "").strip(),
+                destination=request.POST.get("nl_destination", "").strip(),
+                rate=rate,
+                miles=int(_num(request.POST.get("nl_miles", "0"))),
+                deadhead_miles=int(_num(request.POST.get("nl_deadhead", "0"))),
+                pickup_date=_parse_date(request.POST.get("nl_pickup", "")) or None,
+                status="delivered")
+            _messages.success(request, f"Added load {nl.reference}.")
+            return redirect("driver_pay_detail", pk=pk)
         elif action == "remove_load":
             l = s.loads.filter(pk=request.POST.get("load_id")).first()
             if l:

@@ -50,7 +50,22 @@
     {% else %}<div class="sub">No loads attached. Add the ones this pay covers below.</div>{% endif %}
     {% if addable %}<form method="post" style="margin-top:12px;display:flex;gap:8px;align-items:center">{% csrf_token %}<input type="hidden" name="action" value="add_load">
      <select name="load_id" style="flex:1;padding:8px 10px;border:1px solid var(--line);border-radius:8px"><option value="">+ Add a load…</option>{% for l in addable %}<option value="{{ l.id }}">{{ l.reference }} · {{ l.pickup_date|default:"" }} · {{ l.origin }}→{{ l.destination }} · ${{ l.rate }}</option>{% endfor %}</select>
-     <button class="btn ghost" type="submit">Add</button></form>{% endif %}
+     <button class="btn ghost" type="submit">Add</button></form>
+   {% else %}<div class="sub" style="margin-top:12px">No other loads to add. Every load assigned to {{ s.driver.first_name }} that isn't on another settlement is already here. To add more, assign the driver on that load first (Loads → the load → Driver).</div>{% endif %}
+   <details style="margin-top:14px"><summary style="cursor:pointer;font-size:13px;color:var(--blue)">+ Add a load manually (not in the system yet)</summary>
+    <form method="post" style="margin-top:10px;border-top:1px solid var(--line);padding-top:12px">{% csrf_token %}<input type="hidden" name="action" value="new_load">
+     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <div><label class="sub">Load / ref #</label><input name="nl_ref" style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px"></div>
+      <div><label class="sub">Pickup date</label><input type="date" name="nl_pickup" style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px"></div>
+      <div><label class="sub">From</label><input name="nl_origin" style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px"></div>
+      <div><label class="sub">To</label><input name="nl_destination" style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px"></div>
+      <div><label class="sub">Loaded miles</label><input name="nl_miles" placeholder="0" style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px"></div>
+      <div><label class="sub">Deadhead miles</label><input name="nl_deadhead" placeholder="0" style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px"></div>
+      <div><label class="sub">Rate ($)</label><input name="nl_rate" placeholder="0.00" style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px"></div>
+     </div>
+     <button class="btn amber" type="submit" style="margin-top:10px">Add this load</button>
+    </form>
+   </details>
    </div>
   </div>
  </div>
