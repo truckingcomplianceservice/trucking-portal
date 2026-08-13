@@ -27,10 +27,14 @@ class Company(models.Model):
     address = models.CharField("Mailing address", max_length=250, blank=True)
     phone = models.CharField(max_length=30, blank=True)
     email = models.EmailField(blank=True)
+    logo = models.FileField("Company logo", upload_to="company_logos/", blank=True, null=True,
+        help_text="Shown on this company's invoices and reports (PNG or JPG).")
     factor = models.CharField(max_length=10, choices=FACTOR_CHOICES, default="None")
     active = models.BooleanField(default=True)
     apply_token = models.CharField(max_length=32, blank=True, db_index=True,
         help_text="Used to build this company's public driver-application link.")
+    slug = models.SlugField(max_length=60, blank=True, db_index=True,
+        help_text="Used in this company's portal link, e.g. /c/roundway")
 
     class Meta:
         verbose_name_plural = "Companies"
@@ -39,6 +43,13 @@ class Company(models.Model):
     def save(self, *args, **kwargs):
         if not self.apply_token:
             self.apply_token = secrets.token_urlsafe(12)
+        if not self.slug:
+            from django.utils.text import slugify
+            base = slugify(self.name)[:50] or "company"
+            slug, i = base, 2
+            while Company.objects.filter(slug=slug).exclude(pk=self.pk).exists():
+                slug = f"{base}-{i}"; i += 1
+            self.slug = slug
         super().save(*args, **kwargs)
 
     def __str__(self):

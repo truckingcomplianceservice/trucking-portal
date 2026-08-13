@@ -1172,11 +1172,22 @@ from django.core.mail import EmailMessage
 
 
 _LOGO_B64 = None
-def _logo_data_uri():
-    """Return the company logo as a base64 data URI for embedding in PDFs."""
+def _logo_data_uri(company=None):
+    """Return a logo as a base64 data URI for PDFs. Uses the company's own
+    uploaded logo when present, otherwise the shared Fleetline logo."""
+    import base64, os
+    if company is not None and getattr(company, "logo", None):
+        try:
+            company.logo.open("rb")
+            data = company.logo.read()
+            company.logo.close()
+            ext = company.logo.name.lower().rsplit(".", 1)[-1]
+            mime = "jpeg" if ext in ("jpg", "jpeg") else ext
+            return f"data:image/{mime};base64," + base64.b64encode(data).decode()
+        except Exception:
+            pass
     global _LOGO_B64
     if _LOGO_B64 is None:
-        import base64, os
         from django.conf import settings as _s
         path = os.path.join(_s.BASE_DIR, "operations", "static", "logo.png")
         try:
@@ -1188,7 +1199,7 @@ def _logo_data_uri():
 
 
 def _render_pdf(template, context):
-    context = {**context, "logo_uri": _logo_data_uri()}
+    context = {**context, "logo_uri": _logo_data_uri(context.get("company"))}
     from xhtml2pdf import pisa
     html = render_to_string(template, context)
     buf = _io2.BytesIO()
@@ -1620,3 +1631,76 @@ def team_send_reset(request, pk):
         _messages.info(request, f"Email isn't set up (or no address on file), so copy this "
                                 f"link and send it to {m.get_full_name() or m.username}: {link}")
     return redirect("team_edit", pk=pk)
+
+
+# ================= Per-truck profit / loss report =================
+def _per_truck_data(request):
+    from .models import MaintenanceRecord
+    cs = _companies(request)
+    start = _parse_date(request.GET.get("start", ""))
+    end = _parse_date(request.GET.get("end", ""))
+    groups = []
+    gt = {"rev": 0, "fuel": 0, "maint": 0, "net": 0, "loads": 0}
+    for c in cs.order_by("name"):
+        trucks = []
+        for v in Vehicle.objects.filter(company=c).order_by("unit_number"):
+            lq = Load.objects.filter(vehicle=v)
+            fq = FuelTransaction.objects.filter(vehicle=v)
+            mq = MaintenanceRecord.objects.filter(vehicle=v)
+            if start:
+                lq = lq.filter(pickup_date__gte=start); fq = fq.filter(date__gte=start); mq = mq.filter(date__gte=start)
+            if end:
+                lq = lq.filter(pickup_date__lte=end); fq = fq.filter(date__lte=end); mq = mq.filter(date__lte=end)
+            rev = lq.aggregate(s=Sum("rate"))["s"] or 0
+            fuel = fq.aggregate(s=Sum("amount"))["s"] or 0
+            maint = sum((r.parts_cost or 0) + (r.labor_cost or 0) for r in mq)
+            loads = lq.count()
+            net = rev - fuel - maint
+            trucks.append({"v": v, "rev": rev, "fuel": fuel, "maint": maint, "net": net, "loads": loads})
+            gt["rev"] += rev; gt["fuel"] += fuel; gt["maint"] += maint; gt["net"] += net; gt["loads"] += loads
+        if trucks:
+            groups.append({"company": c, "trucks": trucks})
+    # letterhead company (only when a single company is in scope)
+    company = cs.first() if cs.count() == 1 else None
+    return {"groups": groups, "gt": gt, "company": company,
+            "start": request.GET.get("start", ""), "end": request.GET.get("end", "")}
+
+
+@require_section("reports")
+@login_required
+def per_truck_pnl(request):
+    return render(request, "operations/pnl_truck.html", _per_truck_data(request))
+
+
+@require_section("reports")
+@login_required
+def per_truck_pnl_pdf(request):
+    from django.http import HttpResponse
+    data = _per_truck_data(request)
+    pdf = _render_pdf("operations/pnl_truck_pdf.html", data)
+    resp = HttpResponse(pdf, content_type="application/pdf")
+    resp["Content-Disposition"] = 'attachment; filename="per-truck-profit-loss.pdf"'
+    return resp
+
+
+# ================= Branded per-company portal login =================
+def portal_login(request, slug=None):
+    from django.contrib.auth import authenticate, login as _login
+    company = Company.objects.filter(slug=slug).first() if slug else None
+    error = ""
+    if request.method == "POST":
+        user = authenticate(request,
+                            username=request.POST.get("username", "").strip(),
+                            password=request.POST.get("password", ""))
+        if user is not None and user.is_active:
+            _login(request, user)
+            # land the user inside this company if they're allowed to see it
+            if company is not None:
+                allowed = user.is_superuser or \
+                    (hasattr(user, "profile") and user.profile.companies.filter(pk=company.pk).exists())
+                if allowed:
+                    request.session["active_company"] = str(company.pk)
+            return redirect("dashboard")
+        error = "Wrong username or password."
+    return render(request, "registration/portal_login.html",
+                  {"company": company, "error": error, "slug": slug or ""})

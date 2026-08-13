@@ -9,6 +9,8 @@ from operations import views
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("dashboard/", views.dashboard, name="dashboard"),
+    path("c/<slug:slug>/", views.portal_login, name="portal_login"),
+    path("login/", views.portal_login, name="portal_login_generic"),
     path("portfolio/", views.portfolio, name="portfolio"),
     # custom app sections
     path("app/loads/", views.app_loads, name="app_loads"),
@@ -53,6 +55,8 @@ urlpatterns = [
     path("reports/", views.reports_index, name="reports"),
     path("reports/builder/", views.report_builder, name="report_builder"),
     path("reports/pnl/", views.pnl_report, name="pnl"),
+    path("reports/pnl/truck/", views.per_truck_pnl, name="per_truck_pnl"),
+    path("reports/pnl/truck/pdf/", views.per_truck_pnl_pdf, name="per_truck_pnl_pdf"),
     path("reports/tax/", views.tax_report, name="tax"),
     path("reports/factoring/", views.factoring_report, name="factoring"),
     path("reports/factoring/aging/", views.factoring_aging, name="factoring_aging"),

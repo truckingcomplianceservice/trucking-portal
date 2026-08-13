@@ -1,0 +1,32 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% if company %}{{ company.name }}{% else %}Sign in{% endif %}</title>
+<style>
+ body{font-family:system-ui,-apple-system,'Segoe UI',sans-serif;background:#eef1f6;margin:0;color:#161c2b}
+ .wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+ .box{width:100%;max-width:400px;background:#fff;border:1px solid #e2e6ee;border-radius:16px;padding:34px 30px;box-shadow:0 10px 40px rgba(20,28,43,.08)}
+ .brand{text-align:center;margin-bottom:22px}
+ .brand img{max-height:70px;max-width:220px;object-fit:contain}
+ .brand .nm{font-size:20px;font-weight:800;color:#1e2d45;margin-top:10px;font-family:'Space Grotesk',system-ui}
+ .brand .sub{font-size:12px;color:#8a93a6;margin-top:2px}
+ label{font-size:12px;color:#5b6475;font-weight:600;display:block;margin:12px 0 4px}
+ input{width:100%;padding:11px 13px;border:1px solid #d7dce6;border-radius:10px;font-size:15px;box-sizing:border-box}
+ button{width:100%;margin-top:20px;background:#1e2d45;color:#fff;border:none;padding:13px;border-radius:11px;font-size:16px;font-weight:700;cursor:pointer}
+ button:hover{background:#172236}
+ .err{background:#fbe7e5;color:#b02b24;font-size:13px;padding:10px 12px;border-radius:8px;margin-bottom:14px;text-align:center}
+ .foot{text-align:center;margin-top:16px;font-size:12px}.foot a{color:#1d54c4;text-decoration:none}
+</style></head><body>
+<div class="wrap"><div class="box">
+ <div class="brand">
+  {% if company and company.logo %}<img src="{{ company.logo.url }}" alt="{{ company.name }}">
+  {% else %}<img src="/static/logo.png" alt="logo">{% endif %}
+  <div class="nm">{% if company %}{{ company.name }}{% else %}Trucking Compliance Services{% endif %}</div>
+  <div class="sub">{% if company %}Carrier portal{% else %}Operations portal{% endif %}</div>
+ </div>
+ {% if error %}<div class="err">{{ error }}</div>{% endif %}
+ <form method="post">{% csrf_token %}
+  <label>Username</label><input name="username" autofocus autocapitalize="none">
+  <label>Password</label><input name="password" type="password">
+  <button type="submit">Sign in</button>
+ </form>
+ <div class="foot"><a href="/password-reset/">Forgot password?</a></div>
+</div></div></body></html>

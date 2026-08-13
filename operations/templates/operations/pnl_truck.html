@@ -1,0 +1,41 @@
+{% extends "operations/app_base.html" %}
+{% load humanize %}
+{% block title %}Per-truck P&L — Fleetline{% endblock %}
+{% block page_title %}Per-truck profit &amp; loss{% endblock %}
+{% block content %}
+<div class="toolbar">
+ <form method="get" style="display:flex;gap:8px;align-items:end">
+  <div class="fld"><label class="sub">From</label><input type="date" name="start" value="{{ start }}" style="padding:7px 9px;border:1px solid var(--line);border-radius:7px"></div>
+  <div class="fld"><label class="sub">To</label><input type="date" name="end" value="{{ end }}" style="padding:7px 9px;border:1px solid var(--line);border-radius:7px"></div>
+  <button class="btn amber" type="submit">Apply</button>
+ </form>
+ <div class="spacer"></div>
+ <button class="btn ghost" onclick="window.print()">Print</button>
+ <a class="btn navy" href="/reports/pnl/truck/pdf/?start={{ start }}&end={{ end }}">Download PDF</a>
+</div>
+
+{% for g in groups %}
+<div class="card" style="margin-bottom:14px"><div class="card-h"><h3>{{ g.company.name }}</h3></div>
+<table><thead><tr><th>Truck</th><th class="n">Loads</th><th class="n">Revenue</th><th class="n">Fuel</th><th class="n">Maintenance</th><th class="n">Net</th></tr></thead><tbody>
+{% for t in g.trucks %}<tr>
+ <td><b>Unit {{ t.v.unit_number }}</b></td>
+ <td class="n">{{ t.loads }}</td>
+ <td class="n">${{ t.rev|floatformat:2|intcomma }}</td>
+ <td class="n">${{ t.fuel|floatformat:2|intcomma }}</td>
+ <td class="n">${{ t.maint|floatformat:2|intcomma }}</td>
+ <td class="n" style="font-weight:700;color:{% if t.net >= 0 %}#137a51{% else %}#c0392b{% endif %}">${{ t.net|floatformat:2|intcomma }}</td>
+</tr>{% endfor %}</tbody></table>
+</div>
+{% empty %}<div class="empty">No trucks with activity in this range.</div>{% endfor %}
+
+{% if groups %}<div class="card"><div class="card-h"><h3>All trucks — totals</h3></div>
+<table><tbody>
+<tr><td>Total loads</td><td class="n">{{ gt.loads }}</td></tr>
+<tr><td>Total revenue</td><td class="n">${{ gt.rev|floatformat:2|intcomma }}</td></tr>
+<tr><td>Total fuel</td><td class="n">${{ gt.fuel|floatformat:2|intcomma }}</td></tr>
+<tr><td>Total maintenance</td><td class="n">${{ gt.maint|floatformat:2|intcomma }}</td></tr>
+<tr><td><b>Net (revenue − fuel − maintenance)</b></td><td class="n" style="font-weight:700;color:{% if gt.net >= 0 %}#137a51{% else %}#c0392b{% endif %}">${{ gt.net|floatformat:2|intcomma }}</td></tr>
+</tbody></table></div>
+<div class="sub" style="margin-top:8px">Net here is revenue minus fuel and maintenance for that truck. It does not include driver pay or company overhead (those aren't tracked per truck).</div>
+{% endif %}
+{% endblock %}
