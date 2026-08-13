@@ -337,7 +337,10 @@ def app_load_detail(request, pk):
     l = _get(Load, pk=pk, company__in=_companies_all(request))
     return render(request, "operations/app_load_detail.html",
                   {"l": l, "sc": STATUS_CLASS.get(l.status, "c-gray"),
-                   "pc": PAY_CLASS.get(l.payment_status, "c-gray")})
+                   "pc": PAY_CLASS.get(l.payment_status, "c-gray"),
+                   "thread_notes": l.team_notes.select_related("author"),
+                   "note_company_id": l.company_id, "note_field": "load",
+                   "note_obj_id": l.id, "note_next": f"/app/loads/{l.id}/"})
 
 
 @require_section("drivers")
@@ -356,7 +359,10 @@ def app_drivers(request):
 def app_driver_detail(request, pk):
     d = _get(Driver, pk=pk, company__in=_companies_all(request))
     return render(request, "operations/app_driver_detail.html",
-                  {"d": d, "cdl": _exp_chip(d.cdl_expiry), "med": _exp_chip(d.medical_expiry)})
+                  {"d": d, "cdl": _exp_chip(d.cdl_expiry), "med": _exp_chip(d.medical_expiry),
+                   "thread_notes": d.team_notes.select_related("author"),
+                   "note_company_id": d.company_id, "note_field": "driver",
+                   "note_obj_id": d.id, "note_next": f"/app/drivers/{d.id}/"})
 
 
 def _service_chip(v):
@@ -1873,3 +1879,111 @@ def perf_note_add(request):
     pn.save()
     _messages.success(request, "Performance note added.")
     return redirect(request.POST.get("next", "/app/performance/"))
+
+
+# ================= Performance detail (clickable person / truck) =================
+@require_section("reports")
+@login_required
+def performance_detail(request, kind, pk):
+    cs = _companies(request)
+    ctx = {"kind": kind}
+    if kind == "driver":
+        subj = _get(Driver, pk=pk, company__in=cs)
+        lq = Load.objects.filter(driver=subj)
+        ctx.update({"subj": subj, "name": str(subj),
+                    "loads": lq.count(), "revenue": lq.aggregate(s=Sum("rate"))["s"] or 0})
+        notes = subj.perf_notes.all()
+    elif kind == "vehicle":
+        subj = _get(Vehicle, pk=pk, company__in=cs)
+        lq = Load.objects.filter(vehicle=subj)
+        fq = FuelTransaction.objects.filter(vehicle=subj)
+        ctx.update({"subj": subj, "name": f"Unit {subj.unit_number}",
+                    "loads": lq.count(), "revenue": lq.aggregate(s=Sum("rate"))["s"] or 0,
+                    "fuel": fq.aggregate(s=Sum("amount"))["s"] or 0})
+        notes = subj.perf_notes.all()
+    else:  # member
+        subj = _get(_User, pk=pk)
+        tq = Task.objects.filter(assignee=subj, company__in=cs)
+        ctx.update({"subj": subj, "name": subj.get_full_name() or subj.username,
+                    "assigned": tq.count(), "done": tq.filter(status="done").count(),
+                    "open": tq.exclude(status__in=["done", "cancelled"]).count()})
+        notes = subj.perf_notes.all()
+    ratings = [n.rating for n in notes if n.rating]
+    ctx["avg"] = round(sum(ratings) / len(ratings), 1) if ratings else None
+    ctx["notes"] = notes
+    return render(request, "operations/performance_detail.html", ctx)
+
+
+# ================= Internal team communication (TeamNote) =================
+from .models import TeamNote
+
+
+def _notify_team_note(request, note):
+    """Email the team (background) that a new note was posted. Never blocks."""
+    if not getattr(settings, "EMAIL_HOST", ""):
+        return
+    # team members on this company, excluding the author, who have an email
+    recipients = list(_User.objects.filter(
+        is_staff=True, is_active=True, profile__companies=note.company)
+        .exclude(pk=note.author_id).exclude(email="")
+        .values_list("email", flat=True).distinct())
+    if not recipients:
+        return
+    import threading
+    author = note.author.get_full_name() if note.author else "A teammate"
+    subj = f"[{note.company.name}] New team note — {note.subject_label}"
+    body = (f"{author} posted a note ({note.subject_label}):\n\n{note.body}\n\n"
+            f"Open the portal to reply.")
+
+    def _send():
+        try:
+            from django.core.mail import send_mail
+            send_mail(subj, body, settings.DEFAULT_FROM_EMAIL, recipients, fail_silently=True)
+        except Exception:
+            pass
+    threading.Thread(target=_send, daemon=True).start()
+
+
+@require_section("dashboard")
+@login_required
+def team_board(request):
+    cs = _companies(request)
+    notes = TeamNote.objects.filter(company__in=cs, broker__isnull=True,
+                                    load__isnull=True, driver__isnull=True) \
+        .select_related("author", "company")
+    return render(request, "operations/team_board.html", {
+        "notes": notes, "companies": cs, "scope": "board"})
+
+
+@login_required
+def team_note_add(request):
+    if request.method != "POST":
+        return redirect("team_board")
+    cs = _companies(request)
+    body = request.POST.get("body", "").strip()
+    if not body:
+        _messages.error(request, "Write something first.")
+        return redirect(request.POST.get("next", "/app/board/"))
+    company = cs.filter(pk=request.POST.get("company")).first() or cs.first()
+    note = TeamNote(company=company, author=request.user, body=body)
+    # optional attachment
+    for field, model in (("broker", Broker), ("load", Load), ("driver", Driver)):
+        val = request.POST.get(field)
+        if val:
+            obj = model.objects.filter(pk=val, company__in=cs).first() if field != "broker" \
+                else Broker.objects.filter(pk=val).first()
+            if obj:
+                setattr(note, field, obj)
+    note.save()
+    _notify_team_note(request, note)
+    _messages.success(request, "Note posted.")
+    return redirect(request.POST.get("next", "/app/board/"))
+
+
+@login_required
+def team_note_pin(request, pk):
+    if request.method == "POST":
+        n = _get(TeamNote, pk=pk, company__in=_companies(request))
+        n.pinned = not n.pinned
+        n.save()
+    return redirect(request.POST.get("next", "/app/board/"))
