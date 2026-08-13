@@ -2034,9 +2034,14 @@ def driver_pay_new(request):
     auto_loads = Load.objects.filter(driver=d, settlement__isnull=True,
                                      pickup_date__gte=ps, pickup_date__lte=pe)
     auto_loads.update(settlement=s)
-    # if no gross was typed, suggest it from those loads' rates
+    # if no gross was typed, suggest it. Percentage drivers get their % of the
+    # loads' rates; everyone else gets the full loads total (you can edit either way).
     if not s.gross_pay:
-        s.gross_pay = s.loads.aggregate(x=Sum("rate"))["x"] or 0
+        loads_total = float(s.loads.aggregate(x=Sum("rate"))["x"] or 0)
+        if d.pay_type == "percentage" and d.pay_rate:
+            s.gross_pay = round(loads_total * float(d.pay_rate) / 100, 2)
+        else:
+            s.gross_pay = loads_total
         s.save()
     return redirect("driver_pay_detail", pk=s.id)
 
@@ -2051,11 +2056,17 @@ def driver_pay_detail(request, pk):
         if action == "edit":
             s.gross_pay = _num(request.POST.get("gross_pay", "0"))
             s.deductions = _num(request.POST.get("deductions", "0"))
+            s.extra_reimbursement = _num(request.POST.get("extra_reimbursement", "0"))
             s.notes = request.POST.get("notes", "").strip()
             s.save(); _messages.success(request, "Updated.")
         elif action == "use_loads_total":
             s.gross_pay = s.loads.aggregate(x=Sum("rate"))["x"] or 0
             s.save(); _messages.success(request, "Gross pay set from the attached loads.")
+        elif action == "use_percent":
+            pct = _num(request.POST.get("percent", "0"))
+            total = float(s.loads.aggregate(x=Sum("rate"))["x"] or 0)
+            s.gross_pay = round(total * pct / 100, 2)
+            s.save(); _messages.success(request, f"Gross set to {pct:.0f}% of loads (${s.gross_pay}).")
         elif action == "add_load":
             l = Load.objects.filter(pk=request.POST.get("load_id"), company__in=cs, driver=s.driver).first()
             if l:

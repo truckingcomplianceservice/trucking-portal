@@ -261,6 +261,8 @@ class Settlement(models.Model):
     period_end = models.DateField()
     gross_pay = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     deductions = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    extra_reimbursement = models.DecimalField("Extra reimbursement to driver", max_digits=10,
+        decimal_places=2, default=0, help_text="Money owed back to the driver not tied to a logged expense.")
     paid = models.BooleanField(default=False)
     paid_date = models.DateField(null=True, blank=True)
     payment_method = models.CharField(max_length=40, blank=True,
@@ -279,7 +281,7 @@ class Settlement(models.Model):
 
     @property
     def net_pay(self):
-        return (self.gross_pay or 0) - (self.deductions or 0) + self.reimbursements
+        return (self.gross_pay or 0) - (self.deductions or 0) + self.reimbursements + (self.extra_reimbursement or 0)
 
     class Meta:
         ordering = ["-period_end"]

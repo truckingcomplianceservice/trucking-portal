@@ -13,6 +13,7 @@
  <tr><td>Gross pay</td><td class="n">${{ s.gross_pay|floatformat:2 }}</td></tr>
  <tr><td>Deductions</td><td class="n">- ${{ s.deductions|floatformat:2 }}</td></tr>
  <tr><td>Reimbursements (out-of-pocket expenses)</td><td class="n">+ ${{ s.reimbursements|floatformat:2 }}</td></tr>
+ <tr><td>Extra reimbursement</td><td class="n">+ ${{ s.extra_reimbursement|floatformat:2 }}</td></tr>
  <tr><td class="tot">NET PAY</td><td class="n tot">${{ s.net_pay|floatformat:2 }}</td></tr>
 </tbody></table>
 {% if oop %}<h2 style="font-size:13px">Reimbursed out-of-pocket expenses</h2>

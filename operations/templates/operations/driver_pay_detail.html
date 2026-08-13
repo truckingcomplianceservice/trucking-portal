@@ -19,6 +19,7 @@
      <tr><td>Gross pay</td><td class="n">${{ s.gross_pay|floatformat:2|intcomma }}</td></tr>
      <tr><td>Deductions</td><td class="n">− ${{ s.deductions|floatformat:2|intcomma }}</td></tr>
      <tr><td>Reimbursements (out-of-pocket)</td><td class="n">+ ${{ s.reimbursements|floatformat:2|intcomma }}</td></tr>
+     <tr><td>Extra reimbursement</td><td class="n">+ ${{ s.extra_reimbursement|floatformat:2|intcomma }}</td></tr>
      <tr style="border-top:2px solid var(--line)"><td><b>Net pay</b></td><td class="n" style="font-weight:800;font-size:16px">${{ s.net_pay|floatformat:2|intcomma }}</td></tr>
     </tbody></table>
     {% if oop %}<div style="margin-top:14px"><b style="font-size:13px">Out-of-pocket expenses reimbursed</b>
@@ -55,9 +56,14 @@
   {% else %}<div class="card"><div style="padding:16px 18px"><form method="post">{% csrf_token %}<input type="hidden" name="action" value="unpay"><button class="btn ghost" type="submit">Undo paid</button></form></div></div>{% endif %}
 
   <div class="card"><div class="card-h"><h3>Edit amounts</h3></div>
-   <form method="post" style="padding:16px 18px">{% csrf_token %}<input type="hidden" name="action" value="edit">
+   <form method="post" style="padding:16px 18px 8px">{% csrf_token %}<input type="hidden" name="action" value="use_percent">
+    <label class="sub">Set gross as % of loads (${{ loads_total|floatformat:2|intcomma }})</label>
+    <div style="display:flex;gap:8px"><input name="percent" placeholder="e.g. 25" style="flex:1;padding:9px 11px;border:1px solid var(--line);border-radius:8px"><button class="btn ghost" type="submit">Apply %</button></div>
+   </form>
+   <form method="post" style="padding:0 18px 16px">{% csrf_token %}<input type="hidden" name="action" value="edit">
     <label class="sub">Gross pay ($)</label><input name="gross_pay" value="{{ s.gross_pay }}" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;margin-bottom:8px">
     <label class="sub">Deductions ($)</label><input name="deductions" value="{{ s.deductions }}" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;margin-bottom:8px">
+    <label class="sub">Extra reimbursement to driver ($)</label><input name="extra_reimbursement" value="{{ s.extra_reimbursement }}" placeholder="0.00" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;margin-bottom:8px">
     <label class="sub">Notes</label><textarea name="notes" rows="2" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px">{{ s.notes }}</textarea>
     <button class="btn ghost" type="submit" style="margin-top:10px">Save</button>
    </form></div>
