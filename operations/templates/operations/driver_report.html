@@ -23,6 +23,14 @@
  <div class="kpi"><div class="l">Out-of-pocket</div><div class="n">${{ oop_total|floatformat:0|intcomma }}</div></div>
 </div>
 
+<div class="card" style="margin-bottom:14px"><div class="card-h"><h3>Paid to date</h3></div>
+ <div class="kpis" style="padding:14px 16px;grid-template-columns:repeat(3,1fr)">
+  <div class="kpi"><div class="l">This month</div><div class="n">${{ pay_month|floatformat:2|intcomma }}</div></div>
+  <div class="kpi"><div class="l">This year ({{ pay_year_label }})</div><div class="n">${{ pay_year|floatformat:2|intcomma }}</div></div>
+  <div class="kpi"><div class="l">All-time</div><div class="n">${{ pay_all|floatformat:2|intcomma }}</div></div>
+ </div>
+ {% if pay_months %}<div style="padding:0 16px 14px"><table><tbody><tr>{% for name,amt in pay_months %}<td class="sub" style="text-align:center">{{ name }}<br><b>${{ amt|floatformat:0|intcomma }}</b></td>{% endfor %}</tr></tbody></table></div>{% endif %}
+</div>
 <div class="card" style="margin-bottom:14px"><div class="card-h"><h3>Loads ({{ loads_count }})</h3></div>
 {% if loads %}<table><thead><tr><th>Pickup</th><th>Ref</th><th>Customer</th><th>Route</th><th>Truck</th><th class="n">Rate</th></tr></thead><tbody>
 {% for l in loads %}<tr onclick="location.href='/app/loads/{{ l.id }}/'" style="cursor:pointer">

@@ -6,6 +6,15 @@
 <a href="/app/pay/" class="sub" style="color:var(--blue)">&larr; Driver pay</a>
 {% if messages %}{% for m in messages %}<div style="margin:8px 0;padding:10px 14px;border-radius:8px;font-size:13px;background:{% if m.tags == 'error' %}#fbe7e5;color:#b02b24{% else %}#e4f4ec;color:#137a51{% endif %}">{{ m }}</div>{% endfor %}{% endif %}
 
+<div class="card" style="margin:10px 0"><div class="card-h"><h3>{{ s.driver }} — paid to date</h3></div>
+ <div class="kpis" style="padding:14px 16px;grid-template-columns:repeat(3,1fr)">
+  <div class="kpi"><div class="l">This month</div><div class="n">${{ pay_month|floatformat:2|intcomma }}</div></div>
+  <div class="kpi"><div class="l">This year ({{ pay_year_label }})</div><div class="n">${{ pay_year|floatformat:2|intcomma }}</div></div>
+  <div class="kpi"><div class="l">All-time</div><div class="n">${{ pay_all|floatformat:2|intcomma }}</div></div>
+ </div>
+ {% if pay_months %}<div style="padding:0 16px 14px"><table><tbody><tr>{% for name,amt in pay_months %}<td class="sub" style="text-align:center">{{ name }}<br><b style="color:var(--ink)">${{ amt|floatformat:0|intcomma }}</b></td>{% endfor %}</tr></tbody></table></div>{% endif %}
+</div>
+
 <div class="toolbar"><div class="spacer"></div>
  <a class="btn ghost" href="/app/pay/{{ s.id }}/pdf/" target="_blank">Download PDF</a>
  <a class="btn navy" href="/app/pay/{{ s.id }}/email/">Email to {{ s.driver.first_name }}</a>

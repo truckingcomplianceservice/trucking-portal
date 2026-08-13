@@ -2095,7 +2095,8 @@ def driver_pay_detail(request, pk):
     addable = Load.objects.filter(driver=s.driver, settlement__isnull=True).order_by("-pickup_date")[:50]
     return render(request, "operations/driver_pay_detail.html",
                   {"s": s, "oop": oop, "company": s.company,
-                   "settle_loads": settle_loads, "loads_total": loads_total, "addable": addable})
+                   "settle_loads": settle_loads, "loads_total": loads_total, "addable": addable,
+                   **_driver_pay_totals(s.driver)})
 
 
 @require_section("reports")
@@ -2222,6 +2223,7 @@ def _driver_report_data(request, pk):
         "revenue": revenue, "loads_count": loads.count(),
         "total_paid": total_paid, "total_unpaid": total_unpaid, "oop_total": oop_total,
         "start": request.GET.get("start", ""), "end": request.GET.get("end", ""),
+        **_driver_pay_totals(d),
     }
 
 
@@ -2240,3 +2242,24 @@ def driver_report_pdf(request, pk):
     resp = HttpResponse(pdf, content_type="application/pdf")
     resp["Content-Disposition"] = f'attachment; filename="driver-{data["d"]}-report.pdf"'
     return resp
+
+
+def _driver_pay_totals(driver):
+    """How much this driver has been PAID: this month, this year, all-time,
+    plus a per-month breakdown for the current year. Uses paid settlements."""
+    today = _dt.date.today()
+    paid = Settlement.objects.filter(driver=driver, paid=True)
+    month_total = year_total = all_total = 0
+    monthly = {m: 0 for m in range(1, 13)}
+    for s in paid:
+        net = float(s.net_pay)
+        all_total += net
+        d = s.paid_date or s.period_end
+        if d and d.year == today.year:
+            year_total += net
+            monthly[d.month] = monthly.get(d.month, 0) + net
+            if d.month == today.month:
+                month_total += net
+    months = [(_dt.date(today.year, m, 1).strftime("%b"), monthly[m]) for m in range(1, 13) if monthly[m]]
+    return {"pay_month": month_total, "pay_year": year_total, "pay_all": all_total,
+            "pay_months": months, "pay_year_label": today.year}
