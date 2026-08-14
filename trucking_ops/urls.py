@@ -30,6 +30,7 @@ urlpatterns = [
     path("portfolio/", views.portfolio, name="portfolio"),
     # custom app sections
     path("app/loads/", views.app_loads, name="app_loads"),
+    path("app/loads/import/", views.load_import, name="load_import"),
     path("app/loads/from-ratecon/", views.load_from_ratecon, name="load_from_ratecon"),
     path("app/loads/<int:pk>/", views.app_load_detail, name="app_load_detail"),
     path("app/drivers/", views.app_drivers, name="app_drivers"),

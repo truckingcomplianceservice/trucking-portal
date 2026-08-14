@@ -1,0 +1,36 @@
+{% extends "operations/app_base.html" %}
+{% block title %}Import loads — Fleetline{% endblock %}
+{% block page_title %}Import loads from CSV{% endblock %}
+{% block content %}
+{% if messages %}{% for m in messages %}<div style="margin:8px 0;padding:10px 14px;border-radius:8px;font-size:13px;background:{% if m.tags == 'error' %}#fbe7e5;color:#b02b24{% else %}#e4f4ec;color:#137a51{% endif %}">{{ m }}</div>{% endfor %}{% endif %}
+
+<div class="card" style="max-width:640px"><div class="card-h"><h3>Upload a load file (Amazon Relay or any TMS export)</h3></div>
+ <form method="post" enctype="multipart/form-data" style="padding:16px 18px">{% csrf_token %}
+  <label class="sub">CSV file</label>
+  <input type="file" name="file" accept=".csv,text/csv" required style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;margin-bottom:12px">
+
+  {% if companies.count > 1 %}<label class="sub">Import into company</label>
+  <select name="company" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;margin-bottom:12px">{% for c in companies %}<option value="{{ c.id }}"{% if c.id == default_company.id %} selected{% endif %}>{{ c.name }}</option>{% endfor %}</select>
+  {% else %}{% for c in companies %}<input type="hidden" name="company" value="{{ c.id }}">{% endfor %}{% endif %}
+
+  <label class="sub">Assign all to driver (optional)</label>
+  <select name="driver" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;margin-bottom:12px"><option value="">— none —</option>{% for d in drivers %}<option value="{{ d.id }}">{{ d }}</option>{% endfor %}</select>
+
+  <label class="sub">Assign all to truck (optional)</label>
+  <select name="vehicle" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;margin-bottom:12px"><option value="">— none —</option>{% for v in vehicles %}<option value="{{ v.id }}">Unit {{ v.unit_number }}</option>{% endfor %}</select>
+
+  <button class="btn amber" type="submit">Import loads</button>
+ </form>
+</div>
+
+<div class="card" style="max-width:640px;margin-top:14px"><div style="padding:16px 18px">
+ <b style="font-size:13px">How it works</b>
+ <div class="sub" style="margin-top:6px;line-height:1.6">
+  Export your loads from Amazon Relay (or any portal) as a CSV / spreadsheet. The first
+  row should be the column headers. The importer automatically recognizes common columns:
+  Trip / VRID / Load ID, Origin, Destination, Pickup date, Delivery date, Rate, Miles,
+  Deadhead, and Customer. Loads with a reference already in your system are skipped so you
+  never import the same load twice. Columns it doesn't recognize are ignored — nothing breaks.
+ </div>
+</div></div>
+{% endblock %}

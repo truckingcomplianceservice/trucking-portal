@@ -2317,3 +2317,89 @@ def _driver_pay_totals(driver):
     months = [(_dt.date(today.year, m, 1).strftime("%b"), monthly[m]) for m in range(1, 13) if monthly[m]]
     return {"pay_month": month_total, "pay_year": year_total, "pay_all": all_total,
             "pay_months": months, "pay_year_label": today.year}
+
+
+# ================= Load import from CSV / spreadsheet (e.g. Amazon Relay) =================
+@require_section("dispatch")
+@login_required
+def load_import(request):
+    cs = _companies(request)
+    active = _active(request)
+    default_company = cs.filter(pk=active).first() if active and active != "all" else cs.first()
+    context = {"companies": cs, "default_company": default_company, "drivers":
+               Driver.objects.filter(company__in=cs).order_by("first_name"),
+               "vehicles": Vehicle.objects.filter(company__in=cs).order_by("unit_number")}
+
+    if request.method == "POST":
+        import csv, io
+        f = request.FILES.get("file")
+        if not f:
+            _messages.error(request, "Choose a CSV file first.")
+            return render(request, "operations/load_import.html", context)
+        company = cs.filter(pk=request.POST.get("company")).first() or default_company
+        # optional defaults applied to every imported load
+        def_driver = Driver.objects.filter(pk=request.POST.get("driver"), company__in=cs).first()
+        def_vehicle = Vehicle.objects.filter(pk=request.POST.get("vehicle"), company__in=cs).first()
+        try:
+            raw = f.read().decode("utf-8-sig", errors="ignore")
+            reader = csv.reader(io.StringIO(raw))
+            rows = [r for r in reader if any(c.strip() for c in r)]
+        except Exception as e:
+            _messages.error(request, f"Could not read the file: {e}")
+            return render(request, "operations/load_import.html", context)
+        if len(rows) < 2:
+            _messages.error(request, "The file has no data rows.")
+            return render(request, "operations/load_import.html", context)
+        header = rows[0]
+        # column detection — needle-priority (works with Amazon Relay & most TMS exports)
+        col = {
+            "ref": _find(header, "trip", "vrid", "load id", "load", "reference", "ref", "order", "tour"),
+            "origin": _find(header, "origin", "pickup", "from", "start", "first stop"),
+            "destination": _find(header, "destination", "dest", "drop", "delivery", "to", "last stop"),
+            "pickup_date": _find(header, "pickup date", "start date", "pickup", "ready", "depart"),
+            "delivery_date": _find(header, "delivery date", "end date", "drop date", "arrive", "due"),
+            "rate": _find(header, "rate", "amount", "pay", "revenue", "total", "cost", "price"),
+            "miles": _find(header, "loaded mile", "miles", "distance", "mileage"),
+            "deadhead": _find(header, "deadhead", "empty mile", "dh mile", "dh"),
+            "customer": _find(header, "customer", "broker", "shipper", "account"),
+        }
+        if col["ref"] is None and col["origin"] is None and col["rate"] is None:
+            _messages.error(request, "Couldn't recognize the columns. Make sure the first row has headers like Trip/Load ID, Origin, Destination, Rate.")
+            return render(request, "operations/load_import.html", context)
+
+        def val(row, key):
+            i = col.get(key)
+            return row[i].strip() if (i is not None and i < len(row)) else ""
+
+        created = skipped = 0
+        for row in rows[1:]:
+            ref = val(row, "ref")
+            origin = val(row, "origin")
+            rate = _num(val(row, "rate"))
+            if not ref and not origin and not rate:
+                continue
+            # skip duplicates: same company + reference (if a reference exists)
+            if ref and Load.objects.filter(company=company, reference=ref).exists():
+                skipped += 1
+                continue
+            Load.objects.create(
+                company=company,
+                reference=ref or "RELAY",
+                customer=val(row, "customer"),
+                origin=origin,
+                destination=val(row, "destination"),
+                pickup_date=_parse_date(val(row, "pickup_date")) or None,
+                delivery_date=_parse_date(val(row, "delivery_date")) or None,
+                rate=rate,
+                miles=int(_num(val(row, "miles"))),
+                deadhead_miles=int(_num(val(row, "deadhead"))),
+                driver=def_driver, vehicle=def_vehicle,
+                status="booked")
+            created += 1
+        msg = f"Imported {created} load(s)."
+        if skipped:
+            msg += f" Skipped {skipped} already in the system (same reference)."
+        _messages.success(request, msg)
+        return redirect("app_loads")
+
+    return render(request, "operations/load_import.html", context)
