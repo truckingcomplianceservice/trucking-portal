@@ -1,6 +1,6 @@
 # Trucking Compliance Services — Operations Portal (COMPLETE)
 
-Import loads from CSV / spreadsheet (Amazon Relay & any TMS export).
+Documents per vehicle, with expiry tracking + reminders.
 
 ## Deploy
 1. Download this zip, then in Terminal:
@@ -8,18 +8,20 @@ Import loads from CSV / spreadsheet (Amazon Relay & any TMS export).
 2. GitHub Desktop -> Summary -> Commit to main -> Push origin.
 3. Hard-refresh (Cmd+Shift+R).
 
-## New: Import loads from CSV
-Loads page -> "Import loads from CSV" (or /app/loads/import/).
-1. Export your loads from Amazon Relay as a CSV/spreadsheet (first row = headers).
-2. Upload it. Optionally assign all imported loads to a driver and/or truck.
-3. It auto-recognizes columns: Trip/VRID/Load ID, Origin, Destination,
-   Pickup date, Delivery date, Rate, Loaded miles, Deadhead miles, Customer.
-Loads whose reference already exists are SKIPPED (no duplicates). Unrecognized
-columns are ignored. Dates accept 2026-08-10 and 08/10/2026 formats.
+## New: documents on each vehicle
+Vehicles -> click a truck -> "Documents" section.
+- Upload a file (registration, insurance, inspection, lease, permit, IFTA, title,
+  other), give it a title, and an OPTIONAL expiry date.
+- Anyone with vehicle access sees the list and can View each document.
+- Documents WITH an expiry date show an expiry chip (green/amber/red) and appear
+  in your dashboard "expiring soon" reminders -- so you know what's about to lapse.
+- Delete removes a document.
 
-Note: this is a manual import (no Amazon login needed). True auto-fetch needs
-Amazon Relay API access from Amazon — bring me their API docs if you get them.
+Also editable in Admin -> Vehicles (inline) or Admin -> Vehicle documents.
+
+Note: uploaded files live on the Railway volume. Set up file backups (S3/R2)
+before relying on this for critical compliance docs.
 
 ## Includes everything to date
-CSV load import, hide load $, pay basis, rental contracts, manual load add,
-settlement tools, pay history, miles+deadhead, percentage pay, reimbursements.
+Vehicle documents, CSV load import, hide load $, pay basis, rental contracts,
+manual load add, settlement tools, pay history, miles+deadhead, percentage pay.

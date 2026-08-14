@@ -1,5 +1,29 @@
 {% extends "operations/app_base.html" %}
-{% block title %}Unit {{ v.unit_number }} — Fleetline{% endblock %}
+{% block title %}Unit {{ v.unit_number }} — Fleetline
+<div class="card" style="margin-top:14px"><div class="card-h"><h3>Documents</h3></div>
+ <div style="padding:14px 16px">
+  {% if docs %}<table><thead><tr><th>Type</th><th>Document</th><th>Expiry</th><th></th><th></th></tr></thead><tbody>
+  {% for row in docs %}<tr>
+   <td>{{ row.o.get_doc_type_display }}</td>
+   <td>{{ row.o.label }}</td>
+   <td>{% if row.o.expiry_date %}{{ row.o.expiry_date }} {% if row.chip %}<span class="chip {{ row.chip.cls }}"><span class="d"></span>{{ row.chip.label }}</span>{% endif %}{% else %}<span class="sub">—</span>{% endif %}</td>
+   <td><a class="btn ghost" style="padding:3px 9px;font-size:12px" href="{{ row.o.file.url }}" target="_blank">View</a></td>
+   <td><form method="post" action="/app/vehicles/{{ v.id }}/doc/{{ row.o.id }}/delete/" onsubmit="return confirm('Remove this document?');" style="display:inline">{% csrf_token %}<button class="btn ghost" style="padding:3px 8px;font-size:11px;color:#c0392b" type="submit">Delete</button></form></td>
+  </tr>{% endfor %}</tbody></table>
+  {% else %}<div class="sub">No documents yet. Upload registration, insurance, inspection, lease, permits, etc. below.</div>{% endif %}
+
+  <form method="post" action="/app/vehicles/{{ v.id }}/doc/" enctype="multipart/form-data" style="margin-top:14px;border-top:1px solid var(--line);padding-top:14px">{% csrf_token %}
+   <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+    <div><label class="sub">Type</label><select name="doc_type" style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px">{% for code,label in doc_types %}<option value="{{ code }}">{{ label }}</option>{% endfor %}</select></div>
+    <div><label class="sub">Title (optional)</label><input name="title" placeholder="e.g. 2026 COI" style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px"></div>
+    <div><label class="sub">Expiry date (optional)</label><input type="date" name="expiry_date" style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px"></div>
+    <div><label class="sub">File</label><input type="file" name="file" required style="width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:8px"></div>
+   </div>
+   <button class="btn amber" type="submit" style="margin-top:10px">Upload document</button>
+  </form>
+ </div>
+</div>
+{% endblock %}
 {% block page_title %}Unit {{ v.unit_number }}{% endblock %}
 {% block content %}
 <a href="/app/vehicles/" class="sub" style="color:var(--blue)">&larr; All vehicles</a>

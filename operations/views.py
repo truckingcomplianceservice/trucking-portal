@@ -7,7 +7,7 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.views.static import serve
 from django.conf import settings
 from .models import (Company, Load, Expense, Settlement, Driver, Vehicle, Applicant,
-                     ComplianceDocument, Broker, FuelTransaction, RentalContract, notify)
+                     ComplianceDocument, Broker, FuelTransaction, RentalContract, VehicleDocument, notify)
 
 
 def require_section(section):
@@ -226,6 +226,8 @@ def _expiring_items(companies):
         add(f"Unit {v.unit_number}", "Service due", v.next_service_date)
     for rc in RentalContract.objects.filter(company__in=companies, active=True):
         add(f"Unit {rc.vehicle.unit_number}", "Rental contract ending", rc.end_date)
+    for vd in VehicleDocument.objects.filter(company__in=companies).exclude(expiry_date=None):
+        add(f"Unit {vd.vehicle.unit_number}", vd.label, vd.expiry_date)
     for doc in ComplianceDocument.objects.filter(company__in=companies):
         add(str(doc.driver), doc.get_doc_type_display(), doc.expiry_date)
     items.sort(key=lambda x: x["days"])
@@ -416,11 +418,14 @@ def app_vehicle_detail(request, pk):
             months[key] = months.get(key, 0) + r.total
     monthly = [{"month": _dt.datetime.strptime(k, "%Y-%m").strftime("%b %Y"), "total": t}
                for k, t in sorted(months.items(), reverse=True)]
+    docs = [{"o": d, "chip": _exp_chip(d.expiry_date) if d.expiry_date else None}
+            for d in v.documents.all()]
     return render(request, "operations/app_vehicle_detail.html",
                   {"v": v, "insp": _exp_chip(v.inspection_expiry),
                    "reg": _exp_chip(v.registration_expiry), "service": _service_chip(v),
                    "records": records, "total_all": total_all, "total_year": total_year,
-                   "total_month": total_month, "monthly": monthly, "today": today.isoformat()})
+                   "total_month": total_month, "monthly": monthly, "today": today.isoformat(),
+                   "docs": docs, "doc_types": VehicleDocument.DOC_TYPES})
 
 
 @login_required
@@ -2403,3 +2408,32 @@ def load_import(request):
         return redirect("app_loads")
 
     return render(request, "operations/load_import.html", context)
+
+
+@require_section("vehicles")
+@login_required
+def vehicle_doc_upload(request, pk):
+    v = _get(Vehicle, pk=pk, company__in=_companies(request))
+    if request.method == "POST" and request.FILES.get("file"):
+        VehicleDocument.objects.create(
+            company=v.company, vehicle=v,
+            doc_type=request.POST.get("doc_type", "other"),
+            title=request.POST.get("title", "").strip(),
+            file=request.FILES["file"],
+            expiry_date=_parse_date(request.POST.get("expiry_date", "")) or None,
+            notes=request.POST.get("notes", "").strip())
+        _messages.success(request, "Document uploaded.")
+    else:
+        _messages.error(request, "Choose a file to upload.")
+    return redirect("app_vehicle_detail", pk=pk)
+
+
+@require_section("vehicles")
+@login_required
+def vehicle_doc_delete(request, pk, doc_id):
+    v = _get(Vehicle, pk=pk, company__in=_companies(request))
+    if request.method == "POST":
+        d = v.documents.filter(pk=doc_id).first()
+        if d:
+            d.delete(); _messages.success(request, "Document removed.")
+    return redirect("app_vehicle_detail", pk=pk)

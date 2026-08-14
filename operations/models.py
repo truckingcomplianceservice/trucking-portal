@@ -797,3 +797,36 @@ class RentalContract(models.Model):
             else:
                 cost += base * (days / 30.44)
         return round(cost, 2)
+
+
+class VehicleDocument(models.Model):
+    """A document attached to a specific truck (registration, insurance, lease,
+    permit, inspection, title, etc.) with an optional expiry date."""
+    DOC_TYPES = [
+        ("registration", "Registration / Plate"),
+        ("insurance", "Insurance"),
+        ("inspection", "Annual / DOT inspection"),
+        ("lease", "Lease / rental agreement"),
+        ("permit", "Permit"),
+        ("ifta", "IFTA"),
+        ("title", "Title"),
+        ("other", "Other"),
+    ]
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name="vehicle_documents")
+    vehicle = models.ForeignKey(Vehicle, on_delete=models.CASCADE, related_name="documents")
+    doc_type = models.CharField(max_length=15, choices=DOC_TYPES, default="other")
+    title = models.CharField(max_length=140, blank=True)
+    file = models.FileField(upload_to="vehicle_docs/")
+    expiry_date = models.DateField("Expiry date (optional)", null=True, blank=True)
+    notes = models.TextField(blank=True)
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["expiry_date", "doc_type"]
+
+    def __str__(self):
+        return f"{self.vehicle} · {self.get_doc_type_display()}"
+
+    @property
+    def label(self):
+        return self.title or self.get_doc_type_display()

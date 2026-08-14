@@ -10,13 +10,18 @@ from django.utils.safestring import mark_safe
 from .models import (Company, Profile, Driver, Vehicle, Load, Expense,
                      Settlement, Applicant, ComplianceDocument, ActivityLog, NotificationRule,
                      Broker, FuelTransaction, TimeEntry, Invoice, Payment, MaintenanceRecord,
-                     RentalContract)
+                     RentalContract, VehicleDocument)
 
 
 class RentalContractInline(admin.TabularInline):
     model = RentalContract
     extra = 0
     fields = ("lessor", "start_date", "end_date", "base_amount", "base_period", "per_mile_rate", "active")
+
+class VehicleDocumentInline(admin.TabularInline):
+    model = VehicleDocument
+    extra = 0
+    fields = ("doc_type", "title", "file", "expiry_date")
 
 
 class CategoryTextInput(forms.TextInput):
@@ -102,7 +107,7 @@ class DriverAdmin(CompanyScopedAdmin):
 
 @admin.register(Vehicle)
 class VehicleAdmin(CompanyScopedAdmin):
-    inlines = [RentalContractInline]
+    inlines = [RentalContractInline, VehicleDocumentInline]
     list_display = ("unit_number", "company", "year", "make", "model", "plate",
                     "inspection_expiry", "status")
     list_filter = ("company", "status")
@@ -289,3 +294,9 @@ class RentalContractAdmin(CompanyScopedAdmin):
     list_display = ("vehicle", "lessor", "start_date", "end_date", "base_amount", "base_period", "per_mile_rate", "active")
     list_filter = ("company", "active", "base_period")
     search_fields = ("lessor",)
+
+
+@admin.register(VehicleDocument)
+class VehicleDocumentAdmin(CompanyScopedAdmin):
+    list_display = ("vehicle", "doc_type", "title", "expiry_date", "uploaded_at")
+    list_filter = ("company", "doc_type")
