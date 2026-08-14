@@ -15,7 +15,7 @@
    {% if rows %}<table><thead><tr><th>Driver</th><th>Week</th><th class="n">Net pay</th><th>Status</th><th>Reference</th></tr></thead><tbody>
    {% for s in rows %}<tr onclick="location.href='/app/pay/{{ s.id }}/'" style="cursor:pointer">
     <td><b>{{ s.driver }}</b></td>
-    <td class="sub">{{ s.period_start }} – {{ s.period_end }}</td>
+    <td class="sub">{{ s.period_start }} – {{ s.period_end }}<br><span class="chip c-gray" style="font-size:10px"><span class="d"></span>{{ s.get_pay_basis_display }}</span></td>
     <td class="n" style="font-weight:700">${{ s.net_pay|floatformat:2|intcomma }}</td>
     <td>{% if s.paid %}<span class="chip c-green"><span class="d"></span>Paid</span>{% else %}<span class="chip c-amber"><span class="d"></span>Unpaid</span>{% endif %}</td>
     <td class="sub">{% if s.payment_reference %}{{ s.payment_reference }}{% else %}—{% endif %}</td>
@@ -26,15 +26,32 @@
  <div class="card" style="align-self:start"><div class="card-h"><h3>New weekly settlement</h3></div>
   <form method="post" action="/app/pay/new/" style="padding:16px 18px">{% csrf_token %}
    <label class="sub">Driver</label><select name="driver" required style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;margin-bottom:8px">{% for d in drivers %}<option value="{{ d.id }}">{{ d }}</option>{% endfor %}</select>
-   <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+   <label class="sub">Pay type</label>
+   <select name="pay_basis" id="paybasis" onchange="pbToggle()" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;margin-bottom:8px">
+    <option value="weekly">Weekly (a whole week's loads)</option>
+    <option value="daily">Daily (one day's loads)</option>
+    <option value="per_load">Per load / round trip (pick the loads yourself)</option>
+   </select>
+   <div id="pb_week"><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
     <div><label class="sub">Week start</label><input type="date" name="period_start" value="{{ week_start }}" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px"></div>
     <div><label class="sub">Week end</label><input type="date" name="period_end" value="{{ week_end }}" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px"></div>
-   </div>
-   <label class="sub" style="margin-top:8px;display:block">Gross pay ($)</label><input name="gross_pay" placeholder="0.00" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;margin-bottom:8px">
-   <label class="sub">Deductions ($)</label><input name="deductions" placeholder="0.00" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;margin-bottom:8px">
-   <div class="sub" style="margin-bottom:8px">Out-of-pocket expenses in that week are added automatically.</div>
+   </div></div>
+   <div id="pb_day" style="display:none"><label class="sub">Day</label><input type="date" name="day_date" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px"></div>
+   <div id="pb_note" class="sub" style="display:none;margin:4px 0 8px">You'll add the specific loads/round-trips on the next screen.</div>
+   <label class="sub" style="margin-top:8px;display:block">Gross pay ($) — optional, auto-suggested</label><input name="gross_pay" placeholder="leave blank to auto-fill" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;margin-bottom:8px">
+   <div class="sub" style="margin-bottom:8px">Out-of-pocket expenses in the period are added automatically.</div>
    <button class="btn amber" type="submit">Create &amp; review</button>
   </form>
+  <script>
+  function pbToggle(){var v=document.getElementById('paybasis').value;
+   document.getElementById('pb_week').style.display=(v==='weekly')?'block':'none';
+   document.getElementById('pb_day').style.display=(v==='daily')?'block':'none';
+   document.getElementById('pb_note').style.display=(v==='per_load')?'block':'none';
+   // daily: copy day into period_start; per_load: dates optional
+   var ds=document.querySelector('[name=day_date]');
+   if(v==='daily'&&ds){ds.onchange=function(){document.querySelector('[name=period_start]').value=ds.value;document.querySelector('[name=period_end]').value=ds.value;};}
+  }
+  </script>
  </div>
 </div>
 {% endblock %}

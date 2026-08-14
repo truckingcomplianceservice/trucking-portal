@@ -20,6 +20,7 @@
  <div class="kpi"><div class="l">Fuel</div><div class="n">${{ fuel_total|floatformat:0|intcomma }}</div></div>
  <div class="kpi"><div class="l">Maintenance</div><div class="n">${{ maint_total|floatformat:0|intcomma }}</div></div>
  <div class="kpi"><div class="l">Other expenses</div><div class="n">${{ exp_total|floatformat:0|intcomma }}</div></div>
+ {% if rent_total %}<div class="kpi"><div class="l">Rent / lease (est.)</div><div class="n">${{ rent_total|floatformat:0|intcomma }}</div></div>{% endif %}
  <div class="kpi"><div class="l">Net</div><div class="n" style="color:{% if net >= 0 %}#137a51{% else %}#c0392b{% endif %}">${{ net|floatformat:0|intcomma }}</div></div>
 </div>
 

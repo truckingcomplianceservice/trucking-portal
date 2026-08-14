@@ -7,7 +7,7 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.views.static import serve
 from django.conf import settings
 from .models import (Company, Load, Expense, Settlement, Driver, Vehicle, Applicant,
-                     ComplianceDocument, Broker, FuelTransaction, notify)
+                     ComplianceDocument, Broker, FuelTransaction, RentalContract, notify)
 
 
 def require_section(section):
@@ -224,6 +224,8 @@ def _expiring_items(companies):
         add(f"Unit {v.unit_number}", "Inspection", v.inspection_expiry)
         add(f"Unit {v.unit_number}", "Plate / registration", v.registration_expiry)
         add(f"Unit {v.unit_number}", "Service due", v.next_service_date)
+    for rc in RentalContract.objects.filter(company__in=companies, active=True):
+        add(f"Unit {rc.vehicle.unit_number}", "Rental contract ending", rc.end_date)
     for doc in ComplianceDocument.objects.filter(company__in=companies):
         add(str(doc.driver), doc.get_doc_type_display(), doc.expiry_date)
     items.sort(key=lambda x: x["days"])
@@ -2024,18 +2026,23 @@ def driver_pay_new(request):
         _messages.error(request, "Pick a driver."); return redirect("driver_pay")
     ps = _parse_date(request.POST.get("period_start")) or _dt.date.today()
     pe = _parse_date(request.POST.get("period_end")) or _dt.date.today()
+    basis = request.POST.get("pay_basis", "weekly")
+    if basis == "daily":
+        day = _parse_date(request.POST.get("day_date", "")) or _parse_date(request.POST.get("period_start", "")) or _dt.date.today()
+        ps = pe = day
     s = Settlement.objects.create(
-        company=d.company, driver=d, period_start=ps, period_end=pe,
+        company=d.company, driver=d, period_start=ps, period_end=pe, pay_basis=basis,
         gross_pay=_num(request.POST.get("gross_pay", "0")),
         deductions=_num(request.POST.get("deductions", "0")),
         notes=request.POST.get("notes", "").strip())
-    # AUTO: attach this driver's loads that were delivered in the week (only ones
-    # not already on another settlement). You can change these on the next screen.
-    from django.db.models import Q as _Q
-    auto_loads = Load.objects.filter(driver=d, settlement__isnull=True).filter(
-        _Q(pickup_date__gte=ps, pickup_date__lte=pe) |
-        _Q(delivery_date__gte=ps, delivery_date__lte=pe))
-    auto_loads.update(settlement=s)
+    # AUTO-attach for weekly/daily (loads picked up OR delivered in the range).
+    # Per-load starts empty — you add the exact loads/round-trips yourself.
+    if basis != "per_load":
+        from django.db.models import Q as _Q
+        auto_loads = Load.objects.filter(driver=d, settlement__isnull=True).filter(
+            _Q(pickup_date__gte=ps, pickup_date__lte=pe) |
+            _Q(delivery_date__gte=ps, delivery_date__lte=pe))
+        auto_loads.update(settlement=s)
     # if no gross was typed, suggest it. Percentage drivers get their % of the
     # loads' rates; everyone else gets the full loads total (you can edit either way).
     if not s.gross_pay:
@@ -2206,11 +2213,22 @@ def _truck_detail_data(request, pk):
     fuel_total = fuel.aggregate(s=Sum("amount"))["s"] or 0
     maint_total = sum((r.parts_cost or 0) + (r.labor_cost or 0) for r in maint)
     exp_total = exp.aggregate(s=Sum("amount"))["s"] or 0
-    net = revenue - fuel_total - maint_total - exp_total
+    # rental/lease estimate for leased or rented trucks
+    rent_total = 0
+    active_contract = v.contracts.filter(active=True).first()
+    if v.ownership in ("leased", "rented") and active_contract:
+        miles_in_range = (loads.aggregate(m=Sum("miles"))["m"] or 0) + \
+                         (loads.aggregate(m=Sum("deadhead_miles"))["m"] or 0)
+        rs = start or (loads.order_by("pickup_date").first().pickup_date if loads.exists() else None)
+        re_ = end or _dt.date.today()
+        if rs:
+            rent_total = active_contract.estimated_cost(rs, re_, miles_in_range)
+    net = float(revenue) - float(fuel_total) - float(maint_total) - float(exp_total) - float(rent_total)
     return {
         "v": v, "company": v.company, "loads": loads, "fuel": fuel, "maint": maint, "exp": exp,
         "revenue": revenue, "fuel_total": fuel_total, "maint_total": maint_total,
-        "exp_total": exp_total, "net": net,
+        "exp_total": exp_total, "rent_total": rent_total, "active_contract": active_contract,
+        "net": net,
         "start": request.GET.get("start", ""), "end": request.GET.get("end", ""),
         "loads_count": loads.count(), "fuel_gal": fuel.aggregate(s=Sum("gallons"))["s"] or 0,
     }

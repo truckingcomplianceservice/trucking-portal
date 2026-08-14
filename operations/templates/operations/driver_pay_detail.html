@@ -23,7 +23,7 @@
 
 <div class="grid2" style="align-items:start">
  <div>
-  <div class="card"><div class="card-h"><h3>{{ s.period_start }} – {{ s.period_end }}</h3>{% if s.paid %}<span class="chip c-green"><span class="d"></span>Paid</span>{% else %}<span class="chip c-amber"><span class="d"></span>Unpaid</span>{% endif %}</div>
+  <div class="card"><div class="card-h"><h3>{{ s.period_start }} – {{ s.period_end }} <span class="chip c-gray" style="font-size:11px"><span class="d"></span>{{ s.get_pay_basis_display }}</span></h3>{% if s.paid %}<span class="chip c-green"><span class="d"></span>Paid</span>{% else %}<span class="chip c-amber"><span class="d"></span>Unpaid</span>{% endif %}</div>
    <div style="padding:16px 18px">
     <table><tbody>
      <tr><td>Gross pay</td><td class="n">${{ s.gross_pay|floatformat:2|intcomma }}</td></tr>

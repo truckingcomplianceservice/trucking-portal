@@ -9,7 +9,14 @@ from django.contrib import admin
 from django.utils.safestring import mark_safe
 from .models import (Company, Profile, Driver, Vehicle, Load, Expense,
                      Settlement, Applicant, ComplianceDocument, ActivityLog, NotificationRule,
-                     Broker, FuelTransaction, TimeEntry, Invoice, Payment, MaintenanceRecord)
+                     Broker, FuelTransaction, TimeEntry, Invoice, Payment, MaintenanceRecord,
+                     RentalContract)
+
+
+class RentalContractInline(admin.TabularInline):
+    model = RentalContract
+    extra = 0
+    fields = ("lessor", "start_date", "end_date", "base_amount", "base_period", "per_mile_rate", "active")
 
 
 class CategoryTextInput(forms.TextInput):
@@ -95,6 +102,7 @@ class DriverAdmin(CompanyScopedAdmin):
 
 @admin.register(Vehicle)
 class VehicleAdmin(CompanyScopedAdmin):
+    inlines = [RentalContractInline]
     list_display = ("unit_number", "company", "year", "make", "model", "plate",
                     "inspection_expiry", "status")
     list_filter = ("company", "status")
@@ -274,3 +282,10 @@ class TeamNoteAdmin(CompanyScopedAdmin):
     list_display = ("created_at", "company", "author", "subject_label", "pinned")
     list_filter = ("company", "pinned")
     search_fields = ("body",)
+
+
+@admin.register(RentalContract)
+class RentalContractAdmin(CompanyScopedAdmin):
+    list_display = ("vehicle", "lessor", "start_date", "end_date", "base_amount", "base_period", "per_mile_rate", "active")
+    list_filter = ("company", "active", "base_period")
+    search_fields = ("lessor",)

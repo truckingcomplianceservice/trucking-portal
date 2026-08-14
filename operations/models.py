@@ -164,6 +164,8 @@ class Vehicle(models.Model):
     last_service_miles = models.PositiveIntegerField("Odometer at last service", null=True, blank=True)
     last_service_date = models.DateField(null=True, blank=True)
     next_service_date = models.DateField("Next service due (date)", null=True, blank=True)
+    OWNERSHIP_CHOICES = [("owned", "Owned"), ("leased", "Leased"), ("rented", "Rented")]
+    ownership = models.CharField(max_length=8, choices=OWNERSHIP_CHOICES, default="owned")
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default="active")
 
     class Meta:
@@ -265,6 +267,8 @@ class Settlement(models.Model):
     driver = models.ForeignKey(Driver, on_delete=models.CASCADE, related_name="settlements")
     period_start = models.DateField()
     period_end = models.DateField()
+    PAY_BASIS = [("weekly","Weekly"),("daily","Daily"),("per_load","Per load")]
+    pay_basis = models.CharField(max_length=10, choices=PAY_BASIS, default="weekly")
     gross_pay = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     deductions = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     extra_reimbursement = models.DecimalField("Extra reimbursement to driver", max_digits=10,
@@ -749,3 +753,46 @@ class TeamNote(models.Model):
         if self.driver_id:
             return f"Driver: {self.driver}"
         return "Team board"
+
+
+class RentalContract(models.Model):
+    """A lease/rental agreement for a truck. Keep one per term — renewing adds a
+    new record so past contracts stay on file. Rent = base (per week/month) plus
+    an optional per-mile rate."""
+    BASE_PERIOD = [("week", "Per week"), ("month", "Per month")]
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name="rental_contracts")
+    vehicle = models.ForeignKey(Vehicle, on_delete=models.CASCADE, related_name="contracts")
+    lessor = models.CharField("Rental / leasing company", max_length=120, blank=True)
+    start_date = models.DateField(null=True, blank=True)
+    end_date = models.DateField("Contract end date", null=True, blank=True)
+    base_amount = models.DecimalField("Base rent amount", max_digits=10, decimal_places=2, default=0)
+    base_period = models.CharField(max_length=6, choices=BASE_PERIOD, default="week")
+    per_mile_rate = models.DecimalField("Per-mile rate ($)", max_digits=6, decimal_places=3, default=0)
+    active = models.BooleanField(default=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-start_date", "-created_at"]
+
+    def __str__(self):
+        return f"{self.vehicle} · {self.lessor or 'contract'} (ends {self.end_date or '—'})"
+
+    @property
+    def days_to_end(self):
+        if not self.end_date:
+            return None
+        return (self.end_date - _d_date_today()).days
+
+    def estimated_cost(self, start, end, miles):
+        """Estimate rent for a date range: base per period × periods + per-mile × miles."""
+        base = float(self.base_amount or 0)
+        rate = float(self.per_mile_rate or 0)
+        cost = rate * (miles or 0)
+        if base and start and end:
+            days = (end - start).days + 1
+            if self.base_period == "week":
+                cost += base * (days / 7.0)
+            else:
+                cost += base * (days / 30.44)
+        return round(cost, 2)
