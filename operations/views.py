@@ -2092,6 +2092,10 @@ def driver_pay_detail(request, pk):
             s.delete()
             _messages.success(request, "Settlement deleted.")
             return redirect("driver_pay")
+        elif action == "toggle_hide_amounts":
+            s.hide_load_amounts = not s.hide_load_amounts
+            s.save()
+            _messages.success(request, "Load amounts hidden." if s.hide_load_amounts else "Load amounts shown.")
         elif action == "new_load":
             ref = request.POST.get("nl_ref", "").strip()
             rate = _num(request.POST.get("nl_rate", "0"))

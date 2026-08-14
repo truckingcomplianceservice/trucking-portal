@@ -39,14 +39,17 @@
   </div>
 
   <div class="card" style="margin-top:14px"><div class="card-h"><h3>Loads covered ({{ settle_loads.count }})</h3>
-   <form method="post" style="display:inline">{% csrf_token %}<input type="hidden" name="action" value="use_loads_total"><button class="btn ghost" style="padding:5px 10px;font-size:12px" type="submit">Use loads total (${{ loads_total|floatformat:2|intcomma }}) as gross</button></form></div>
+   <div style="display:flex;gap:6px">
+    <form method="post" style="display:inline">{% csrf_token %}<input type="hidden" name="action" value="toggle_hide_amounts"><button class="btn ghost" style="padding:5px 10px;font-size:12px" type="submit">{% if s.hide_load_amounts %}Show $ amounts{% else %}Hide $ amounts{% endif %}</button></form>
+    <form method="post" style="display:inline">{% csrf_token %}<input type="hidden" name="action" value="use_loads_total"><button class="btn ghost" style="padding:5px 10px;font-size:12px" type="submit">Use loads total (${{ loads_total|floatformat:2|intcomma }}) as gross</button></form></div></div>
    <div style="padding:14px 16px">
-    {% if settle_loads %}<table><thead><tr><th>Pickup</th><th>Ref</th><th>Route</th><th class="n">Rate</th><th></th></tr></thead><tbody>
+    {% if settle_loads %}<table><thead><tr><th>Pickup</th><th>Ref</th><th>Route</th>{% if not s.hide_load_amounts %}<th class="n">Rate</th>{% endif %}<th></th></tr></thead><tbody>
     {% for l in settle_loads %}<tr>
      <td>{{ l.pickup_date|default:"—" }}</td><td class="mono">{{ l.reference }}</td>
-     <td class="sub">{{ l.origin }} → {{ l.destination }}</td><td class="n">${{ l.rate|floatformat:2|intcomma }}</td>
+     <td class="sub">{{ l.origin }} → {{ l.destination }}</td>{% if not s.hide_load_amounts %}<td class="n">${{ l.rate|floatformat:2|intcomma }}</td>{% endif %}
      <td class="n"><form method="post" style="display:inline">{% csrf_token %}<input type="hidden" name="action" value="remove_load"><input type="hidden" name="load_id" value="{{ l.id }}"><button class="btn ghost" style="padding:3px 8px;font-size:11px" type="submit">Remove</button></form></td>
-    </tr>{% endfor %}</tbody><tfoot><tr><td colspan="3" style="text-align:right"><b>Loads total</b></td><td class="n"><b>${{ loads_total|floatformat:2|intcomma }}</b></td><td></td></tr></tfoot></table>
+    </tr>{% endfor %}</tbody>{% if not s.hide_load_amounts %}<tfoot><tr><td colspan="3" style="text-align:right"><b>Loads total</b></td><td class="n"><b>${{ loads_total|floatformat:2|intcomma }}</b></td><td></td></tr></tfoot>{% endif %}</table>
+    {% if s.hide_load_amounts %}<div class="sub" style="margin-top:8px">Load $ amounts are hidden on this statement. The driver will see routes but not each load's rate.</div>{% endif %}
     {% else %}<div class="sub">No loads attached. Add the ones this pay covers below.</div>{% endif %}
     {% if addable %}<form method="post" style="margin-top:12px;display:flex;gap:8px;align-items:center">{% csrf_token %}<input type="hidden" name="action" value="add_load">
      <select name="load_id" style="flex:1;padding:8px 10px;border:1px solid var(--line);border-radius:8px"><option value="">+ Add a load…</option>{% for l in addable %}<option value="{{ l.id }}">{{ l.reference }} · {{ l.pickup_date|default:"" }} · {{ l.origin }}→{{ l.destination }} · ${{ l.rate }}</option>{% endfor %}</select>

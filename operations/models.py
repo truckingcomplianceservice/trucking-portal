@@ -269,6 +269,7 @@ class Settlement(models.Model):
     period_end = models.DateField()
     PAY_BASIS = [("weekly","Weekly"),("daily","Daily"),("per_load","Per load")]
     pay_basis = models.CharField(max_length=10, choices=PAY_BASIS, default="weekly")
+    hide_load_amounts = models.BooleanField("Hide load $ amounts on this statement", default=False)
     gross_pay = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     deductions = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     extra_reimbursement = models.DecimalField("Extra reimbursement to driver", max_digits=10,
