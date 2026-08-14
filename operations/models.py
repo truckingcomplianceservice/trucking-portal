@@ -815,6 +815,8 @@ class VehicleDocument(models.Model):
     company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name="vehicle_documents")
     vehicle = models.ForeignKey(Vehicle, on_delete=models.CASCADE, related_name="documents")
     doc_type = models.CharField(max_length=15, choices=DOC_TYPES, default="other")
+    custom_type = models.CharField("Custom category (if 'Other')", max_length=60, blank=True,
+        help_text="Type what kind of document this is, e.g. 'Cab card', 'Lease addendum'.")
     title = models.CharField(max_length=140, blank=True)
     file = models.FileField(upload_to="vehicle_docs/")
     expiry_date = models.DateField("Expiry date (optional)", null=True, blank=True)
@@ -829,4 +831,8 @@ class VehicleDocument(models.Model):
 
     @property
     def label(self):
-        return self.title or self.get_doc_type_display()
+        if self.title:
+            return self.title
+        if self.doc_type == "other" and self.custom_type:
+            return self.custom_type
+        return self.get_doc_type_display()

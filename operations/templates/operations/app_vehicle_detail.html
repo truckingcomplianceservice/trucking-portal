@@ -15,6 +15,7 @@
   <form method="post" action="/app/vehicles/{{ v.id }}/doc/" enctype="multipart/form-data" style="margin-top:14px;border-top:1px solid var(--line);padding-top:14px">{% csrf_token %}
    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
     <div><label class="sub">Type</label><select name="doc_type" style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px">{% for code,label in doc_types %}<option value="{{ code }}">{{ label }}</option>{% endfor %}</select></div>
+    <div><label class="sub">Or type your own category</label><input name="custom_type" placeholder="e.g. Cab card, IRP, lease addendum" style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px"></div>
     <div><label class="sub">Title (optional)</label><input name="title" placeholder="e.g. 2026 COI" style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px"></div>
     <div><label class="sub">Expiry date (optional)</label><input type="date" name="expiry_date" style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px"></div>
     <div><label class="sub">File</label><input type="file" name="file" required style="width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:8px"></div>

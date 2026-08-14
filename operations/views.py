@@ -2413,16 +2413,23 @@ def load_import(request):
 @require_section("vehicles")
 @login_required
 def vehicle_doc_upload(request, pk):
-    v = _get(Vehicle, pk=pk, company__in=_companies(request))
+    v = _get(Vehicle, pk=pk, company__in=_companies_all(request))
     if request.method == "POST" and request.FILES.get("file"):
-        VehicleDocument.objects.create(
-            company=v.company, vehicle=v,
-            doc_type=request.POST.get("doc_type", "other"),
-            title=request.POST.get("title", "").strip(),
-            file=request.FILES["file"],
-            expiry_date=_parse_date(request.POST.get("expiry_date", "")) or None,
-            notes=request.POST.get("notes", "").strip())
-        _messages.success(request, "Document uploaded.")
+        try:
+            # make sure the media subfolder exists (belt-and-suspenders for volumes)
+            import os
+            os.makedirs(os.path.join(settings.MEDIA_ROOT, "vehicle_docs"), exist_ok=True)
+            VehicleDocument.objects.create(
+                company=v.company, vehicle=v,
+                doc_type=request.POST.get("doc_type", "other"),
+                custom_type=request.POST.get("custom_type", "").strip(),
+                title=request.POST.get("title", "").strip(),
+                file=request.FILES["file"],
+                expiry_date=_parse_date(request.POST.get("expiry_date", "")) or None,
+                notes=request.POST.get("notes", "").strip())
+            _messages.success(request, "Document uploaded.")
+        except Exception as e:
+            _messages.error(request, f"Could not save the document: {e}")
     else:
         _messages.error(request, "Choose a file to upload.")
     return redirect("app_vehicle_detail", pk=pk)
@@ -2431,7 +2438,7 @@ def vehicle_doc_upload(request, pk):
 @require_section("vehicles")
 @login_required
 def vehicle_doc_delete(request, pk, doc_id):
-    v = _get(Vehicle, pk=pk, company__in=_companies(request))
+    v = _get(Vehicle, pk=pk, company__in=_companies_all(request))
     if request.method == "POST":
         d = v.documents.filter(pk=doc_id).first()
         if d:
