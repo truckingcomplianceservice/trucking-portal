@@ -2444,3 +2444,27 @@ def vehicle_doc_delete(request, pk, doc_id):
         if d:
             d.delete(); _messages.success(request, "Document removed.")
     return redirect("app_vehicle_detail", pk=pk)
+
+
+@require_section("dispatch")
+@login_required
+def load_doc_upload(request, pk):
+    """Quick upload of BOL / POD / Rate con right from the load page (no admin)."""
+    l = _get(Load, pk=pk, company__in=_companies_all(request))
+    if request.method == "POST":
+        field = request.POST.get("which")
+        f = request.FILES.get("file")
+        allowed = {"bill_of_lading", "proof_of_delivery", "rate_confirmation"}
+        if field in allowed and f:
+            try:
+                import os
+                sub = {"bill_of_lading": "loads/bol", "proof_of_delivery": "loads/pod",
+                       "rate_confirmation": "loads/ratecon"}[field]
+                os.makedirs(os.path.join(settings.MEDIA_ROOT, sub), exist_ok=True)
+                setattr(l, field, f); l.save()
+                _messages.success(request, "Document uploaded.")
+            except Exception as e:
+                _messages.error(request, f"Could not save the document: {e}")
+        else:
+            _messages.error(request, "Pick a document type and a file.")
+    return redirect("app_load_detail", pk=pk)

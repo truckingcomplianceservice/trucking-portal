@@ -27,10 +27,35 @@
    <div class="field"><span class="k">Factor</span><span class="v">{{ l.company.get_factor_display }}</span></div>
    <div class="field"><span class="k">Payment</span><span class="v"><span class="chip {{ pc }}"><span class="d"></span>{{ l.get_payment_status_display }}</span></span></div>
    <div class="sec-t">Files</div>
-   <div class="field"><span class="k">Bill of Lading</span><span class="v">{% if l.bill_of_lading %}<a href="{{ l.bill_of_lading.url }}" style="color:var(--blue)">View</a>{% else %}—{% endif %}</span></div>
-   <div class="field"><span class="k">Proof of Delivery</span><span class="v">{% if l.proof_of_delivery %}<a href="{{ l.proof_of_delivery.url }}" style="color:var(--blue)">View</a>{% else %}—{% endif %}</span></div>
-   <div class="field"><span class="k">Rate confirmation</span><span class="v">{% if l.rate_confirmation %}<a href="{{ l.rate_confirmation.url }}" style="color:var(--blue)">View</a>{% else %}—{% endif %}</span></div>
-   <div style="margin-top:16px"><a class="btn navy" href="/admin/operations/load/{{ l.id }}/change/">Edit / upload documents</a></div>
+   <div class="field"><span class="k">Bill of Lading</span><span class="v">{% if l.bill_of_lading %}<a href="#" onclick="ldView('{{ l.bill_of_lading.url }}','Bill of Lading');return false;" style="color:var(--blue)">View</a>{% else %}—{% endif %}</span></div>
+   <div class="field"><span class="k">Proof of Delivery</span><span class="v">{% if l.proof_of_delivery %}<a href="#" onclick="ldView('{{ l.proof_of_delivery.url }}','Proof of Delivery');return false;" style="color:var(--blue)">View</a>{% else %}—{% endif %}</span></div>
+   <div class="field"><span class="k">Rate confirmation</span><span class="v">{% if l.rate_confirmation %}<a href="#" onclick="ldView('{{ l.rate_confirmation.url }}','Rate confirmation');return false;" style="color:var(--blue)">View</a>{% else %}—{% endif %}</span></div>
+
+   <form method="post" action="/app/loads/{{ l.id }}/doc/" enctype="multipart/form-data" style="margin-top:14px;border-top:1px solid var(--line);padding-top:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">{% csrf_token %}
+    <select name="which" style="padding:8px 10px;border:1px solid var(--line);border-radius:8px">
+     <option value="proof_of_delivery">Proof of Delivery (POD)</option>
+     <option value="rate_confirmation">Rate confirmation</option>
+     <option value="bill_of_lading">Bill of Lading (BOL)</option>
+    </select>
+    <input type="file" name="file" required style="padding:6px 8px;border:1px solid var(--line);border-radius:8px">
+    <button class="btn amber" type="submit">Upload</button>
+   </form>
   </div>
+
+<div id="ldViewer" style="display:none;position:fixed;inset:0;background:rgba(20,28,43,.75);z-index:100;align-items:center;justify-content:center;padding:24px" onclick="if(event.target===this)ldClose()">
+ <div style="background:#fff;border-radius:12px;width:90vw;max-width:900px;height:88vh;display:flex;flex-direction:column;overflow:hidden">
+  <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid #e2e6ee">
+   <b id="ldViewerTitle" style="font-size:14px;color:#1e2d45">Document</b>
+   <div><a id="ldViewerOpen" href="#" target="_blank" class="btn ghost" style="padding:5px 12px;font-size:12px;margin-right:6px">Open in new tab</a>
+    <button class="btn ghost" style="padding:5px 12px;font-size:12px" onclick="ldClose()">Close</button></div>
+  </div>
+  <iframe id="ldViewerFrame" src="" style="flex:1;width:100%;border:0"></iframe>
+ </div>
+</div>
+<script>
+function ldView(u,t){document.getElementById('ldViewerTitle').textContent=t||'Document';document.getElementById('ldViewerFrame').src=u;document.getElementById('ldViewerOpen').href=u;document.getElementById('ldViewer').style.display='flex';}
+function ldClose(){document.getElementById('ldViewer').style.display='none';document.getElementById('ldViewerFrame').src='';}
+document.addEventListener('keydown',function(e){if(e.key==='Escape')ldClose();});
+</script>
  </div>
 </div>{% endblock %}

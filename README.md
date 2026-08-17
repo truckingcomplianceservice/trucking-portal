@@ -1,6 +1,6 @@
 # Trucking Compliance Services — Operations Portal (COMPLETE)
 
-Vehicle documents: view in a popup on the same page (no leaving the page).
+Load documents (POD / Rate con / BOL): upload + view right on the load page.
 
 ## Deploy
 1. Download this zip, then in Terminal:
@@ -8,16 +8,18 @@ Vehicle documents: view in a popup on the same page (no leaving the page).
 2. GitHub Desktop -> Summary -> Commit to main -> Push origin.
 3. Hard-refresh (Cmd+Shift+R).
 
-## What changed on the truck Documents section
-- All documents stay listed on the truck's page.
-- Clicking "View" now opens the document in a POPUP VIEWER over the same page
-  (PDF/image shows in the popup). Close it (X, Close, or Esc) and you're right
-  back on the truck page with the full list.
-- There's also "Open in new tab" inside the popup if you want the full window.
-- Add (upload) and Remove (delete) stay right there on the page as before.
+## Truck documents vs Load documents
+- TRUCK documents (registration, insurance, inspection) live on the TRUCK page
+  (Vehicles -> a truck -> Documents). Popup viewer there.
+- LOAD documents (Proof of Delivery, Rate confirmation, Bill of Lading) live on
+  the LOAD page (Dispatch -> a load). These are per-trip proof.
 
-Includes the earlier fix so a document with no file never crashes the page.
+## New on the LOAD page (Files section)
+- See POD / Rate con / BOL with a "View" that opens in a POPUP over the page
+  (close with X or Esc, "Open in new tab" also available).
+- Upload them right there: pick the type (POD / Rate con / BOL), choose the file,
+  click Upload. No more going into Admin to edit the load.
 
 ## Includes everything to date
-Doc popup viewer, vehicle docs fix, custom category, CSV load import, hide load $,
-pay basis, rental contracts, settlement tools, pay history, miles+deadhead.
+Load doc upload+viewer, truck doc popup viewer, custom category, CSV load import,
+hide load $, pay basis, rental contracts, settlement tools, pay history.

@@ -33,6 +33,7 @@ urlpatterns = [
     path("app/loads/import/", views.load_import, name="load_import"),
     path("app/loads/from-ratecon/", views.load_from_ratecon, name="load_from_ratecon"),
     path("app/loads/<int:pk>/", views.app_load_detail, name="app_load_detail"),
+    path("app/loads/<int:pk>/doc/", views.load_doc_upload, name="load_doc_upload"),
     path("app/drivers/", views.app_drivers, name="app_drivers"),
     path("app/drivers/<int:pk>/", views.app_driver_detail, name="app_driver_detail"),
     path("app/drivers/<int:pk>/dqf/", views.app_driver_dqf, name="app_driver_dqf"),
