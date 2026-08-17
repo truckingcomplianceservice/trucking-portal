@@ -1,6 +1,6 @@
 # Trucking Compliance Services — Operations Portal (COMPLETE)
 
-Fix: vehicle page no longer 500s if a document has no file.
+Vehicle documents: view in a popup on the same page (no leaving the page).
 
 ## Deploy
 1. Download this zip, then in Terminal:
@@ -8,11 +8,16 @@ Fix: vehicle page no longer 500s if a document has no file.
 2. GitHub Desktop -> Summary -> Commit to main -> Push origin.
 3. Hard-refresh (Cmd+Shift+R).
 
-## What this fixes
-The truck page crashed (500) whenever a document row had no file attached
-(e.g. a partial/failed upload). Now it shows "no file" instead of crashing, so
-the page always loads. Uploading real documents works normally.
+## What changed on the truck Documents section
+- All documents stay listed on the truck's page.
+- Clicking "View" now opens the document in a POPUP VIEWER over the same page
+  (PDF/image shows in the popup). Close it (X, Close, or Esc) and you're right
+  back on the truck page with the full list.
+- There's also "Open in new tab" inside the popup if you want the full window.
+- Add (upload) and Remove (delete) stay right there on the page as before.
+
+Includes the earlier fix so a document with no file never crashes the page.
 
 ## Includes everything to date
-Vehicle docs fix, custom category, CSV load import, hide load $, pay basis,
-rental contracts, settlement tools, pay history, miles+deadhead, percentage pay.
+Doc popup viewer, vehicle docs fix, custom category, CSV load import, hide load $,
+pay basis, rental contracts, settlement tools, pay history, miles+deadhead.

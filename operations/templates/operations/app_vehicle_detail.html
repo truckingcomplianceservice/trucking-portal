@@ -7,7 +7,7 @@
    <td>{{ row.o.get_doc_type_display }}</td>
    <td>{{ row.o.label }}</td>
    <td>{% if row.o.expiry_date %}{{ row.o.expiry_date }} {% if row.chip %}<span class="chip {{ row.chip.cls }}"><span class="d"></span>{{ row.chip.label }}</span>{% endif %}{% else %}<span class="sub">—</span>{% endif %}</td>
-   <td>{% if row.o.file %}<a class="btn ghost" style="padding:3px 9px;font-size:12px" href="{{ row.o.file.url }}" target="_blank">View</a>{% else %}<span class="sub">no file</span>{% endif %}</td>
+   <td>{% if row.o.file %}<a class="btn ghost" style="padding:3px 9px;font-size:12px" href="#" onclick="docView('{{ row.o.file.url }}','{{ row.o.label|escapejs }}');return false;">View</a>{% else %}<span class="sub">no file</span>{% endif %}</td>
    <td><form method="post" action="/app/vehicles/{{ v.id }}/doc/{{ row.o.id }}/delete/" onsubmit="return confirm('Remove this document?');" style="display:inline">{% csrf_token %}<button class="btn ghost" style="padding:3px 8px;font-size:11px;color:#c0392b" type="submit">Delete</button></form></td>
   </tr>{% endfor %}</tbody></table>
   {% else %}<div class="sub">No documents yet. Upload registration, insurance, inspection, lease, permits, etc. below.</div>{% endif %}
@@ -24,6 +24,32 @@
   </form>
  </div>
 </div>
+
+<div id="docViewer" style="display:none;position:fixed;inset:0;background:rgba(20,28,43,.75);z-index:100;align-items:center;justify-content:center;padding:24px" onclick="if(event.target===this)docClose()">
+ <div style="background:#fff;border-radius:12px;width:90vw;max-width:900px;height:88vh;display:flex;flex-direction:column;overflow:hidden">
+  <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid #e2e6ee">
+   <b id="docViewerTitle" style="font-size:14px;color:#1e2d45">Document</b>
+   <div>
+    <a id="docViewerOpen" href="#" target="_blank" class="btn ghost" style="padding:5px 12px;font-size:12px;margin-right:6px">Open in new tab</a>
+    <button class="btn ghost" style="padding:5px 12px;font-size:12px" onclick="docClose()">Close</button>
+   </div>
+  </div>
+  <iframe id="docViewerFrame" src="" style="flex:1;width:100%;border:0"></iframe>
+ </div>
+</div>
+<script>
+function docView(url,title){
+ document.getElementById('docViewerTitle').textContent=title||'Document';
+ document.getElementById('docViewerFrame').src=url;
+ document.getElementById('docViewerOpen').href=url;
+ document.getElementById('docViewer').style.display='flex';
+}
+function docClose(){
+ document.getElementById('docViewer').style.display='none';
+ document.getElementById('docViewerFrame').src='';
+}
+document.addEventListener('keydown',function(e){if(e.key==='Escape')docClose();});
+</script>
 {% endblock %}
 {% block page_title %}Unit {{ v.unit_number }}{% endblock %}
 {% block content %}
