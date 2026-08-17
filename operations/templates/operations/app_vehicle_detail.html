@@ -7,7 +7,7 @@
    <td>{{ row.o.get_doc_type_display }}</td>
    <td>{{ row.o.label }}</td>
    <td>{% if row.o.expiry_date %}{{ row.o.expiry_date }} {% if row.chip %}<span class="chip {{ row.chip.cls }}"><span class="d"></span>{{ row.chip.label }}</span>{% endif %}{% else %}<span class="sub">—</span>{% endif %}</td>
-   <td><a class="btn ghost" style="padding:3px 9px;font-size:12px" href="{{ row.o.file.url }}" target="_blank">View</a></td>
+   <td>{% if row.o.file %}<a class="btn ghost" style="padding:3px 9px;font-size:12px" href="{{ row.o.file.url }}" target="_blank">View</a>{% else %}<span class="sub">no file</span>{% endif %}</td>
    <td><form method="post" action="/app/vehicles/{{ v.id }}/doc/{{ row.o.id }}/delete/" onsubmit="return confirm('Remove this document?');" style="display:inline">{% csrf_token %}<button class="btn ghost" style="padding:3px 8px;font-size:11px;color:#c0392b" type="submit">Delete</button></form></td>
   </tr>{% endfor %}</tbody></table>
   {% else %}<div class="sub">No documents yet. Upload registration, insurance, inspection, lease, permits, etc. below.</div>{% endif %}

@@ -1,6 +1,6 @@
 # Trucking Compliance Services — Operations Portal (COMPLETE)
 
-Vehicle documents: custom categories + upload no longer 500s.
+Fix: vehicle page no longer 500s if a document has no file.
 
 ## Deploy
 1. Download this zip, then in Terminal:
@@ -8,13 +8,11 @@ Vehicle documents: custom categories + upload no longer 500s.
 2. GitHub Desktop -> Summary -> Commit to main -> Push origin.
 3. Hard-refresh (Cmd+Shift+R).
 
-## Fixes / additions on vehicle documents
-- Upload is now robust: if a file can't be saved it shows a clear message
-  instead of a blank 500 error page.
-- CUSTOM CATEGORY: pick a Type, or use the new "Or type your own category" box
-  (e.g. Cab card, IRP, lease addendum). Whatever you type shows as the document's
-  label. Also ensures the upload folder exists on the server volume.
+## What this fixes
+The truck page crashed (500) whenever a document row had no file attached
+(e.g. a partial/failed upload). Now it shows "no file" instead of crashing, so
+the page always loads. Uploading real documents works normally.
 
 ## Includes everything to date
-Vehicle documents (+custom category), CSV load import, hide load $, pay basis,
+Vehicle docs fix, custom category, CSV load import, hide load $, pay basis,
 rental contracts, settlement tools, pay history, miles+deadhead, percentage pay.
