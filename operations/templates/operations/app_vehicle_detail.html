@@ -34,20 +34,20 @@
     <button class="btn ghost" style="padding:5px 12px;font-size:12px" onclick="docClose()">Close</button>
    </div>
   </div>
-  <iframe id="docViewerFrame" src="" style="flex:1;width:100%;border:0"></iframe>
+  <div id="docViewerBody" style="flex:1;width:100%;overflow:auto;background:#f4f5f7;display:flex;align-items:center;justify-content:center"></div>
  </div>
 </div>
 <script>
 function docView(url,title){
  document.getElementById('docViewerTitle').textContent=title||'Document';
- document.getElementById('docViewerFrame').src=url;
  document.getElementById('docViewerOpen').href=url;
+ var body=document.getElementById('docViewerBody');
+ var ext=(url.split('?')[0].split('.').pop()||'').toLowerCase();
+ var img=['jpg','jpeg','png','gif','webp','bmp','heic','tif','tiff'];
+ body.innerHTML = img.indexOf(ext)>=0 ? '<img src="'+url+'" style="max-width:100%;max-height:100%;object-fit:contain">' : '<iframe src="'+url+'" style="width:100%;height:100%;border:0"></iframe>';
  document.getElementById('docViewer').style.display='flex';
 }
-function docClose(){
- document.getElementById('docViewer').style.display='none';
- document.getElementById('docViewerFrame').src='';
-}
+function docClose(){document.getElementById('docViewer').style.display='none';document.getElementById('docViewerBody').innerHTML='';}
 document.addEventListener('keydown',function(e){if(e.key==='Escape')docClose();});
 </script>
 {% endblock %}
