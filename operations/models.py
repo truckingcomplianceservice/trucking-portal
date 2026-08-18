@@ -842,3 +842,43 @@ class VehicleDocument(models.Model):
         if self.doc_type == "other" and self.custom_type:
             return self.custom_type
         return self.get_doc_type_display()
+
+
+class CompanyDocument(models.Model):
+    """Company-level operating paperwork: MC authority letter, COI (insurance),
+    IFTA, MCP letter, W-9, notice of assignment, and any other operations docs."""
+    DOC_TYPES = [
+        ("mc_authority", "MC authority letter"),
+        ("coi", "Certificate of Insurance (COI)"),
+        ("ifta", "IFTA"),
+        ("mcp", "MCP letter"),
+        ("w9", "W-9"),
+        ("noa", "Notice of Assignment (factoring)"),
+        ("ucr", "UCR"),
+        ("boc3", "BOC-3"),
+        ("ein_letter", "EIN letter"),
+        ("operating_auth", "Operating authority"),
+        ("other", "Other"),
+    ]
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name="company_documents")
+    doc_type = models.CharField(max_length=20, choices=DOC_TYPES, default="other")
+    custom_type = models.CharField("Custom category (if 'Other')", max_length=60, blank=True)
+    title = models.CharField(max_length=140, blank=True)
+    file = models.FileField(upload_to="company_docs/")
+    expiry_date = models.DateField("Expiry date (optional)", null=True, blank=True)
+    notes = models.TextField(blank=True)
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["expiry_date", "doc_type"]
+
+    def __str__(self):
+        return f"{self.company} · {self.get_doc_type_display()}"
+
+    @property
+    def label(self):
+        if self.title:
+            return self.title
+        if self.doc_type == "other" and self.custom_type:
+            return self.custom_type
+        return self.get_doc_type_display()

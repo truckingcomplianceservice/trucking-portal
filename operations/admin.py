@@ -10,7 +10,7 @@ from django.utils.safestring import mark_safe
 from .models import (Company, Profile, Driver, Vehicle, Load, Expense,
                      Settlement, Applicant, ComplianceDocument, ActivityLog, NotificationRule,
                      Broker, FuelTransaction, TimeEntry, Invoice, Payment, MaintenanceRecord,
-                     RentalContract, VehicleDocument)
+                     RentalContract, VehicleDocument, CompanyDocument)
 
 
 class RentalContractInline(admin.TabularInline):
@@ -299,4 +299,10 @@ class RentalContractAdmin(CompanyScopedAdmin):
 @admin.register(VehicleDocument)
 class VehicleDocumentAdmin(CompanyScopedAdmin):
     list_display = ("vehicle", "doc_type", "title", "expiry_date", "uploaded_at")
+    list_filter = ("company", "doc_type")
+
+
+@admin.register(CompanyDocument)
+class CompanyDocumentAdmin(CompanyScopedAdmin):
+    list_display = ("company", "doc_type", "title", "expiry_date", "uploaded_at")
     list_filter = ("company", "doc_type")

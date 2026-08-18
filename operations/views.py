@@ -7,7 +7,7 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.views.static import serve
 from django.conf import settings
 from .models import (Company, Load, Expense, Settlement, Driver, Vehicle, Applicant,
-                     ComplianceDocument, Broker, FuelTransaction, RentalContract, VehicleDocument, notify)
+                     ComplianceDocument, Broker, FuelTransaction, RentalContract, VehicleDocument, CompanyDocument, notify)
 
 
 def require_section(section):
@@ -228,6 +228,8 @@ def _expiring_items(companies):
         add(f"Unit {rc.vehicle.unit_number}", "Rental contract ending", rc.end_date)
     for vd in VehicleDocument.objects.filter(company__in=companies).exclude(expiry_date=None):
         add(f"Unit {vd.vehicle.unit_number}", vd.label, vd.expiry_date)
+    for cd in CompanyDocument.objects.filter(company__in=companies).exclude(expiry_date=None):
+        add(cd.company.name, cd.label, cd.expiry_date)
     for doc in ComplianceDocument.objects.filter(company__in=companies):
         add(str(doc.driver), doc.get_doc_type_display(), doc.expiry_date)
     items.sort(key=lambda x: x["days"])
@@ -2728,3 +2730,43 @@ def company_access(request):
             logins.append({"u": u, "company": comps[0], "role": prof.get_role_display()})
     return render(request, "operations/company_access.html",
                   {"companies": companies, "roles": Profile.ROLE_CHOICES, "logins": logins})
+
+
+@login_required
+def company_docs(request):
+    """Company-level paperwork (MC letter, COI, IFTA, MCP, etc.).
+    Scoped to the active company; each company login sees only their own."""
+    cs = _companies(request)
+    active = _active(request)
+    company = cs.filter(pk=active).first() if active and active != "all" else cs.first()
+    if not company:
+        _messages.error(request, "Pick a company first (top-right switcher).")
+        return redirect("dashboard")
+    if request.method == "POST":
+        action = request.POST.get("action")
+        if action == "delete":
+            d = CompanyDocument.objects.filter(pk=request.POST.get("doc_id"), company__in=cs).first()
+            if d:
+                d.delete(); _messages.success(request, "Document removed.")
+        elif request.FILES.get("file"):
+            try:
+                import os
+                os.makedirs(os.path.join(settings.MEDIA_ROOT, "company_docs"), exist_ok=True)
+                CompanyDocument.objects.create(
+                    company=company,
+                    doc_type=request.POST.get("doc_type", "other"),
+                    custom_type=request.POST.get("custom_type", "").strip(),
+                    title=request.POST.get("title", "").strip(),
+                    file=request.FILES["file"],
+                    expiry_date=_parse_date(request.POST.get("expiry_date", "")) or None,
+                    notes=request.POST.get("notes", "").strip())
+                _messages.success(request, "Document uploaded.")
+            except Exception as e:
+                _messages.error(request, f"Could not save the document: {e}")
+        else:
+            _messages.error(request, "Choose a file to upload.")
+        return redirect("company_docs")
+    docs = [{"o": d, "chip": _exp_chip(d.expiry_date) if d.expiry_date else None}
+            for d in company.company_documents.all()]
+    return render(request, "operations/company_docs.html",
+                  {"company": company, "docs": docs, "doc_types": CompanyDocument.DOC_TYPES})
