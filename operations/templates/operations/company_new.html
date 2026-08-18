@@ -1,0 +1,62 @@
+{% extends "operations/app_base.html" %}
+{% block title %}Add company — Fleetline{% endblock %}
+{% block page_title %}Add a company{% endblock %}
+{% block content %}
+{% if messages %}{% for m in messages %}<div style="margin:8px 0;padding:10px 14px;border-radius:8px;font-size:13px;background:{% if m.tags == 'error' %}#fbe7e5;color:#b02b24{% else %}#e4f4ec;color:#137a51{% endif %}">{{ m }}</div>{% endfor %}{% endif %}
+
+<div class="card" style="max-width:680px"><div class="card-h"><h3>Look up from FMCSA (optional)</h3></div>
+ <div style="padding:16px 18px">
+  {% if not has_key %}<div class="sub" style="margin-bottom:10px;color:#b02b24">No FMCSA key set yet. Add <b>FMCSA_WEBKEY</b> in your Railway settings to enable auto-lookup. You can still add a company manually below.</div>{% endif %}
+  <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
+   <div><label class="sub">DOT number</label><input id="f_dot" style="padding:9px 11px;border:1px solid var(--line);border-radius:8px"></div>
+   <div style="align-self:center;color:var(--sub);padding-bottom:8px">or</div>
+   <div><label class="sub">MC number</label><input id="f_mc" style="padding:9px 11px;border:1px solid var(--line);border-radius:8px"></div>
+   <button class="btn navy" type="button" onclick="fmcsaLookup()">Look up from FMCSA</button>
+  </div>
+  <div id="f_status" class="sub" style="margin-top:8px"></div>
+ </div>
+</div>
+
+<div class="card" style="max-width:680px;margin-top:14px"><div class="card-h"><h3>Company details</h3></div>
+ <form method="post" action="/app/company/new/" style="padding:16px 18px">{% csrf_token %}
+  <label class="sub">Company name *</label><input name="name" id="c_name" required style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;margin-bottom:10px">
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+   <div><label class="sub">DOT number</label><input name="dot_number" id="c_dot" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px"></div>
+   <div><label class="sub">MC number</label><input name="mc_number" id="c_mc" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px"></div>
+   <div style="grid-column:span 2"><label class="sub">Address</label><input name="address" id="c_addr" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px"></div>
+   <div><label class="sub">Phone</label><input name="phone" id="c_phone" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px"></div>
+   <div><label class="sub">Email</label><input name="email" id="c_email" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px"></div>
+   <div><label class="sub">FMCSA safety rating</label><input name="safety_rating" id="c_rating" readonly style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;background:#f7f8fa"></div>
+   <div><label class="sub">Operating status</label><input name="fmcsa_status" id="c_status" readonly style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;background:#f7f8fa"></div>
+   <div><label class="sub">Power units</label><input name="power_units" id="c_units" readonly style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;background:#f7f8fa"></div>
+  </div>
+  <button class="btn amber" type="submit" style="margin-top:14px">Save company</button>
+ </form>
+</div>
+
+<script>
+function fmcsaLookup(){
+ var dot=document.getElementById('f_dot').value.trim();
+ var mc=document.getElementById('f_mc').value.trim();
+ var st=document.getElementById('f_status');
+ if(!dot && !mc){st.textContent='Enter a DOT or MC number first.';return;}
+ st.textContent='Looking up FMCSA…';
+ fetch('/app/fmcsa/lookup/?dot='+encodeURIComponent(dot)+'&mc='+encodeURIComponent(mc))
+  .then(function(r){return r.json();})
+  .then(function(j){
+    if(!j.ok){st.textContent=j.error||'Lookup failed.';st.style.color='#b02b24';return;}
+    var d=j.data;
+    if(d.name)document.getElementById('c_name').value=d.name;
+    if(d.dot_number)document.getElementById('c_dot').value=d.dot_number;
+    if(d.mc_number)document.getElementById('c_mc').value=d.mc_number;
+    if(d.address)document.getElementById('c_addr').value=d.address;
+    if(d.phone)document.getElementById('c_phone').value=d.phone;
+    document.getElementById('c_rating').value=d.safety_rating||'';
+    document.getElementById('c_status').value=d.fmcsa_status||'';
+    document.getElementById('c_units').value=d.power_units||'';
+    st.textContent='Loaded from FMCSA. Review and save.';st.style.color='#137a51';
+  })
+  .catch(function(e){st.textContent='Lookup error: '+e;st.style.color='#b02b24';});
+}
+</script>
+{% endblock %}

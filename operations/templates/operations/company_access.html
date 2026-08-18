@@ -1,0 +1,47 @@
+{% extends "operations/app_base.html" %}
+{% block title %}Company logins — Fleetline{% endblock %}
+{% block page_title %}Company logins{% endblock %}
+{% block content %}
+{% if messages %}{% for m in messages %}<div style="margin:8px 0;padding:10px 14px;border-radius:8px;font-size:13px;background:{% if m.tags == 'error' %}#fbe7e5;color:#b02b24{% else %}#e4f4ec;color:#137a51{% endif %}">{{ m }}</div>{% endfor %}{% endif %}
+
+<div class="card" style="max-width:680px"><div class="card-h"><h3>Create a login for a company</h3></div>
+ <form method="post" action="/app/company/access/" style="padding:16px 18px">{% csrf_token %}
+  <label class="sub">Company *</label>
+  <select name="company" required style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;margin-bottom:10px">
+   <option value="">— choose a company —</option>{% for c in companies %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}</select>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+   <div><label class="sub">Username *</label><input name="username" required placeholder="e.g. westgate" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px"></div>
+   <div><label class="sub">Password * (min 8 chars)</label><input name="password" required style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px"></div>
+   <div><label class="sub">Contact name</label><input name="first_name" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px"></div>
+   <div><label class="sub">Email</label><input name="email" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px"></div>
+   <div style="grid-column:span 2"><label class="sub">Access level</label>
+    <select name="role" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px">
+     {% for code,label in roles %}<option value="{{ code }}"{% if code == 'admin' %} selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+    <div class="sub" style="margin-top:4px">"Administrator" lets them manage their own company fully. Pick a narrower role to limit what they see.</div>
+   </div>
+  </div>
+  <button class="btn amber" type="submit" style="margin-top:14px">Create login</button>
+ </form>
+</div>
+
+<div class="card" style="max-width:680px;margin-top:14px"><div class="card-h"><h3>Existing company logins</h3></div>
+ <div style="padding:14px 16px">
+  {% if logins %}<table><thead><tr><th>Username</th><th>Company</th><th>Access</th><th>Sign-in link</th></tr></thead><tbody>
+  {% for row in logins %}<tr>
+   <td class="mono">{{ row.u.username }}</td><td>{{ row.company.name }}</td><td>{{ row.role }}</td>
+   <td class="sub">/c/{{ row.company.slug }}/</td>
+  </tr>{% endfor %}</tbody></table>
+  {% else %}<div class="sub">No company logins yet. Create one above.</div>{% endif %}
+ </div>
+</div>
+
+<div class="card" style="max-width:680px;margin-top:14px"><div style="padding:16px 18px">
+ <b style="font-size:13px">How it works</b>
+ <div class="sub" style="margin-top:6px;line-height:1.6">
+  Each login you create here is tied to <b>one company only</b>. When that person signs
+  in, they see just their own company's dashboard, trucks, loads, accounting, expenses,
+  and documents — with their company's logo. They cannot see any other company's data.
+  Share their sign-in link (shown above) and their username/password with them.
+ </div>
+</div></div>
+{% endblock %}

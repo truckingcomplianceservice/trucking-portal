@@ -35,6 +35,10 @@ class Company(models.Model):
     logo = models.FileField("Company logo", upload_to="company_logos/", blank=True, null=True,
         help_text="Shown on this company's invoices and reports (PNG or JPG).")
     factor = models.CharField(max_length=10, choices=FACTOR_CHOICES, default="None")
+    safety_rating = models.CharField("FMCSA safety rating", max_length=40, blank=True)
+    fmcsa_status = models.CharField("FMCSA operating status", max_length=60, blank=True)
+    power_units = models.IntegerField("Power units", null=True, blank=True)
+    fmcsa_updated = models.DateField("FMCSA data pulled on", null=True, blank=True)
     active = models.BooleanField(default=True)
     apply_token = models.CharField(max_length=32, blank=True, db_index=True,
         help_text="Used to build this company's public driver-application link.")

@@ -2574,3 +2574,157 @@ def load_doc_upload(request, pk):
         else:
             _messages.error(request, "Pick a document type and a file.")
     return redirect("app_load_detail", pk=pk)
+
+
+# ================= FMCSA carrier lookup (QCMobile API) =================
+def _fmcsa_key():
+    import os
+    return os.environ.get("FMCSA_WEBKEY", "").strip()
+
+
+def _fmcsa_fetch(dot=None, mc=None):
+    """Look up a carrier on FMCSA QCMobile. Returns (data_dict, error_str)."""
+    import json
+    from urllib.request import urlopen
+    from urllib.error import URLError, HTTPError
+    key = _fmcsa_key()
+    if not key:
+        return None, "No FMCSA key set. Add FMCSA_WEBKEY in your Railway settings first."
+    base = "https://mobile.fmcsa.dot.gov/qc/services/carriers"
+    if dot:
+        url = f"{base}/{dot}?webKey={key}"
+    elif mc:
+        url = f"{base}/docket-number/{mc}?webKey={key}"
+    else:
+        return None, "Enter a DOT or MC number."
+    try:
+        with urlopen(url, timeout=15) as r:
+            payload = json.loads(r.read().decode("utf-8"))
+    except HTTPError as e:
+        return None, f"FMCSA returned an error ({e.code}). Check the number and try again."
+    except (URLError, TimeoutError) as e:
+        return None, f"Could not reach FMCSA: {e}. Try again in a moment."
+    except Exception as e:
+        return None, f"Lookup failed: {e}"
+    # QCMobile wraps carrier data under "content" -> "carrier" (or a list for MC)
+    content = payload.get("content")
+    if isinstance(content, list):
+        content = content[0] if content else None
+    if not content:
+        return None, "No carrier found for that number."
+    carrier = content.get("carrier", content) if isinstance(content, dict) else None
+    if not carrier:
+        return None, "No carrier data returned."
+    return carrier, None
+
+
+@require_section("dispatch")
+@login_required
+def fmcsa_lookup(request):
+    """AJAX-style: return FMCSA carrier data as JSON for the add-company form."""
+    from django.http import JsonResponse
+    dot = (request.GET.get("dot") or "").strip()
+    mc = (request.GET.get("mc") or "").strip()
+    carrier, err = _fmcsa_fetch(dot=dot or None, mc=mc or None)
+    if err:
+        return JsonResponse({"ok": False, "error": err})
+
+    def g(*keys):
+        for k in keys:
+            v = carrier.get(k)
+            if v not in (None, "", "NONE"):
+                return v
+        return ""
+    # build a single address line
+    addr_parts = [str(g("phyStreet")), str(g("phyCity")), str(g("phyState")), str(g("phyZipcode"))]
+    address = ", ".join(p for p in addr_parts if p and p != "None")
+    data = {
+        "name": g("legalName", "dbaName"),
+        "dba": g("dbaName"),
+        "dot_number": str(g("dotNumber")),
+        "mc_number": str(g("docketNumber") or mc),
+        "address": address,
+        "phone": g("phone", "telephone"),
+        "safety_rating": g("safetyRating") or "Not rated",
+        "fmcsa_status": g("allowedToOperate") == "Y" and "Allowed to operate" or g("statusCode") or "",
+        "power_units": g("totalPowerUnits") or g("powerUnits") or "",
+        "drivers": g("totalDrivers") or g("driverTotal") or "",
+    }
+    return JsonResponse({"ok": True, "data": data})
+
+
+@login_required
+def company_new(request):
+    """Add a company, optionally auto-filled from FMCSA by DOT/MC number."""
+    if not request.user.is_superuser:
+        return redirect("dashboard")
+    if request.method == "POST":
+        import datetime as _d
+        name = request.POST.get("name", "").strip()
+        if not name:
+            _messages.error(request, "Company name is required.")
+            return redirect("company_new")
+        c = Company.objects.create(
+            name=name,
+            dot_number=request.POST.get("dot_number", "").strip(),
+            mc_number=request.POST.get("mc_number", "").strip(),
+            address=request.POST.get("address", "").strip(),
+            phone=request.POST.get("phone", "").strip(),
+            email=request.POST.get("email", "").strip(),
+            safety_rating=request.POST.get("safety_rating", "").strip(),
+            fmcsa_status=request.POST.get("fmcsa_status", "").strip(),
+            power_units=(int(_num(request.POST.get("power_units", "0"))) or None),
+            fmcsa_updated=_d.date.today() if request.POST.get("safety_rating") else None,
+        )
+        # give the creating superuser access + set as active
+        _messages.success(request, f"Company '{c.name}' added.")
+        return redirect("dashboard")
+    return render(request, "operations/company_new.html", {"has_key": bool(_fmcsa_key())})
+
+
+@login_required
+def company_access(request):
+    """Owner-only: create a login for a specific company. The new user sees ONLY
+    that company's data (trucks, accounting, expenses, documents) with its logo."""
+    if not request.user.is_superuser:
+        return redirect("dashboard")
+    companies = Company.objects.filter(active=True).order_by("name")
+    if request.method == "POST":
+        company = companies.filter(pk=request.POST.get("company")).first()
+        username = request.POST.get("username", "").strip()
+        password = request.POST.get("password", "").strip()
+        role = request.POST.get("role", "admin")
+        first = request.POST.get("first_name", "").strip()
+        email = request.POST.get("email", "").strip()
+        if not company:
+            _messages.error(request, "Pick a company.")
+        elif not username or not password:
+            _messages.error(request, "Username and password are required.")
+        elif len(password) < 8:
+            _messages.error(request, "Use a password of at least 8 characters.")
+        elif _User.objects.filter(username__iexact=username).exists():
+            _messages.error(request, "That username is already taken.")
+        else:
+            u = _User.objects.create_user(username=username, password=password,
+                                          first_name=first, email=email)
+            prof, _ = Profile.objects.get_or_create(user=u, defaults={"role": role})
+            prof.role = role
+            prof.save()
+            prof.companies.set([company])          # ONLY this company
+            _apply_role(u, role)                    # permissions for their role
+            _messages.success(request,
+                f"Login created for {company.name}. Username: {username}. "
+                f"They can sign in at /c/{company.slug}/ and will see only their own data.")
+            return redirect("company_access")
+    # list existing per-company logins (non-superusers with a single company)
+    logins = []
+    for u in _User.objects.filter(is_superuser=False).select_related("profile"):
+        try:
+            prof = u.profile
+        except Profile.DoesNotExist:
+            continue
+        comps = list(prof.companies.all())
+        if len(comps) == 1:
+            logins.append({"u": u, "company": comps[0], "role": prof.get_role_display()})
+    return render(request, "operations/company_access.html",
+                  {"companies": companies, "roles": Profile.ROLE_CHOICES, "logins": logins})

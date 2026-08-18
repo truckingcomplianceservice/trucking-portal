@@ -1,29 +1,29 @@
 # Trucking Compliance Services — Operations Portal (COMPLETE)
 
-Five fixes: multi-stop/LTL import, wider rate detection, fuel receipts,
-accounting expense receipts, and truck documents (was a deploy/cache issue).
+Stage 1 multi-company: create a separate login per company (their own data + logo).
 
 ## Deploy
 1. Download this zip, then in Terminal:
    cd ~/Documents/GitHub/trucking-portal && rm -rf operations trucking_ops templates manage.py requirements.txt Procfile README.md && unzip -o ~/Downloads/<THIS-FILE>.zip -d . && echo DONE
-2. GitHub Desktop -> Summary -> Commit to main -> Push origin.
-3. TEST IN A PRIVATE / INCOGNITO WINDOW first (your normal browser caches old pages).
+2. GitHub Desktop -> Commit -> Push. Test in a private/incognito window.
 
-## What changed
-1. LTL / multi-stop loads: the CSV importer now reads every "Stop"/"Location"
-   column and stores them all in one load. The load page shows an "All stops" list.
-   Origin/Destination auto-fill from the first/last stop when not given separately.
-2. Amazon rate: rate detection widened (Block Pay, Line haul, Total pay, Gross pay,
-   Charge, etc.) and fixed a bug where "Stop" columns were mistaken for the route.
-   If your rate still doesn't import, send the CSV's top header row and I'll tune it.
-3. Truck documents: the Documents section is on the truck page (Vehicles -> a truck).
-   It was missing only because the older build was still cached/live -- this deploy
-   plus an incognito check fixes it.
-4. Fuel: "+ Add fuel entry" on the Fuel page lets you add a fuel transaction AND
-   attach a receipt/invoice. Existing rows show a receipt "View" or "Attach" link.
-5. Accounting: "+ Add expense" lets you add an expense with a receipt. Each expense
-   row now has receipt View/Attach and a Remove button.
+## New: give a company its own login
+All companies -> "Company logins":
+- Pick the company, set a username + password, choose access level, Create login.
+- That login is tied to ONE company. They sign in at /c/<their-slug>/ and see ONLY
+  their own dashboard, trucks, loads, accounting, expenses, and documents -- with
+  their own logo. They cannot see any other company's data (tested and enforced,
+  including direct-URL attempts).
+- Share their sign-in link + username/password with them.
+
+## Notes for selling to outside companies (important)
+- FILE BACKUPS are still not set up. The database is backed up daily, but uploaded
+  files (documents, receipts, PODs, logos) are NOT. Set up file backup (S3/R2)
+  BEFORE onboarding paying customers -- this is the top priority.
+- Legal: Terms of Service + Privacy Policy needed once you hold other companies'
+  data (a lawyer conversation).
+- This is Stage 1 (you create logins). Self-serve signup and billing are later stages.
 
 ## Includes everything to date
-Multi-stop import, fuel + expense receipts, load docs, truck docs, custom category,
-hide load $, pay basis, rental contracts, settlement tools, pay history.
+Company logins, FMCSA lookup, multi-stop import, fuel + expense receipts, load docs,
+truck docs, custom category, hide load $, pay basis, rental contracts, pay history.

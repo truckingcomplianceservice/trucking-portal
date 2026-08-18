@@ -31,6 +31,9 @@ urlpatterns = [
     # custom app sections
     path("app/loads/", views.app_loads, name="app_loads"),
     path("app/loads/import/", views.load_import, name="load_import"),
+    path("app/fmcsa/lookup/", views.fmcsa_lookup, name="fmcsa_lookup"),
+    path("app/company/new/", views.company_new, name="company_new"),
+    path("app/company/access/", views.company_access, name="company_access"),
     path("app/loads/from-ratecon/", views.load_from_ratecon, name="load_from_ratecon"),
     path("app/loads/<int:pk>/", views.app_load_detail, name="app_load_detail"),
     path("app/loads/<int:pk>/doc/", views.load_doc_upload, name="load_doc_upload"),

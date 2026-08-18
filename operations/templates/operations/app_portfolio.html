@@ -12,6 +12,7 @@
  .pmet .m .v{font-size:18px;font-weight:600;font-family:'Space Grotesk'}
 {% endblock %}
 {% block content %}
+<div class="toolbar"><div class="spacer"></div><a class="btn ghost" href="/app/company/access/">Company logins</a><a class="btn amber" href="/app/company/new/">+ Add company (FMCSA lookup)</a></div>
 <div class="kpis" style="grid-template-columns:repeat(5,1fr)">
  <div class="kpi"><div class="l">Companies</div><div class="n">{{ count }}</div></div>
  <div class="kpi"><div class="l">Active loads</div><div class="n">{{ tot.loads }}</div></div>
