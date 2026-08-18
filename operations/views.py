@@ -488,11 +488,58 @@ def app_accounting(request):
         wag = sum(s.net_pay for s in Settlement.objects.filter(company=c))
         rows.append({"name": c.name, "rev": rev, "exp": exp, "wag": wag, "net": rev - exp - wag})
         tr += rev; te += exp; tw += wag
-    expenses = Expense.objects.filter(company__in=cs).select_related("company")[:8]
+    expenses = Expense.objects.filter(company__in=cs).select_related("company")[:12]
     settlements = Settlement.objects.filter(company__in=cs).select_related("driver", "company")[:8]
     totals = {"rev": tr, "exp": te, "wag": tw, "net": tr - te - tw}
     return render(request, "operations/app_accounting.html",
-                  {"rows": rows, "totals": totals, "expenses": expenses, "settlements": settlements})
+                  {"rows": rows, "totals": totals, "expenses": expenses, "settlements": settlements,
+                   "companies": cs,
+                   "vehicles": Vehicle.objects.filter(company__in=cs).order_by("unit_number"),
+                   "drivers": Driver.objects.filter(company__in=cs).order_by("first_name")})
+
+
+@require_section("accounting")
+@login_required
+def expense_add(request):
+    """Add an expense (with optional receipt) from the Accounting page."""
+    cs = _companies(request)
+    if request.method == "POST":
+        company = cs.filter(pk=request.POST.get("company")).first() or cs.first()
+        try:
+            import os
+            os.makedirs(os.path.join(settings.MEDIA_ROOT, "expenses"), exist_ok=True)
+            Expense.objects.create(
+                company=company,
+                date=_parse_date(request.POST.get("date", "")) or _dt.date.today(),
+                category=request.POST.get("category", "").strip() or "Other",
+                amount=round(_num(request.POST.get("amount", "0")), 2),
+                vendor=request.POST.get("vendor", "").strip(),
+                vehicle=Vehicle.objects.filter(pk=request.POST.get("vehicle"), company__in=cs).first(),
+                driver=Driver.objects.filter(pk=request.POST.get("driver"), company__in=cs).first(),
+                receipt=request.FILES.get("receipt"))
+            _messages.success(request, "Expense added.")
+        except Exception as e:
+            _messages.error(request, f"Could not add the expense: {e}")
+    return redirect("app_accounting")
+
+
+@require_section("accounting")
+@login_required
+def expense_receipt(request, pk):
+    """Attach/replace a receipt on an existing expense, or delete the expense."""
+    e = _get(Expense, pk=pk, company__in=_companies(request))
+    if request.method == "POST":
+        if request.POST.get("action") == "delete":
+            e.delete(); _messages.success(request, "Expense removed.")
+        elif request.FILES.get("receipt"):
+            try:
+                import os
+                os.makedirs(os.path.join(settings.MEDIA_ROOT, "expenses"), exist_ok=True)
+                e.receipt = request.FILES["receipt"]; e.save()
+                _messages.success(request, "Receipt attached.")
+            except Exception as ex:
+                _messages.error(request, f"Could not attach receipt: {ex}")
+    return redirect("app_accounting")
 
 
 def _companies_all(request):
@@ -631,7 +678,52 @@ def app_fuel(request):
     return render(request, "operations/app_fuel.html",
                   {"txns": txns[:300], "total_amt": total_amt, "total_gal": total_gal,
                    "vehicles": Vehicle.objects.filter(company__in=cs), "vehicle_id": vehicle_id,
-                   "start": start, "end": end, "qs": qs, "count": txns.count()})
+                   "start": start, "end": end, "qs": qs, "count": txns.count(),
+                   "drivers": Driver.objects.filter(company__in=cs).order_by("first_name")})
+
+
+@require_section("fuel")
+@login_required
+def fuel_add(request):
+    """Add a fuel transaction manually, optionally with a receipt/invoice attached."""
+    cs = _companies(request)
+    if request.method == "POST":
+        company = cs.filter(pk=request.POST.get("company")).first() or cs.first()
+        try:
+            import os
+            os.makedirs(os.path.join(settings.MEDIA_ROOT, "fuel_receipts"), exist_ok=True)
+            FuelTransaction.objects.create(
+                company=company,
+                date=_parse_date(request.POST.get("date", "")) or _dt.date.today(),
+                vehicle=Vehicle.objects.filter(pk=request.POST.get("vehicle"), company__in=cs).first(),
+                driver=Driver.objects.filter(pk=request.POST.get("driver"), company__in=cs).first(),
+                location=request.POST.get("location", "").strip()[:160],
+                gallons=round(_num(request.POST.get("gallons", "0")), 2),
+                amount=round(_num(request.POST.get("amount", "0")), 2),
+                card_last4=request.POST.get("card_last4", "").strip()[-4:],
+                receipt=request.FILES.get("receipt"),
+                source="manual",
+                notes=request.POST.get("notes", "").strip())
+            _messages.success(request, "Fuel entry added.")
+        except Exception as e:
+            _messages.error(request, f"Could not add the entry: {e}")
+    return redirect("app_fuel")
+
+
+@require_section("fuel")
+@login_required
+def fuel_receipt(request, pk):
+    """Attach or replace a receipt on an existing fuel transaction."""
+    t = _get(FuelTransaction, pk=pk, company__in=_companies(request))
+    if request.method == "POST" and request.FILES.get("receipt"):
+        try:
+            import os
+            os.makedirs(os.path.join(settings.MEDIA_ROOT, "fuel_receipts"), exist_ok=True)
+            t.receipt = request.FILES["receipt"]; t.save()
+            _messages.success(request, "Receipt attached.")
+        except Exception as e:
+            _messages.error(request, f"Could not attach receipt: {e}")
+    return redirect("app_fuel")
 
 
 def _find(header, *needles):
@@ -2359,15 +2451,19 @@ def load_import(request):
         # column detection — needle-priority (works with Amazon Relay & most TMS exports)
         col = {
             "ref": _find(header, "trip", "vrid", "load id", "load", "reference", "ref", "order", "tour"),
-            "origin": _find(header, "origin", "pickup", "from", "start", "first stop"),
-            "destination": _find(header, "destination", "dest", "drop", "delivery", "to", "last stop"),
+            "origin": _find(header, "origin", "pickup", "pick up", "first stop", "ship from"),
+            "destination": _find(header, "destination", "dest", "drop off", "dropoff", "delivery", "deliver", "consignee", "last stop", "final stop", "ship to"),
             "pickup_date": _find(header, "pickup date", "start date", "pickup", "ready", "depart"),
             "delivery_date": _find(header, "delivery date", "end date", "drop date", "arrive", "due"),
-            "rate": _find(header, "rate", "amount", "pay", "revenue", "total", "cost", "price"),
+            "rate": _find(header, "rate", "line haul", "linehaul", "block pay", "block rate", "total pay",
+                          "gross pay", "amount", "pay", "revenue", "total", "cost", "price", "charge"),
             "miles": _find(header, "loaded mile", "miles", "distance", "mileage"),
             "deadhead": _find(header, "deadhead", "empty mile", "dh mile", "dh"),
             "customer": _find(header, "customer", "broker", "shipper", "account"),
         }
+        # collect every "stop" column (Stop 1, Stop 2, Stop A, Location 1...) for multi-stop / LTL
+        stop_cols = [i for i, h in enumerate(header)
+                     if h and ("stop" in h.lower() or "location" in h.lower())]
         if col["ref"] is None and col["origin"] is None and col["rate"] is None:
             _messages.error(request, "Couldn't recognize the columns. Make sure the first row has headers like Trip/Load ID, Origin, Destination, Rate.")
             return render(request, "operations/load_import.html", context)
@@ -2381,7 +2477,16 @@ def load_import(request):
             ref = val(row, "ref")
             origin = val(row, "origin")
             rate = _num(val(row, "rate"))
-            if not ref and not origin and not rate:
+            # gather all stop columns (multi-stop / LTL) in order
+            stops_list = [row[i].strip() for i in stop_cols if i < len(row) and row[i].strip()]
+            stops_text = "\n".join(stops_list)
+            # if there was no explicit origin/destination, use first/last stop
+            if not origin and stops_list:
+                origin = stops_list[0]
+            dest = val(row, "destination")
+            if not dest and len(stops_list) > 1:
+                dest = stops_list[-1]
+            if not ref and not origin and not rate and not stops_list:
                 continue
             # skip duplicates: same company + reference (if a reference exists)
             if ref and Load.objects.filter(company=company, reference=ref).exists():
@@ -2392,7 +2497,8 @@ def load_import(request):
                 reference=ref or "RELAY",
                 customer=val(row, "customer"),
                 origin=origin,
-                destination=val(row, "destination"),
+                destination=dest,
+                stops=stops_text,
                 pickup_date=_parse_date(val(row, "pickup_date")) or None,
                 delivery_date=_parse_date(val(row, "delivery_date")) or None,
                 rate=rate,

@@ -53,6 +53,8 @@ urlpatterns = [
     path("app/hiring/", views.app_hiring, name="app_hiring"),
     path("app/brokers/", views.app_brokers, name="app_brokers"),
     path("app/fuel/", views.app_fuel, name="app_fuel"),
+    path("app/fuel/add/", views.fuel_add, name="fuel_add"),
+    path("app/fuel/<int:pk>/receipt/", views.fuel_receipt, name="fuel_receipt"),
     path("app/fuel/import/", views.fuel_import, name="fuel_import"),
     path("app/fuel/pdf/", views.fuel_report_pdf, name="fuel_report_pdf"),
     path("app/team/", views.app_team, name="app_team"),
@@ -65,6 +67,8 @@ urlpatterns = [
 
     path("app/compliance/", views.app_compliance, name="app_compliance"),
     path("app/accounting/", views.app_accounting, name="app_accounting"),
+    path("app/accounting/expense/add/", views.expense_add, name="expense_add"),
+    path("app/accounting/expense/<int:pk>/receipt/", views.expense_receipt, name="expense_receipt"),
     path("app/billing/", views.app_billing, name="app_billing"),
     path("app/billing/new/", views.invoice_create, name="invoice_create"),
     path("app/billing/<int:pk>/", views.invoice_detail, name="invoice_detail"),

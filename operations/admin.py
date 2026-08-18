@@ -224,7 +224,7 @@ class BrokerAdmin(admin.ModelAdmin):
 
 @admin.register(FuelTransaction)
 class FuelTransactionAdmin(CompanyScopedAdmin):
-    list_display = ("date", "company", "vehicle", "driver", "location", "gallons", "amount", "source")
+    list_display = ("date", "company", "vehicle", "driver", "location", "gallons", "amount", "receipt", "source")
     list_filter = ("company", "source")
     search_fields = ("location", "card_last4")
     date_hierarchy = "date"

@@ -204,6 +204,7 @@ class Load(models.Model):
     broker = models.ForeignKey("Broker", on_delete=models.SET_NULL, null=True, blank=True, related_name="loads")
     origin = models.CharField(max_length=120)
     destination = models.CharField(max_length=120)
+    stops = models.TextField("All stops (multi-stop / LTL)", blank=True, help_text="One stop per line, in order.")
     pickup_date = models.DateField(null=True, blank=True)
     delivery_date = models.DateField(null=True, blank=True)
     rate = models.DecimalField(max_digits=10, decimal_places=2, default=0)
@@ -518,6 +519,7 @@ class FuelTransaction(models.Model):
     gallons = models.DecimalField(max_digits=8, decimal_places=2, default=0)
     amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     source = models.CharField(max_length=20, default="csv")
+    receipt = models.FileField("Receipt / invoice", upload_to="fuel_receipts/", blank=True, null=True)
     notes = models.TextField(blank=True)
 
     class Meta:

@@ -21,14 +21,32 @@
  <a class="btn ghost" href="#" onclick="window.print();return false">Print</a>
  <a class="btn ghost" href="/app/fuel/pdf/?{{ qs }}" target="_blank">Download PDF</a>
  <a class="btn ghost" href="/app/fuel/import/">Import CSV</a>
- <a class="btn amber" href="/admin/operations/fueltransaction/add/">+ Add</a>
+ <a class="btn amber" href="#" onclick="document.getElementById('fuelAdd').style.display='block';return false;">+ Add fuel entry</a>
 </form>
+
+<div id="fuelAdd" class="card" style="display:none;margin-bottom:14px"><div class="card-h"><h3>Add fuel entry</h3></div>
+ <form method="post" action="/app/fuel/add/" enctype="multipart/form-data" style="padding:14px 16px">{% csrf_token %}
+  {% if vehicles.count %}<input type="hidden" name="company" value="{{ vehicles.first.company.id }}">{% endif %}
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+   <div><label class="sub">Date</label><input type="date" name="date" style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px"></div>
+   <div><label class="sub">Truck</label><select name="vehicle" style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px"><option value="">—</option>{% for v in vehicles %}<option value="{{ v.id }}">Unit {{ v.unit_number }}</option>{% endfor %}</select></div>
+   <div><label class="sub">Driver</label><select name="driver" style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px"><option value="">—</option>{% for d in drivers %}<option value="{{ d.id }}">{{ d }}</option>{% endfor %}</select></div>
+   <div><label class="sub">Location</label><input name="location" style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px"></div>
+   <div><label class="sub">Gallons</label><input name="gallons" placeholder="0" style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px"></div>
+   <div><label class="sub">Amount ($)</label><input name="amount" placeholder="0.00" style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px"></div>
+   <div style="grid-column:span 3"><label class="sub">Receipt / invoice (optional)</label><input type="file" name="receipt" style="width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:8px"></div>
+  </div>
+  <button class="btn amber" type="submit" style="margin-top:10px">Save fuel entry</button>
+ </form>
+</div>
+
 <div class="card"><div class="card-h"><h3>Fuel transactions</h3></div>
-{% if txns %}<table><thead><tr><th>Date</th><th>Company</th><th>Unit</th><th>Location</th><th>Card</th><th style="text-align:right">Gallons</th><th style="text-align:right">Amount</th><th></th></tr></thead><tbody>
+{% if txns %}<table><thead><tr><th>Date</th><th>Company</th><th>Unit</th><th>Location</th><th>Card</th><th style="text-align:right">Gallons</th><th style="text-align:right">Amount</th><th>Receipt</th><th></th></tr></thead><tbody>
 {% for t in txns %}<tr>
  <td>{{ t.date|default:"—" }}</td><td>{{ t.company.name }}</td><td>{% if t.vehicle %}Unit {{ t.vehicle.unit_number }}{% else %}—{% endif %}</td>
  <td>{{ t.location|default:"—" }}</td><td>{% if t.card_last4 %}••{{ t.card_last4 }}{% else %}—{% endif %}</td>
  <td style="text-align:right">{{ t.gallons|floatformat:1 }}</td><td style="text-align:right;font-weight:600">${{ t.amount|floatformat:2|intcomma }}</td>
+ <td>{% if t.receipt %}<a href="{{ t.receipt.url }}" target="_blank" style="color:var(--blue)">View</a>{% else %}<form method="post" action="/app/fuel/{{ t.id }}/receipt/" enctype="multipart/form-data" style="display:inline">{% csrf_token %}<label style="cursor:pointer;color:var(--blue);font-size:12px">Attach<input type="file" name="receipt" onchange="this.form.submit()" style="display:none"></label></form>{% endif %}</td>
  <td style="text-align:right"><a href="/admin/operations/fueltransaction/{{ t.id }}/change/" class="sub" style="color:var(--blue)">Edit / delete</a></td>
 </tr>{% endfor %}</tbody></table>
 {% else %}<div class="empty">No fuel transactions{% if vehicle_id or start or end %} match this filter{% endif %}. <a href="/app/fuel/import/" style="color:var(--blue)">Import a CSV →</a></div>{% endif %}

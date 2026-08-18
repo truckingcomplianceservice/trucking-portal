@@ -12,6 +12,7 @@
    <div class="field"><span class="k">Company</span><span class="v">{{ l.company.name }}</span></div>
    <div class="field"><span class="k">Customer / broker</span><span class="v">{{ l.customer|default:"—" }}</span></div>
    <div class="field"><span class="k">Route</span><span class="v">{{ l.origin }} → {{ l.destination }}</span></div>
+   {% if l.stops %}<div class="field"><span class="k">All stops</span><span class="v" style="white-space:pre-line;text-align:right">{{ l.stops }}</span></div>{% endif %}
    <div class="field"><span class="k">Pickup</span><span class="v">{{ l.pickup_date|default:"—" }}</span></div>
    <div class="field"><span class="k">Delivery</span><span class="v">{{ l.delivery_date|default:"—" }}</span></div>
    <div class="field"><span class="k">Rate</span><span class="v">${{ l.rate|floatformat:2 }}</span></div>
