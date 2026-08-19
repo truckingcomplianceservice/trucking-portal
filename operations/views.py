@@ -3412,13 +3412,20 @@ def deadhead_api(request):
         return JsonResponse({"ok": False, "error": "Enter this load's pickup stop first."})
     if not driver_id and not vehicle_id:
         return JsonResponse({"ok": False, "error": "Pick a driver or truck so we can find the previous load."})
-    # find the most recent prior load for this driver/truck
-    q = Load.objects.filter(company__in=cs).exclude(destination="")
+    # Find the driver's/truck's MOST RECENT load that has a destination.
+    # Deadhead = empty miles from THAT drop-off to THIS load's pickup only.
+    q = Load.objects.filter(company__in=cs).exclude(destination="").exclude(destination__isnull=True)
     if driver_id:
         q = q.filter(driver_id=driver_id)
     if vehicle_id:
         q = q.filter(vehicle_id=vehicle_id)
-    prev = q.order_by("-delivery_date", "-pickup_date", "-id").first()
+    # The "previous load" is the driver/truck's most recently completed trip.
+    # Prefer loads with a delivery date (a confirmed drop); newest first.
+    # If none have dates, fall back to the newest one entered (by id).
+    from django.db.models import F
+    from django.db.models.functions import Coalesce
+    prev = (q.annotate(_eff=Coalesce("delivery_date", "pickup_date"))
+              .order_by(F("_eff").desc(nulls_last=True), "-id").first())
     if not prev or not prev.destination:
         return JsonResponse({"ok": False, "error": "No previous load found for this driver/truck — enter deadhead manually."})
     miles, source = best_leg(prev.destination, pickup)
