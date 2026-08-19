@@ -1,0 +1,72 @@
+{% extends "operations/app_base.html" %}
+{% block title %}Add load — Fleetline{% endblock %}
+{% block page_title %}Add a load{% endblock %}
+{% block content %}
+{% if messages %}{% for m in messages %}<div style="margin:8px 0;padding:10px 14px;border-radius:8px;font-size:13px;background:{% if m.tags == 'error' %}#fbe7e5;color:#b02b24{% else %}#e4f4ec;color:#137a51{% endif %}">{{ m }}</div>{% endfor %}{% endif %}
+
+<div class="card" style="max-width:720px"><div class="card-h"><h3>Load details</h3></div>
+ <form method="post" action="/app/loads/new/" style="padding:16px 18px">{% csrf_token %}
+  {% if companies.count > 1 %}<div style="margin-bottom:10px"><label class="sub">Company</label><select name="company" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px">{% for c in companies %}<option value="{{ c.id }}"{% if c.id == default_company.id %} selected{% endif %}>{{ c.name }}</option>{% endfor %}</select></div>{% else %}{% for c in companies %}<input type="hidden" name="company" value="{{ c.id }}">{% endfor %}{% endif %}
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+   <div><label class="sub">Load / ref #</label><input name="reference" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px"></div>
+   <div><label class="sub">Customer / broker</label><input name="customer" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px"></div>
+  </div>
+
+  <div style="margin-top:14px"><label class="sub" style="font-weight:600">Stops (in order) — add as many as the trip has</label>
+   <div id="stops">
+    <div class="stoprow" style="display:flex;gap:8px;margin-top:6px;align-items:center"><span class="sub stopn" style="width:64px">Pickup</span><input name="stop" placeholder="City, ST" style="flex:1;padding:8px 10px;border:1px solid var(--line);border-radius:8px"><button type="button" class="btn ghost" style="padding:4px 9px" onclick="rmStop(this)">✕</button></div>
+    <div class="stoprow" style="display:flex;gap:8px;margin-top:6px;align-items:center"><span class="sub stopn" style="width:64px">Stop 2</span><input name="stop" placeholder="City, ST" style="flex:1;padding:8px 10px;border:1px solid var(--line);border-radius:8px"><button type="button" class="btn ghost" style="padding:4px 9px" onclick="rmStop(this)">✕</button></div>
+   </div>
+   <button type="button" class="btn ghost" style="margin-top:8px" onclick="addStop()">+ Add another stop</button>
+   <div class="sub" style="margin-top:4px">First stop = pickup, last stop = final delivery. For a simple 1-pickup 1-drop load, just fill the first two.</div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:14px">
+   <div><label class="sub">Loaded miles</label><input name="miles" id="m_loaded" value="0" oninput="calcMiles()" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px"></div>
+   <div><label class="sub">Deadhead (empty) miles</label><input name="deadhead_miles" id="m_dead" value="0" oninput="calcMiles()" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px"></div>
+   <div><label class="sub">Total miles</label><input id="m_total" value="0" readonly style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;background:#f7f8fa;font-weight:700"></div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:10px">
+   <div><label class="sub">Rate ($)</label><input name="rate" placeholder="0.00" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px"></div>
+   <div><label class="sub">Pickup date</label><input type="date" name="pickup_date" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px"></div>
+   <div><label class="sub">Delivery date</label><input type="date" name="delivery_date" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px"></div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px">
+   <div><label class="sub">Driver</label><select name="driver" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px"><option value="">—</option>{% for d in drivers %}<option value="{{ d.id }}">{{ d }}</option>{% endfor %}</select></div>
+   <div><label class="sub">Truck</label><select name="vehicle" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px"><option value="">—</option>{% for v in vehicles %}<option value="{{ v.id }}">Unit {{ v.unit_number }}</option>{% endfor %}</select></div>
+  </div>
+
+  <button class="btn amber" type="submit" style="margin-top:16px">Add load</button>
+ </form>
+</div>
+
+<script>
+function renumber(){
+ var rows=document.querySelectorAll('#stops .stoprow');
+ rows.forEach(function(r,i){
+  var lbl=r.querySelector('.stopn');
+  lbl.textContent = i===0 ? 'Pickup' : (i===rows.length-1 ? 'Delivery' : 'Stop '+(i+1));
+ });
+}
+function addStop(){
+ var d=document.createElement('div');
+ d.className='stoprow'; d.style.cssText='display:flex;gap:8px;margin-top:6px;align-items:center';
+ d.innerHTML='<span class="sub stopn" style="width:64px"></span><input name="stop" placeholder="City, ST" style="flex:1;padding:8px 10px;border:1px solid var(--line);border-radius:8px"><button type="button" class="btn ghost" style="padding:4px 9px" onclick="rmStop(this)">✕</button>';
+ document.getElementById('stops').appendChild(d); renumber();
+}
+function rmStop(btn){
+ var rows=document.querySelectorAll('#stops .stoprow');
+ if(rows.length<=2){return;} // keep at least pickup + delivery
+ btn.parentElement.remove(); renumber();
+}
+function calcMiles(){
+ var a=parseFloat(document.getElementById('m_loaded').value)||0;
+ var b=parseFloat(document.getElementById('m_dead').value)||0;
+ document.getElementById('m_total').value=(a+b);
+}
+renumber();
+</script>
+{% endblock %}

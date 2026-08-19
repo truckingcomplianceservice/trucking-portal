@@ -2781,3 +2781,42 @@ def company_docs(request):
             for d in company.company_documents.all()]
     return render(request, "operations/company_docs.html",
                   {"company": company, "docs": docs, "doc_types": CompanyDocument.DOC_TYPES})
+
+
+@require_section("dispatch")
+@login_required
+def app_load_new(request):
+    """Add a load manually — supports multiple stops (LTL) and miles incl. deadhead."""
+    cs = _companies(request)
+    active = _active(request)
+    default_company = cs.filter(pk=active).first() if active and active != "all" else cs.first()
+    if request.method == "POST":
+        company = cs.filter(pk=request.POST.get("company")).first() or default_company
+        # stops come in as multiple 'stop' fields, in order
+        stops = [s.strip() for s in request.POST.getlist("stop") if s.strip()]
+        origin = stops[0] if stops else request.POST.get("origin", "").strip()
+        destination = stops[-1] if len(stops) > 1 else request.POST.get("destination", "").strip()
+        try:
+            Load.objects.create(
+                company=company,
+                reference=request.POST.get("reference", "").strip() or "MANUAL",
+                customer=request.POST.get("customer", "").strip(),
+                origin=origin,
+                destination=destination,
+                stops="\n".join(stops),
+                miles=int(_num(request.POST.get("miles", "0"))),
+                deadhead_miles=int(_num(request.POST.get("deadhead_miles", "0"))),
+                rate=round(_num(request.POST.get("rate", "0")), 2),
+                pickup_date=_parse_date(request.POST.get("pickup_date", "")) or None,
+                delivery_date=_parse_date(request.POST.get("delivery_date", "")) or None,
+                driver=Driver.objects.filter(pk=request.POST.get("driver"), company__in=cs).first(),
+                vehicle=Vehicle.objects.filter(pk=request.POST.get("vehicle"), company__in=cs).first(),
+                status=request.POST.get("status", "booked"))
+            _messages.success(request, "Load added.")
+            return redirect("app_loads")
+        except Exception as e:
+            _messages.error(request, f"Could not add the load: {e}")
+    return render(request, "operations/app_load_new.html",
+                  {"companies": cs, "default_company": default_company,
+                   "drivers": Driver.objects.filter(company__in=cs).order_by("first_name"),
+                   "vehicles": Vehicle.objects.filter(company__in=cs).order_by("unit_number")})

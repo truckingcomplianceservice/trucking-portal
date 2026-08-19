@@ -13,7 +13,7 @@
 {% endblock %}
 {% block content %}
 <div class="toolbar"><div class="spacer"></div><a class="btn ghost" href="/app/loads/import/">Import CSV</a><a class="btn ghost" href="/app/loads/from-ratecon/">+ From Rate Con</a>
- <a class="btn amber" href="/admin/operations/load/add/">+ New load</a></div>
+ <a class="btn amber" href="/app/loads/new/">+ New load</a></div>
 
 <div class="stabs">
  <a class="stab {% if f.status == '' or f.status == 'all' %}on{% endif %}" href="?status=all">All <span class="n">{{ counts.all }}</span></a>
