@@ -1,5 +1,22 @@
 {% extends "operations/app_base.html" %}
 {% block title %}Unit {{ v.unit_number }} — Fleetline
+<div class="card" style="margin-top:14px"><div class="card-h"><h3>Photos</h3></div>
+ <div style="padding:14px 16px">
+  {% if photos %}<div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px">
+   {% for p in photos %}<div style="width:150px">
+    <a href="{{ p.image.url }}" target="_blank"><img src="{{ p.image.url }}" style="width:150px;height:110px;object-fit:cover;border-radius:8px;border:1px solid var(--line)"></a>
+    <div class="sub" style="font-size:11px;margin-top:3px">{{ p.caption|default:"" }}</div>
+    <form method="post" action="/app/vehicles/{{ v.id }}/photo/{{ p.id }}/delete/" onsubmit="return confirm('Remove this photo?');">{% csrf_token %}<button class="btn ghost" style="padding:2px 7px;font-size:11px;color:#c0392b" type="submit">Delete</button></form>
+   </div>{% endfor %}
+  </div>{% else %}<div class="sub" style="margin-bottom:10px">No photos yet. Add pictures of the truck, trailer, plates, or damage.</div>{% endif %}
+  <form method="post" action="/app/vehicles/{{ v.id }}/photo/" enctype="multipart/form-data" style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">{% csrf_token %}
+   <div><label class="sub">Photo</label><input type="file" name="image" accept="image/*" required style="padding:6px 8px;border:1px solid var(--line);border-radius:8px"></div>
+   <div style="flex:1;min-width:160px"><label class="sub">Caption (optional)</label><input name="caption" placeholder="e.g. Front view, damage on left door" style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px"></div>
+   <button class="btn amber" type="submit">Add photo</button>
+  </form>
+ </div>
+</div>
+
 <div class="card" style="margin-top:14px"><div class="card-h"><h3>Documents</h3></div>
  <div style="padding:14px 16px">
   {% if docs %}<table><thead><tr><th>Type</th><th>Document</th><th>Expiry</th><th></th><th></th></tr></thead><tbody>

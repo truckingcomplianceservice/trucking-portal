@@ -985,6 +985,20 @@ class VehicleDocument(models.Model):
     def __str__(self):
         return f"{self.vehicle} · {self.get_doc_type_display()}"
 
+class VehiclePhoto(models.Model):
+    """A photo of a vehicle (truck/trailer) — general pics, damage, plates, etc."""
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name="vehicle_photos")
+    vehicle = models.ForeignKey(Vehicle, on_delete=models.CASCADE, related_name="photos")
+    image = models.FileField(upload_to="vehicle_photos/")
+    caption = models.CharField(max_length=140, blank=True)
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-uploaded_at"]
+
+    def __str__(self):
+        return f"Photo of {self.vehicle} — {self.caption or self.uploaded_at:%Y-%m-%d}"
+
     @property
     def label(self):
         if self.title:

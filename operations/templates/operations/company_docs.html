@@ -11,7 +11,7 @@
    <td>{{ row.o.get_doc_type_display }}</td>
    <td>{{ row.o.label }}</td>
    <td>{% if row.o.expiry_date %}{{ row.o.expiry_date }} {% if row.chip %}<span class="chip {{ row.chip.cls }}"><span class="d"></span>{{ row.chip.label }}</span>{% endif %}{% else %}<span class="sub">—</span>{% endif %}</td>
-   <td>{% if row.o.file %}<a class="btn ghost" style="padding:3px 9px;font-size:12px" href="#" onclick="cdView('{{ row.o.file.url }}','{{ row.o.label|escapejs }}');return false;">View</a>{% else %}<span class="sub">no file</span>{% endif %}</td>
+   <td>{% if row.o.file %}<a class="btn ghost" style="padding:3px 9px;font-size:12px" href="#" onclick="cdView('{{ row.o.file.url }}','{{ row.o.label|escapejs }}');return false;">View</a> <a class="btn ghost" style="padding:3px 9px;font-size:12px" href="#" onclick="emailDoc('company','{{ row.o.id }}','{{ row.o.label|escapejs }}');return false;">Email</a>{% else %}<span class="sub">no file</span>{% endif %}</td>
    <td><form method="post" onsubmit="return confirm('Remove this document?');" style="display:inline">{% csrf_token %}<input type="hidden" name="action" value="delete"><input type="hidden" name="doc_id" value="{{ row.o.id }}"><button class="btn ghost" style="padding:3px 8px;font-size:11px;color:#c0392b" type="submit">Delete</button></form></td>
   </tr>{% endfor %}</tbody></table>
   {% else %}<div class="sub">No documents yet. Upload MC letter, COI, IFTA, MCP letter, W-9, and other operating paperwork below.</div>{% endif %}
@@ -54,6 +54,25 @@ function cdView(u,t){
  document.getElementById('cdViewer').style.display='flex';
 }
 function cdClose(){document.getElementById('cdViewer').style.display='none';document.getElementById('cdViewerBody').innerHTML='';}
-document.addEventListener('keydown',function(e){if(e.key==='Escape')cdClose();});
+document.addEventListener('keydown',function(e){if(e.key==='Escape'){cdClose();emClose();}});
+function emailDoc(kind,id,label){document.getElementById('em_kind').value=kind;document.getElementById('em_id').value=id;document.getElementById('em_label').textContent=label||'document';document.getElementById('emailModal').style.display='flex';}
+function emClose(){document.getElementById('emailModal').style.display='none';}
 </script>
+
+<div id="emailModal" style="display:none;position:fixed;inset:0;background:rgba(20,28,43,.6);z-index:120;align-items:center;justify-content:center;padding:24px" onclick="if(event.target===this)emClose()">
+ <div style="background:#fff;border-radius:12px;width:100%;max-width:460px;padding:18px 20px">
+  <h3 style="margin:0 0 4px">Email document</h3>
+  <div class="sub" style="margin-bottom:12px">Sending: <b id="em_label"></b> — from your company email.</div>
+  <form method="post" action="/app/email-document/">{% csrf_token %}
+   <input type="hidden" name="kind" id="em_kind"><input type="hidden" name="id" id="em_id">
+   <label class="sub">Recipient email</label>
+   <input name="email" type="email" required placeholder="broker@example.com" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;margin-bottom:8px">
+   <label class="sub">Subject (optional)</label>
+   <input name="subject" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;margin-bottom:8px">
+   <label class="sub">Message (optional)</label>
+   <textarea name="message" rows="3" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px"></textarea>
+   <div style="margin-top:12px;text-align:right"><button type="button" class="btn ghost" onclick="emClose()">Cancel</button> <button type="submit" class="btn amber">Send</button></div>
+  </form>
+ </div>
+</div>
 {% endblock %}

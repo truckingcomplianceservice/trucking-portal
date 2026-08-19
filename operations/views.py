@@ -7,7 +7,7 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.views.static import serve
 from django.conf import settings
 from .models import (Company, Load, Expense, Settlement, Driver, Vehicle, Applicant, ApplicantStatusHistory, SignatureRecord, AuditorLink,
-                     ComplianceDocument, Broker, FuelTransaction, RentalContract, VehicleDocument, CompanyDocument, notify)
+                     ComplianceDocument, Broker, FuelTransaction, RentalContract, VehicleDocument, VehiclePhoto, CompanyDocument, notify)
 
 
 def require_section(section):
@@ -529,7 +529,8 @@ def app_vehicle_detail(request, pk):
                    "reg": _exp_chip(v.registration_expiry), "service": _service_chip(v),
                    "records": records, "total_all": total_all, "total_year": total_year,
                    "total_month": total_month, "monthly": monthly, "today": today.isoformat(),
-                   "docs": docs, "doc_types": VehicleDocument.DOC_TYPES})
+                   "docs": docs, "doc_types": VehicleDocument.DOC_TYPES,
+                   "photos": v.photos.all()})
 
 
 @login_required
@@ -3259,3 +3260,114 @@ def auditor_view(request, token):
     rows = [{"d": d, "dqf": _dqf_status(d)} for d in drivers]
     return render(request, "operations/auditor_view.html",
                   {"lk": lk, "company": lk.company, "rows": rows})
+
+
+# ================= Email a stored document out (from company email) =================
+def _company_from_email(company):
+    """Prefer the company's own email as the From address; fall back to system default."""
+    if getattr(company, "email", "") and company.email.strip():
+        # show the company name, but send via configured server (from must match host in most setups)
+        return f"{company.name} <{settings.DEFAULT_FROM_EMAIL}>"
+    return settings.DEFAULT_FROM_EMAIL
+
+
+DOC_SOURCES = {
+    "company": ("CompanyDocument", "company_documents"),
+    "vehicle": ("VehicleDocument", None),
+    "compliance": ("ComplianceDocument", None),
+    "load_bol": ("Load", "bill_of_lading"),
+    "load_pod": ("Load", "proof_of_delivery"),
+    "load_rate": ("Load", "rate_confirmation"),
+}
+
+
+@login_required
+def email_document(request):
+    """Email any stored document to a recipient, from the company's email."""
+    cs = _companies(request)
+    kind = request.POST.get("kind") or request.GET.get("kind", "")
+    obj_id = request.POST.get("id") or request.GET.get("id", "")
+    if request.method != "POST":
+        return redirect("dashboard")
+    to = request.POST.get("email", "").strip()
+    note = request.POST.get("message", "").strip()
+    if not getattr(settings, "EMAIL_HOST", ""):
+        _messages.error(request, "Email isn't set up yet. Add your email settings in Railway, then try again.")
+        return redirect(request.META.get("HTTP_REFERER", "/dashboard/"))
+    if not to:
+        _messages.error(request, "Please enter a recipient email address.")
+        return redirect(request.META.get("HTTP_REFERER", "/dashboard/"))
+    # resolve the file + company
+    fileobj = None; company = None; fname = "document"
+    try:
+        if kind == "company":
+            d = CompanyDocument.objects.filter(pk=obj_id, company__in=cs).first()
+            if d: fileobj, company, fname = d.file, d.company, (d.label or "document")
+        elif kind == "vehicle":
+            d = VehicleDocument.objects.filter(pk=obj_id, company__in=cs).first()
+            if d: fileobj, company, fname = d.file, d.company, (d.label or "document")
+        elif kind == "compliance":
+            d = ComplianceDocument.objects.filter(pk=obj_id, company__in=cs).first()
+            if d: fileobj, company, fname = d.file, d.company, d.get_doc_type_display()
+        elif kind in ("load_bol", "load_pod", "load_rate"):
+            ld = Load.objects.filter(pk=obj_id, company__in=cs).first()
+            if ld:
+                field = {"load_bol": ld.bill_of_lading, "load_pod": ld.proof_of_delivery,
+                         "load_rate": ld.rate_confirmation}[kind]
+                fileobj, company, fname = field, ld.company, f"{ld.reference}-{kind}"
+    except Exception as e:
+        _messages.error(request, f"Could not load the document: {e}")
+        return redirect(request.META.get("HTTP_REFERER", "/dashboard/"))
+    if not fileobj:
+        _messages.error(request, "Document not found.")
+        return redirect(request.META.get("HTTP_REFERER", "/dashboard/"))
+    # read the file (works with local storage OR R2)
+    try:
+        fileobj.open("rb"); data = fileobj.read(); fileobj.close()
+    except Exception as e:
+        _messages.error(request, f"Could not read the file: {e}")
+        return redirect(request.META.get("HTTP_REFERER", "/dashboard/"))
+    import os
+    ext = os.path.splitext(fileobj.name)[1] or ".pdf"
+    body = note or f"Please find the attached document from {company.name}."
+    if company.email:
+        body += f"\n\nReply to: {company.email}"
+    msg = EmailMessage(
+        subject=request.POST.get("subject", "").strip() or f"Document from {company.name}",
+        body=body, from_email=_company_from_email(company), to=[to],
+        reply_to=[company.email] if company.email else None)
+    msg.attach(f"{fname}{ext}", data)
+    try:
+        msg.send(fail_silently=False)
+        ActivityLog.objects.create(category="compliance", user=request.user, company=company,
+                                   text=f"Emailed document '{fname}' to {to}")
+        _messages.success(request, f"Document emailed to {to}.")
+    except Exception as e:
+        _messages.error(request, f"Could not send email: {e}")
+    return redirect(request.META.get("HTTP_REFERER", "/dashboard/"))
+
+
+@login_required
+def vehicle_photo_upload(request, pk):
+    v = _get(Vehicle, pk=pk, company__in=_companies_all(request))
+    if request.method == "POST" and request.FILES.get("image"):
+        try:
+            import os
+            os.makedirs(os.path.join(settings.MEDIA_ROOT, "vehicle_photos"), exist_ok=True)
+            VehiclePhoto.objects.create(
+                company=v.company, vehicle=v, image=request.FILES["image"],
+                caption=request.POST.get("caption", "").strip())
+            _messages.success(request, "Photo added.")
+        except Exception as e:
+            _messages.error(request, f"Could not add the photo: {e}")
+    return redirect("app_vehicle_detail", pk=pk)
+
+
+@login_required
+def vehicle_photo_delete(request, pk, photo_id):
+    v = _get(Vehicle, pk=pk, company__in=_companies_all(request))
+    if request.method == "POST":
+        p = VehiclePhoto.objects.filter(pk=photo_id, vehicle=v).first()
+        if p:
+            p.delete(); _messages.success(request, "Photo removed.")
+    return redirect("app_vehicle_detail", pk=pk)
