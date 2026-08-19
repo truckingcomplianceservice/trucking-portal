@@ -1754,10 +1754,16 @@ def _per_truck_data(request):
             lq = Load.objects.filter(vehicle=v)
             fq = FuelTransaction.objects.filter(vehicle=v)
             mq = MaintenanceRecord.objects.filter(vehicle=v)
-            if start:
-                lq = lq.filter(pickup_date__gte=start); fq = fq.filter(date__gte=start); mq = mq.filter(date__gte=start)
-            if end:
-                lq = lq.filter(pickup_date__lte=end); fq = fq.filter(date__lte=end); mq = mq.filter(date__lte=end)
+            if start or end:
+                from django.db.models import Q as _Q
+                dcond = _Q()
+                if start:
+                    dcond &= (_Q(pickup_date__gte=start) | _Q(pickup_date__isnull=True, delivery_date__gte=start))
+                    fq = fq.filter(date__gte=start); mq = mq.filter(date__gte=start)
+                if end:
+                    dcond &= (_Q(pickup_date__lte=end) | _Q(pickup_date__isnull=True, delivery_date__lte=end))
+                    fq = fq.filter(date__lte=end); mq = mq.filter(date__lte=end)
+                lq = lq.filter(dcond)
             rev = lq.aggregate(s=Sum("rate"))["s"] or 0
             fuel = fq.aggregate(s=Sum("amount"))["s"] or 0
             maint = sum((r.parts_cost or 0) + (r.labor_cost or 0) for r in mq)
@@ -2306,12 +2312,14 @@ def _truck_detail_data(request, pk):
     fuel = FuelTransaction.objects.filter(vehicle=v).order_by("-date")
     maint = MaintenanceRecord.objects.filter(vehicle=v).order_by("-date")
     exp = Expense.objects.filter(vehicle=v).order_by("-date")
-    if start:
-        loads = loads.filter(pickup_date__gte=start); fuel = fuel.filter(date__gte=start)
-        maint = maint.filter(date__gte=start); exp = exp.filter(date__gte=start)
-    if end:
-        loads = loads.filter(pickup_date__lte=end); fuel = fuel.filter(date__lte=end)
-        maint = maint.filter(date__lte=end); exp = exp.filter(date__lte=end)
+    if start or end:
+        from django.db.models import Q as _Q
+        if start:
+            loads = loads.filter(_Q(pickup_date__gte=start) | _Q(pickup_date__isnull=True, delivery_date__gte=start))
+            fuel = fuel.filter(date__gte=start); maint = maint.filter(date__gte=start); exp = exp.filter(date__gte=start)
+        if end:
+            loads = loads.filter(_Q(pickup_date__lte=end) | _Q(pickup_date__isnull=True, delivery_date__lte=end))
+            fuel = fuel.filter(date__lte=end); maint = maint.filter(date__lte=end); exp = exp.filter(date__lte=end)
     revenue = loads.aggregate(s=Sum("rate"))["s"] or 0
     fuel_total = fuel.aggregate(s=Sum("amount"))["s"] or 0
     maint_total = sum((r.parts_cost or 0) + (r.labor_cost or 0) for r in maint)
