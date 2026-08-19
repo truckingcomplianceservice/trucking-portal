@@ -134,3 +134,54 @@ def estimate_leg(a, b):
     if not ca or not cb:
         return None
     return int(round(haversine_miles(ca, cb) * ROAD_FACTOR))
+
+
+# ---- Google Maps (exact road miles) — used only when a key is configured ----
+def _google_key():
+    import os
+    return os.environ.get("GOOGLE_MAPS_API_KEY", "").strip()
+
+
+def google_miles(waypoints):
+    """Exact road miles across an ordered list of location strings via Google
+    Distance Matrix / Directions. Returns int miles or None on any problem."""
+    key = _google_key()
+    if not key or len([w for w in waypoints if w and w.strip()]) < 2:
+        return None
+    import json, urllib.parse, urllib.request
+    pts = [w.strip() for w in waypoints if w and w.strip()]
+    origin = urllib.parse.quote(pts[0])
+    destination = urllib.parse.quote(pts[-1])
+    params = f"origin={origin}&destination={destination}&units=imperial&key={key}"
+    if len(pts) > 2:
+        mid = "|".join(urllib.parse.quote(p) for p in pts[1:-1])
+        params += f"&waypoints={mid}"
+    url = f"https://maps.googleapis.com/maps/api/directions/json?{params}"
+    try:
+        with urllib.request.urlopen(url, timeout=12) as r:
+            data = json.loads(r.read().decode("utf-8"))
+        if data.get("status") != "OK" or not data.get("routes"):
+            return None
+        meters = sum(leg["distance"]["value"] for leg in data["routes"][0]["legs"])
+        return int(round(meters / 1609.34))
+    except Exception:
+        return None
+
+
+def best_miles(waypoints):
+    """Prefer exact Google road miles; fall back to the free estimate.
+    Returns (miles, source, unknown_stops)."""
+    g = google_miles(waypoints)
+    if g:
+        return g, "google", []
+    miles, unknown = estimate_miles(waypoints)
+    return miles, "estimate", unknown
+
+
+def best_leg(a, b):
+    """Miles between two points — Google if available, else free estimate."""
+    g = google_miles([a, b])
+    if g:
+        return g, "google"
+    est = estimate_leg(a, b)
+    return est, "estimate"

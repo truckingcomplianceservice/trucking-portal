@@ -3383,15 +3383,47 @@ def vehicle_photo_delete(request, pk, photo_id):
 
 @login_required
 def estimate_miles_api(request):
-    """Estimate loaded miles from an ordered list of stops (free, offline)."""
+    """Estimate loaded miles from stops. Uses Google (if key set) else free estimate."""
     from django.http import JsonResponse
-    from .mileage import estimate_miles
+    from .mileage import best_miles
     stops = request.GET.getlist("stop") or request.GET.get("stops", "").split("|")
     stops = [s for s in stops if s and s.strip()]
     if len(stops) < 2:
         return JsonResponse({"ok": False, "error": "Enter at least a pickup and a delivery stop."})
-    miles, unknown = estimate_miles(stops)
+    miles, source, unknown = best_miles(stops)
     if miles <= 0:
         return JsonResponse({"ok": False, "error": "Couldn't recognize those locations. Use 'City, ST' format, or enter miles manually."})
-    return JsonResponse({"ok": True, "miles": miles, "unknown": unknown,
-                         "note": "Estimate only — verify for billing/IFTA. You can edit it."})
+    note = ("Exact road miles (Google Maps)." if source == "google"
+            else "Estimate only — verify for billing/IFTA. You can edit it.")
+    return JsonResponse({"ok": True, "miles": miles, "source": source,
+                         "unknown": unknown, "note": note})
+
+
+@login_required
+def deadhead_api(request):
+    """Estimate deadhead (empty) miles = previous load's drop -> this pickup."""
+    from django.http import JsonResponse
+    from .mileage import best_leg
+    cs = _companies(request)
+    pickup = (request.GET.get("pickup") or "").strip()
+    driver_id = request.GET.get("driver") or ""
+    vehicle_id = request.GET.get("vehicle") or ""
+    if not pickup:
+        return JsonResponse({"ok": False, "error": "Enter this load's pickup stop first."})
+    if not driver_id and not vehicle_id:
+        return JsonResponse({"ok": False, "error": "Pick a driver or truck so we can find the previous load."})
+    # find the most recent prior load for this driver/truck
+    q = Load.objects.filter(company__in=cs).exclude(destination="")
+    if driver_id:
+        q = q.filter(driver_id=driver_id)
+    if vehicle_id:
+        q = q.filter(vehicle_id=vehicle_id)
+    prev = q.order_by("-delivery_date", "-pickup_date", "-id").first()
+    if not prev or not prev.destination:
+        return JsonResponse({"ok": False, "error": "No previous load found for this driver/truck — enter deadhead manually."})
+    miles, source = best_leg(prev.destination, pickup)
+    if not miles or miles <= 0:
+        return JsonResponse({"ok": False, "error": f"Couldn't estimate from '{prev.destination}'. Enter deadhead manually."})
+    note = ("Exact road miles (Google Maps)." if source == "google" else "Estimate only.")
+    return JsonResponse({"ok": True, "miles": miles, "source": source,
+                         "from": prev.destination, "to": pickup, "note": note})
