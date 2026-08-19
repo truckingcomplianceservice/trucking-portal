@@ -1,31 +1,105 @@
 <!DOCTYPE html><html><head><meta charset="utf-8"><style>
- @page { size: letter; margin: 1.6cm; }
- body { font-family: Helvetica, Arial, sans-serif; color:#161c2b; font-size: 11px; }
- h1 { color:#1e2d45; font-size: 20px; margin:0 0 2px; }
- .sub { color:#666; font-size:11px; margin-bottom:16px; }
- table { width:100%; border-collapse:collapse; margin-top:8px; }
- td { border:1px solid #999; padding:8px 10px; vertical-align:top; }
- .lbl { font-size:8px; color:#666; text-transform:uppercase; }
- .val { font-size:12px; font-weight:bold; }
- .box1 { background:#f2f2f2; }
- .box1 .val { font-size:18px; }
- .note { color:#666; font-size:9px; margin-top:14px; }
+ @page { size: letter; margin: 1.3cm; }
+ body { font-family: Helvetica, Arial, sans-serif; color:#000; font-size: 9px; }
+ .hdr { width:100%; border-collapse:collapse; }
+ .hdr td { vertical-align:top; padding:2px 4px; }
+ .formno { font-size:9px; }
+ .formtitle { font-size:17px; font-weight:bold; letter-spacing:.3px; }
+ .year { font-size:22px; font-weight:bold; }
+ .omb { font-size:7px; color:#333; text-align:right; }
+ .rev { font-size:7.5px; color:#333; }
+ table.grid { width:100%; border-collapse:collapse; margin-top:4px; }
+ table.grid td { border:1px solid #000; padding:5px 7px; vertical-align:top; }
+ .lbl { font-size:6.8px; text-transform:uppercase; letter-spacing:.2px; color:#000; }
+ .boxlbl { font-size:7.5px; }
+ .val { font-size:10.5px; font-weight:bold; margin-top:3px; }
+ .bignum { font-size:15px; font-weight:bold; }
+ .miss { color:#b00; font-weight:bold; font-size:9px; }
+ .muted { color:#555; font-weight:normal; }
+ .copy { text-align:right; font-size:8px; font-weight:bold; margin-top:4px; }
+ .note { color:#333; font-size:8px; margin-top:12px; line-height:1.55; border-top:1px solid #ccc; padding-top:8px; }
+ .warn { background:#fdecea; border:1px solid #f5c6c2; color:#8a1c14; padding:8px 10px; font-size:8.5px; margin-top:10px; border-radius:4px; }
+ .ok { background:#e7f6ee; border:1px solid #b7e1c8; color:#1b6b40; padding:7px 10px; font-size:8.5px; margin-top:10px; border-radius:4px; }
 </style></head><body>
- {% include "operations/_letterhead_pdf.html" %}
- <h1>Form 1099-NEC &mdash; Nonemployee Compensation</h1>
- <div class="sub">Tax year {{ year }} &middot; summary for filing</div>
- <table>
+
+ <table class="hdr">
   <tr>
-   <td width="60%"><div class="lbl">Payer (your company)</div><div class="val">{{ company.name }}</div>
-     <div>{{ company.address|default:"(add address in Companies)" }}</div></td>
-   <td><div class="lbl">Payer EIN</div><div class="val">{{ company.ein|default:"(add EIN)" }}</div></td>
+   <td width="52%">
+     <span class="formno">Form <span class="formtitle">1099-NEC</span></span>
+     <span class="rev">&nbsp;(Rev. January {{ year }})</span><br>
+     <span class="rev">Department of the Treasury &mdash; Internal Revenue Service</span>
+   </td>
+   <td width="23%" style="text-align:center">
+     <div class="lbl" style="font-size:8px">Nonemployee</div>
+     <div class="lbl" style="font-size:8px">Compensation</div>
+   </td>
+   <td width="25%" class="omb">
+     OMB No. 1545-0116<br><span class="year">{{ year }}</span>
+   </td>
   </tr>
-  <tr>
-   <td><div class="lbl">Recipient</div><div class="val">{{ d.first_name }} {{ d.last_name }}</div>
-     <div>{{ d.address|default:"(add address on driver)" }}</div></td>
-   <td><div class="lbl">Recipient TIN (SSN/EIN)</div><div class="val">{{ d.tax_id|default:"(add tax ID)" }}</div></td>
-  </tr>
-  <tr><td colspan="2" class="box1"><div class="lbl">Box 1 &mdash; Nonemployee compensation</div><div class="val">${{ paid }}</div></td></tr>
  </table>
- <div class="note">This is a data summary to hand to your accountant or enter into an e-file service (e.g. Tax1099, Track1099). It is not the official IRS red-ink form. Verify all figures before filing.</div>
+
+ <table class="grid">
+  <tr>
+   <td width="55%" rowspan="2">
+    <div class="lbl">Payer's name, street address, city, state, ZIP code, and telephone no.</div>
+    <div class="val">{% if payer_name %}{{ payer_name }}{% else %}<span class="miss">[PAYER NAME MISSING]</span>{% endif %}</div>
+    {% if payer_dba %}<div class="muted">DBA: {{ payer_dba }}</div>{% endif %}
+    <div>{% if payer_address %}{{ payer_address }}{% else %}<span class="miss">[PAYER ADDRESS MISSING]</span>{% endif %}</div>
+    <div>{% if payer_phone %}Tel: {{ payer_phone }}{% else %}<span class="muted">Tel: &mdash;</span>{% endif %}</div>
+   </td>
+   <td width="45%">
+    <div class="boxlbl"><b>1</b> Nonemployee compensation</div>
+    <div class="bignum">${{ box1 }}</div>
+   </td>
+  </tr>
+  <tr>
+   <td>
+    <div class="boxlbl"><b>2</b> Payer made direct sales totaling $5,000 or more of consumer products to recipient for resale</div>
+    <div class="val">&#9744; No</div>
+   </td>
+  </tr>
+  <tr>
+   <td width="27%"><div class="lbl">Payer's TIN (EIN)</div><div class="val">{% if payer_tin %}{{ payer_tin }}{% else %}<span class="miss">[EIN MISSING]</span>{% endif %}</div></td>
+   <td width="28%"><div class="lbl">Recipient's TIN (SSN/EIN)</div><div class="val">{% if recipient_tin %}{{ recipient_tin }}{% else %}<span class="miss">[TIN MISSING]</span>{% endif %}</div></td>
+   <td width="45%"><div class="boxlbl"><b>3</b> (reserved for future use)</div><div class="val">&nbsp;</div></td>
+  </tr>
+  <tr>
+   <td colspan="2" rowspan="2">
+    <div class="lbl">Recipient's name, street address, city, state, and ZIP code</div>
+    <div class="val">{% if recipient_name %}{{ recipient_name }}{% else %}<span class="miss">[RECIPIENT NAME MISSING]</span>{% endif %}</div>
+    <div>{% if recipient_address %}{{ recipient_address }}{% else %}<span class="miss">[RECIPIENT ADDRESS MISSING]</span>{% endif %}</div>
+   </td>
+   <td><div class="boxlbl"><b>4</b> Federal income tax withheld</div><div class="val">$0.00</div></td>
+  </tr>
+  <tr>
+   <td><div class="boxlbl"><b>5</b> State tax withheld</div><div class="val">$0.00</div></td>
+  </tr>
+  <tr>
+   <td width="27%"><div class="lbl">Account number (see instructions)</div><div class="val">{{ account_no }}</div></td>
+   <td width="28%"><div class="boxlbl"><b>6</b> State/Payer's state no.</div><div class="val">{% if payer_state or payer_state_no %}{{ payer_state }} {{ payer_state_no }}{% else %}<span class="muted">&mdash;</span>{% endif %}</div></td>
+   <td width="45%"><div class="boxlbl"><b>7</b> State income</div><div class="val">${{ box1 }}</div></td>
+  </tr>
+ </table>
+
+ <div class="copy">Copy B &mdash; For Recipient</div>
+
+ {% if is_complete %}
+   <div class="ok"><b>&#10003; Complete.</b> All required 1099-NEC fields are filled in for tax year {{ year }}.
+   Box 1 reflects {{ settlement_count }} paid settlement{{ settlement_count|pluralize }}{% if not used_paid_date %} (by period end date){% endif %}.</div>
+ {% else %}
+   <div class="warn"><b>Incomplete &mdash; before filing, add the following:</b>
+   {% for m in missing %}{{ m }}{% if not forloop.last %}; {% endif %}{% endfor %}.<br>
+   Payer fields are set in Admin &rarr; Companies. Recipient fields (name, address, TIN/SSN) are set in Admin &rarr; Drivers.</div>
+ {% endif %}
+
+ <div class="note">
+  <b>Instructions:</b> This is a completed 1099-NEC data summary prepared from your records for tax year {{ year }},
+  generated {{ generated }}. Box 1 shows total nonemployee compensation paid to this contractor.
+  To file, transfer these figures to the official scannable red-ink Form 1099-NEC, or submit through an
+  authorized e-file provider (e.g., IRS FIRE, Tax1099, Track1099). The IRS filing deadline for 1099-NEC is
+  generally <b>January 31</b>. Verify the payer EIN, recipient TIN, address, and amounts before filing.
+  Federal and state withholding show $0.00 unless taxes were withheld. This summary is for your convenience
+  and is not a substitute for the official IRS form or professional tax advice.
+ </div>
 </body></html>

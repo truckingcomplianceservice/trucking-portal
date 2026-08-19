@@ -14,6 +14,7 @@ h1{font-size:18px;margin:0 0 2px}.form-t{font-size:13px;color:#727c93;margin-bot
 </style></head><body><div class="wrap">
 <a class="back" href="/reports/tax/?year={{ year }}">&larr; Tax</a>
 <button class="print" onclick="window.print()">Print</button>
+{% if missing %}<div style="background:#fff4e5;border:1px solid #f0c36d;color:#8a5a00;padding:12px 14px;border-radius:8px;margin-bottom:12px;font-size:13px"><b>To complete this 1099, please fill in:</b><ul style="margin:6px 0 0 18px">{% for m in missing %}<li>{{ m }}</li>{% endfor %}</ul></div>{% else %}<div style="background:#e4f4ec;border:1px solid #9ad5b5;color:#137a51;padding:10px 14px;border-radius:8px;margin-bottom:12px;font-size:13px">All required 1099 information is filled in.</div>{% endif %}
 <a class="print" style="text-decoration:none;background:#137a51" href="/tax/1099/{{ d.id }}/pdf/?year={{ year }}" target="_blank">Download PDF</a>
 <button class="print" style="background:#1d54c4" onclick="document.getElementById('emailbox').style.display='block'">Email this 1099</button>
 {% if messages %}{% for m in messages %}<div style="margin:10px 0;padding:10px 14px;border-radius:8px;font-size:13px;background:{% if m.tags == 'error' %}#fbe7e5;color:#b02b24{% else %}#e4f4ec;color:#137a51{% endif %}">{{ m }}</div>{% endfor %}{% endif %}
@@ -36,7 +37,7 @@ h1{font-size:18px;margin:0 0 2px}.form-t{font-size:13px;color:#727c93;margin-bot
   <div class="cell"><div class="l">Recipient</div><div class="v">{{ d.first_name }} {{ d.last_name }}</div>
     <div class="v" style="font-weight:400;font-size:12px">{{ d.address|default:"(add address on driver)" }}</div></div>
   <div class="cell"><div class="l">Recipient TIN (SSN/EIN)</div><div class="v">{{ d.tax_id|default:"(add tax ID on driver)" }}</div></div>
-  <div class="cell box1"><div class="l">Box 1 &mdash; Nonemployee compensation</div><div class="v">${{ paid|floatformat:2 }}</div></div>
+  <div class="cell box1"><div class="l">Box 1 &mdash; Nonemployee compensation</div><div class="v">${{ paid }}</div></div>
  </div>
  <div class="note">This is a data summary to hand to your accountant or enter into an e-file service (e.g. Tax1099, Track1099). It is not the official IRS red-ink form. Verify all figures and identifiers before filing.</div>
 </div></div>

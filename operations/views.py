@@ -177,14 +177,18 @@ def tax_report(request):
 @login_required
 def generate_1099(request, driver_id):
     year = int(request.GET.get("year", _dt.date.today().year))
-    companies = _scoped_companies(request)
-    try:
-        d = Driver.objects.get(pk=driver_id, company__in=companies)
-    except Driver.DoesNotExist:
-        raise Http404
-    paid = Settlement.objects.filter(driver=d, period_end__year=year).aggregate(s=Sum("gross_pay"))["s"] or 0
-    return render(request, "operations/form_1099.html",
-                  {"d": d, "company": d.company, "paid": paid, "year": year})
+    ctx = _1099_context(request, driver_id, year)
+    d = ctx["d"]; c = ctx["company"]
+    # tell the user exactly what still needs filling for a complete 1099
+    missing = []
+    if not c.name: missing.append("Company name")
+    if not c.ein: missing.append("Company EIN (Companies → your company)")
+    if not c.address: missing.append("Company address (Companies → your company)")
+    if not d.tax_id: missing.append("Driver Tax ID / SSN (Drivers → this driver)")
+    if not d.address: missing.append("Driver mailing address (Drivers → this driver)")
+    ctx["missing"] = missing
+    ctx["paid"] = ctx["box1"]
+    return render(request, "operations/form_1099.html", ctx)
 
 
 @login_required
@@ -1317,8 +1321,46 @@ def _render_pdf(template, context):
 def _1099_context(request, driver_id, year):
     companies = _companies_all(request)
     d = _get(Driver, pk=driver_id, company__in=companies)
-    paid = Settlement.objects.filter(driver=d, period_end__year=year).aggregate(s=Sum("gross_pay"))["s"] or 0
-    return {"d": d, "company": d.company, "paid": f"{paid:,.2f}", "year": year}
+    # Box 1 — nonemployee compensation: paid settlements in the tax year
+    paid_qs = Settlement.objects.filter(driver=d, paid=True, paid_date__year=year)
+    used_paid_date = True
+    if not paid_qs.exists():
+        paid_qs = Settlement.objects.filter(driver=d, period_end__year=year)
+        used_paid_date = False
+    box1 = sum(float(s.gross_pay or 0) for s in paid_qs)
+    settlement_count = paid_qs.count()
+    c = d.company
+    recipient_name = f"{d.first_name} {d.last_name}".strip()
+    # completeness check — flag anything a valid 1099 needs but is missing
+    missing = []
+    if not c.name: missing.append("Payer (company) name")
+    if not c.ein: missing.append("Payer TIN / EIN")
+    if not c.address: missing.append("Payer address")
+    if not recipient_name: missing.append("Recipient name")
+    if not d.tax_id: missing.append("Recipient TIN (SSN/EIN)")
+    if not d.address: missing.append("Recipient address")
+    if box1 <= 0: missing.append("Compensation amount (no paid settlements found)")
+    return {
+        "d": d, "company": c, "year": year,
+        "box1": f"{box1:,.2f}",
+        "paid": f"{box1:,.2f}",
+        "settlement_count": settlement_count,
+        "used_paid_date": used_paid_date,
+        "payer_name": c.name,
+        "payer_dba": c.dba_name,
+        "payer_address": c.address,
+        "payer_phone": c.phone,
+        "payer_tin": c.ein,
+        "payer_state": c.state_code,
+        "payer_state_no": c.state_tax_no,
+        "recipient_name": recipient_name,
+        "recipient_address": d.address,
+        "recipient_tin": d.tax_id,
+        "account_no": f"DRV-{d.id:04d}",
+        "missing": missing,
+        "is_complete": not missing,
+        "generated": _dt.date.today().strftime("%B %d, %Y"),
+    }
 
 
 @login_required

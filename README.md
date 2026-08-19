@@ -1,38 +1,32 @@
 # Trucking Compliance Services — Operations Portal (COMPLETE)
 
-Cloud file backup (Cloudflare R2) — activates when you add the R2 keys.
+Professional 1099-NEC with all fields + completeness check.
 
 ## Deploy
 1. Download this zip, then in Terminal:
    cd ~/Documents/GitHub/trucking-portal && rm -rf operations trucking_ops templates manage.py requirements.txt Procfile README.md && unzip -o ~/Downloads/<THIS-FILE>.zip -d . && echo DONE
-2. GitHub Desktop -> Commit -> Push.
+2. GitHub Desktop -> Commit -> Push. Test in a private/incognito window.
 
-## Cloud file backup — SETUP (do these once)
-Uploaded files (documents, PODs, receipts, logos) will be stored in Cloudflare
-R2 instead of the Railway disk, so they are safe and permanent.
+## Improved 1099-NEC (Tax & 1099s -> a 1099 driver -> generate)
+- Clean, professional 1099-NEC layout (Copy B, official box structure).
+- All fields filled from your records: Payer name/DBA/address/phone/EIN/state no.,
+  Recipient name/address/TIN, Box 1 nonemployee compensation, account number.
+- Box 1 = total of that driver's PAID settlements in the tax year.
+- COMPLETENESS CHECK: if anything required is missing, the form shows a red
+  "Incomplete" banner listing exactly what to add (and where). If all good, it
+  shows a green "Complete" banner. Missing fields print [MISSING] in red instead
+  of a silent blank -- so you never file an incomplete form by accident.
 
-STEP 1 - Cloudflare account: sign up free at cloudflare.com.
-STEP 2 - Turn on R2: dash.cloudflare.com -> R2 -> enable (may ask for a card,
-         but the free tier is 10 GB, no charge under that).
-STEP 3 - Create a bucket: R2 -> Create bucket -> name it e.g. "trucking-files".
-STEP 4 - Create an API token: R2 -> Manage R2 API Tokens -> Create -> "Object
-         Read & Write" -> for your bucket. Copy the Access Key ID, Secret Access
-         Key, and your account's S3 endpoint URL
-         (https://<accountid>.r2.cloudflarestorage.com).
-STEP 5 - Add these in Railway -> web service -> Variables -> New Variable:
-         R2_ACCESS_KEY_ID       = (Access Key ID)
-         R2_SECRET_ACCESS_KEY   = (Secret Access Key)
-         R2_BUCKET              = trucking-files
-         R2_ENDPOINT            = https://<accountid>.r2.cloudflarestorage.com
-         (optional) R2_PUBLIC_URL = public bucket URL if you make one public
-         Save -> Railway redeploys automatically.
+## To fill everything in
+- Payer (company): Admin -> Companies -> EIN, address, phone, and new fields
+  "DBA name", "State (2-letter)", "State tax / payer state no.".
+- Recipient (driver): Admin -> Drivers -> tax status = 1099, Tax ID (SSN/EIN),
+  address.
+- Pay: mark the driver's settlements PAID with a paid date in the tax year.
 
-That's it: from then on, every uploaded file goes to R2 automatically. If the
-keys are NOT set, the app keeps using local storage (nothing breaks).
-
-NOTE: files uploaded BEFORE R2 was turned on stay on the old disk; new uploads
-go to R2. We can migrate the old files afterward if needed.
+Note: this is a data summary for your convenience -- file on the official IRS
+form or via an authorized e-file provider. Not tax advice.
 
 ## Includes everything to date
-R2 cloud backup, manual multi-stop load, truck P&L date fix, test suite,
-factoring, doc viewer, company docs, company logins, FMCSA lookup, receipts.
+Professional 1099, R2 cloud backup, multi-stop load, truck P&L date fix, test
+suite, factoring, doc viewer, company docs, company logins, FMCSA lookup.
