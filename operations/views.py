@@ -243,6 +243,10 @@ def _expiring_items(companies):
 @login_required
 def dashboard(request):
     companies = _scoped_companies(request)
+    today = _dt.date.today()
+    ytd_start = _dt.date(today.year, 1, 1)
+    month_start = _dt.date(today.year, today.month, 1)
+
     active_loads = Load.objects.filter(
         company__in=companies, status__in=["booked", "dispatched", "in_transit"]).count()
     driver_count = Driver.objects.filter(company__in=companies, status="active").count()
@@ -255,11 +259,81 @@ def dashboard(request):
     recent_loads = Load.objects.filter(company__in=companies).select_related("company", "driver")[:6]
     recent_activity = (ActivityLog.objects.all()[:8] if request.user.is_superuser
                        else ActivityLog.objects.filter(company__in=companies)[:8])
+
+    # ---------- KPIs ----------
+    def _load_rev(qs):
+        return float(qs.aggregate(s=Sum("rate"))["s"] or 0)
+
+    all_loads = Load.objects.filter(company__in=companies)
+    # revenue (loads by pickup date, falling back to delivery)
+    from django.db.models import Q as _Q
+    def _in(qs, start):
+        return qs.filter(_Q(pickup_date__gte=start) | _Q(pickup_date__isnull=True, delivery_date__gte=start))
+    rev_month = _load_rev(_in(all_loads, month_start))
+    rev_ytd = _load_rev(_in(all_loads, ytd_start))
+    rev_all = _load_rev(all_loads)
+    # costs YTD (fuel + maintenance + expenses + driver pay)
+    fuel_ytd = float(FuelTransaction.objects.filter(company__in=companies, date__gte=ytd_start).aggregate(s=Sum("amount"))["s"] or 0)
+    exp_ytd = float(Expense.objects.filter(company__in=companies, date__gte=ytd_start).aggregate(s=Sum("amount"))["s"] or 0)
+    maint_ytd = sum((r.parts_cost or 0) + (r.labor_cost or 0)
+                    for r in MaintenanceRecord.objects.filter(company__in=companies, date__gte=ytd_start))
+    pay_ytd = sum(float(s.gross_pay or 0) for s in Settlement.objects.filter(
+        company__in=companies, paid=True, paid_date__year=today.year))
+    costs_ytd = fuel_ytd + exp_ytd + float(maint_ytd) + pay_ytd
+    profit_ytd = rev_ytd - costs_ytd
+
+    kpi = {
+        "rev_month": rev_month, "rev_ytd": rev_ytd, "rev_all": rev_all,
+        "costs_ytd": costs_ytd, "profit_ytd": profit_ytd,
+        "fuel_ytd": fuel_ytd, "pay_ytd": pay_ytd,
+        "loads_ytd": _in(all_loads, ytd_start).count(),
+        "loads_month": _in(all_loads, month_start).count(),
+        "active_drivers": driver_count,
+        "active_trucks": Vehicle.objects.filter(company__in=companies, status="active").count(),
+        "team_members": Profile.objects.filter(companies__in=companies).exclude(role="driver").distinct().count(),
+    }
+
+    # top drivers by revenue (YTD) with loads + pay
+    driver_rows = []
+    for d in Driver.objects.filter(company__in=companies)[:200]:
+        dl = _in(Load.objects.filter(driver=d), ytd_start)
+        rev = _load_rev(dl)
+        if rev <= 0 and dl.count() == 0:
+            continue
+        paid = sum(float(s.gross_pay or 0) for s in Settlement.objects.filter(driver=d, paid=True, paid_date__year=today.year))
+        driver_rows.append({"name": f"{d.first_name} {d.last_name}".strip(), "id": d.id,
+                            "loads": dl.count(), "rev": rev, "paid": paid,
+                            "miles": sum((l.miles or 0) + (l.deadhead_miles or 0) for l in dl)})
+    driver_rows.sort(key=lambda x: x["rev"], reverse=True)
+
+    # top trucks by revenue (YTD) with net
+    truck_rows = []
+    for v in Vehicle.objects.filter(company__in=companies)[:200]:
+        vl = _in(Load.objects.filter(vehicle=v), ytd_start)
+        rev = _load_rev(vl)
+        if rev <= 0 and vl.count() == 0:
+            continue
+        f = float(FuelTransaction.objects.filter(vehicle=v, date__gte=ytd_start).aggregate(s=Sum("amount"))["s"] or 0)
+        m = sum((r.parts_cost or 0) + (r.labor_cost or 0) for r in MaintenanceRecord.objects.filter(vehicle=v, date__gte=ytd_start))
+        e = float(Expense.objects.filter(vehicle=v, date__gte=ytd_start).aggregate(s=Sum("amount"))["s"] or 0)
+        truck_rows.append({"unit": v.unit_number, "id": v.id, "loads": vl.count(),
+                           "rev": rev, "net": rev - f - float(m) - e,
+                           "miles": sum((l.miles or 0) + (l.deadhead_miles or 0) for l in vl)})
+    truck_rows.sort(key=lambda x: x["rev"], reverse=True)
+
+    # dispatchers / team members with loads they created (by activity or assignment)
+    team_rows = []
+    for prof in Profile.objects.filter(companies__in=companies).exclude(role="driver").distinct().select_related("user")[:50]:
+        u = prof.user
+        team_rows.append({"name": (u.get_full_name() or u.username), "role": prof.get_role_display()})
+
     return render(request, "operations/dashboard.html", {
         "active_loads": active_loads, "driver_count": driver_count,
         "outstanding": outstanding, "alert_count": len(alerts),
         "alerts": alerts[:6], "recent_loads": recent_loads,
         "recent_activity": recent_activity, "company_count": companies.count(),
+        "kpi": kpi, "driver_rows": driver_rows[:8], "truck_rows": truck_rows[:8],
+        "team_rows": team_rows, "kpi_year": today.year,
     })
 
 

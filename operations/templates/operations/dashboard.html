@@ -1,4 +1,5 @@
 {% extends "operations/app_base.html" %}
+{% load humanize %}
 {% block title %}Dashboard — Fleetline{% endblock %}
 {% block page_title %}Dashboard{% endblock %}
 {% block content %}
@@ -9,6 +10,40 @@
  <div class="kpi"><div class="l">Outstanding</div><div class="n">${{ outstanding|floatformat:0 }}</div><div class="s">awaiting factor payment</div></div>
  <div class="kpi"><div class="l">Doc alerts</div><div class="n" style="color:{% if alert_count %}var(--red){% else %}var(--green){% endif %}">{{ alert_count }}</div><div class="s">expiring within 30 days</div></div>
 </div>
+
+{% if kpi %}
+<h2 style="font-size:15px;margin:22px 0 6px">Profit &amp; loss · {{ kpi_year }}</h2>
+<div class="kpis">
+ <div class="kpi"><div class="l">Revenue (YTD)</div><div class="n">${{ kpi.rev_ytd|floatformat:0|intcomma }}</div><div class="s">${{ kpi.rev_month|floatformat:0|intcomma }} this month</div></div>
+ <div class="kpi"><div class="l">Costs (YTD)</div><div class="n">${{ kpi.costs_ytd|floatformat:0|intcomma }}</div><div class="s">fuel, pay, maint, expenses</div></div>
+ <div class="kpi"><div class="l">Profit (YTD)</div><div class="n" style="color:{% if kpi.profit_ytd >= 0 %}var(--green){% else %}var(--red){% endif %}">${{ kpi.profit_ytd|floatformat:0|intcomma }}</div><div class="s">revenue minus costs</div></div>
+ <div class="kpi"><div class="l">Loads (YTD)</div><div class="n">{{ kpi.loads_ytd }}</div><div class="s">{{ kpi.loads_month }} this month</div></div>
+</div>
+
+<div class="kpis" style="margin-top:12px">
+ <div class="kpi"><div class="l">Driver pay (YTD)</div><div class="n">${{ kpi.pay_ytd|floatformat:0|intcomma }}</div><div class="s">paid settlements</div></div>
+ <div class="kpi"><div class="l">Fuel (YTD)</div><div class="n">${{ kpi.fuel_ytd|floatformat:0|intcomma }}</div><div class="s">fuel spend</div></div>
+ <div class="kpi"><div class="l">Active trucks</div><div class="n">{{ kpi.active_trucks }}</div><div class="s">in service</div></div>
+ <div class="kpi"><div class="l">Team members</div><div class="n">{{ kpi.team_members }}</div><div class="s">non-driver staff</div></div>
+</div>
+
+<div class="grid2" style="margin-top:16px">
+ <div class="card"><div class="card-h"><h3>Top drivers · {{ kpi_year }}</h3><a href="/app/performance/">Performance →</a></div>
+  <div style="padding:6px 14px 12px">
+   {% if driver_rows %}<table><thead><tr><th>Driver</th><th class="n">Loads</th><th class="n">Revenue</th><th class="n">Miles</th><th class="n">Paid</th></tr></thead><tbody>
+   {% for d in driver_rows %}<tr><td><a href="/reports/driver/{{ d.id }}/" style="color:var(--blue)">{{ d.name }}</a></td><td class="n">{{ d.loads }}</td><td class="n">${{ d.rev|floatformat:0|intcomma }}</td><td class="n">{{ d.miles|intcomma }}</td><td class="n">${{ d.paid|floatformat:0|intcomma }}</td></tr>{% endfor %}
+   </tbody></table>{% else %}<div class="sub">No driver activity yet this year.</div>{% endif %}
+  </div>
+ </div>
+ <div class="card"><div class="card-h"><h3>Top trucks · {{ kpi_year }}</h3><a href="/reports/pnl/truck/">Truck P&amp;L →</a></div>
+  <div style="padding:6px 14px 12px">
+   {% if truck_rows %}<table><thead><tr><th>Unit</th><th class="n">Loads</th><th class="n">Revenue</th><th class="n">Miles</th><th class="n">Net</th></tr></thead><tbody>
+   {% for v in truck_rows %}<tr><td><a href="/reports/truck/{{ v.id }}/" style="color:var(--blue)">Unit {{ v.unit }}</a></td><td class="n">{{ v.loads }}</td><td class="n">${{ v.rev|floatformat:0|intcomma }}</td><td class="n">{{ v.miles|intcomma }}</td><td class="n" style="color:{% if v.net >= 0 %}var(--green){% else %}var(--red){% endif %}">${{ v.net|floatformat:0|intcomma }}</td></tr>{% endfor %}
+   </tbody></table>{% else %}<div class="sub">No truck activity yet this year.</div>{% endif %}
+  </div>
+ </div>
+</div>
+{% endif %}
 <div class="toolbar">
  <a class="btn amber" href="/admin/operations/load/add/">+ New load</a>
  <a class="btn ghost" href="/admin/operations/driver/add/">+ Add driver</a>
