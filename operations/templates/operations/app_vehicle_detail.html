@@ -24,7 +24,7 @@
    <td>{{ row.o.get_doc_type_display }}</td>
    <td>{{ row.o.label }}</td>
    <td>{% if row.o.expiry_date %}{{ row.o.expiry_date }} {% if row.chip %}<span class="chip {{ row.chip.cls }}"><span class="d"></span>{{ row.chip.label }}</span>{% endif %}{% else %}<span class="sub">—</span>{% endif %}</td>
-   <td>{% if row.o.file %}<a class="btn ghost" style="padding:3px 9px;font-size:12px" href="#" onclick="docView('{{ row.o.file.url }}','{{ row.o.label|escapejs }}');return false;">View</a>{% else %}<span class="sub">no file</span>{% endif %}</td>
+   <td>{% if row.o.file %}<a class="btn ghost" style="padding:3px 9px;font-size:12px" href="#" onclick="docView('{{ row.o.file.url }}','{{ row.o.label|escapejs }}');return false;">View</a> <a class="btn ghost" style="padding:3px 9px;font-size:12px" href="#" onclick="emailVDoc('{{ row.o.id }}','{{ row.o.label|escapejs }}');return false;">Email</a>{% else %}<span class="sub">no file</span>{% endif %}</td>
    <td><form method="post" action="/app/vehicles/{{ v.id }}/doc/{{ row.o.id }}/delete/" onsubmit="return confirm('Remove this document?');" style="display:inline">{% csrf_token %}<button class="btn ghost" style="padding:3px 8px;font-size:11px;color:#c0392b" type="submit">Delete</button></form></td>
   </tr>{% endfor %}</tbody></table>
   {% else %}<div class="sub">No documents yet. Upload registration, insurance, inspection, lease, permits, etc. below.</div>{% endif %}
@@ -65,8 +65,27 @@ function docView(url,title){
  document.getElementById('docViewer').style.display='flex';
 }
 function docClose(){document.getElementById('docViewer').style.display='none';document.getElementById('docViewerBody').innerHTML='';}
-document.addEventListener('keydown',function(e){if(e.key==='Escape')docClose();});
+document.addEventListener('keydown',function(e){if(e.key==='Escape'){docClose();evClose();}});
+function emailVDoc(id,label){document.getElementById('ev_id').value=id;document.getElementById('ev_label').textContent=label||'document';document.getElementById('evModal').style.display='flex';}
+function evClose(){document.getElementById('evModal').style.display='none';}
 </script>
+
+<div id="evModal" style="display:none;position:fixed;inset:0;background:rgba(20,28,43,.6);z-index:120;align-items:center;justify-content:center;padding:24px" onclick="if(event.target===this)evClose()">
+ <div style="background:#fff;border-radius:12px;width:100%;max-width:460px;padding:18px 20px">
+  <h3 style="margin:0 0 4px">Email document</h3>
+  <div class="sub" style="margin-bottom:12px">Sending: <b id="ev_label"></b> — from your company email.</div>
+  <form method="post" action="/app/email-document/">{% csrf_token %}
+   <input type="hidden" name="kind" value="vehicle"><input type="hidden" name="id" id="ev_id">
+   <label class="sub">Recipient email</label>
+   <input name="email" type="email" required placeholder="recipient@example.com" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;margin-bottom:8px">
+   <label class="sub">Subject (optional)</label>
+   <input name="subject" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;margin-bottom:8px">
+   <label class="sub">Message (optional)</label>
+   <textarea name="message" rows="3" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px"></textarea>
+   <div style="margin-top:12px;text-align:right"><button type="button" class="btn ghost" onclick="evClose()">Cancel</button> <button type="submit" class="btn amber">Send</button></div>
+  </form>
+ </div>
+</div>
 {% endblock %}
 {% block page_title %}Unit {{ v.unit_number }}{% endblock %}
 {% block content %}

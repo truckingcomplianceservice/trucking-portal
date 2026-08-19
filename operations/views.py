@@ -501,7 +501,8 @@ def app_vehicles(request):
     cs = _companies(request)
     vehicles = Vehicle.objects.filter(company__in=cs).select_related("company")
     rows = [{"o": v, "insp": _exp_chip(v.inspection_expiry),
-             "reg": _exp_chip(v.registration_expiry), "service": _service_chip(v)} for v in vehicles]
+             "reg": _exp_chip(v.registration_expiry), "service": _service_chip(v),
+             "doc_count": v.documents.count(), "photo_count": v.photos.count()} for v in vehicles]
     return render(request, "operations/app_vehicles.html", {"rows": rows})
 
 

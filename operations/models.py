@@ -982,6 +982,14 @@ class VehicleDocument(models.Model):
     class Meta:
         ordering = ["expiry_date", "doc_type"]
 
+    @property
+    def label(self):
+        if self.title:
+            return self.title
+        if self.doc_type == "other" and self.custom_type:
+            return self.custom_type
+        return self.get_doc_type_display()
+
     def __str__(self):
         return f"{self.vehicle} · {self.get_doc_type_display()}"
 

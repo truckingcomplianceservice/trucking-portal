@@ -4,10 +4,11 @@
 {% block content %}
 <div class="toolbar"><div class="spacer"></div><a class="btn ghost" href="/reports/maintenance/">Maintenance report</a><a class="btn amber" href="/admin/operations/vehicle/add/">+ Add vehicle</a></div>
 <div class="card"><div class="card-h"><h3>Fleet</h3></div>
-{% if rows %}<table><thead><tr><th>Unit</th><th>Vehicle</th><th>Service</th><th>DOT inspection</th><th>Plates</th><th>Status</th></tr></thead><tbody>
+{% if rows %}<table><thead><tr><th>Unit</th><th>Vehicle</th><th>Docs</th><th>Service</th><th>DOT inspection</th><th>Plates</th><th>Status</th></tr></thead><tbody>
 {% for r in rows %}<tr onclick="location.href='/app/vehicles/{{ r.o.id }}/'">
  <td><span class="mono">Unit {{ r.o.unit_number }}</span><div class="sub">{{ r.o.company.name }}{% if r.o.odometer %} · {{ r.o.odometer }} mi{% endif %}</div></td>
  <td>{{ r.o.year }} {{ r.o.make }} {{ r.o.model }}</td>
+ <td><span class="chip {% if r.doc_count %}c-green{% else %}c-gray{% endif %}"><span class="d"></span>{{ r.doc_count }} doc{{ r.doc_count|pluralize }}</span>{% if r.photo_count %} <span class="sub">· {{ r.photo_count }} photo{{ r.photo_count|pluralize }}</span>{% endif %}</td>
  <td><span class="chip {{ r.service.cls }}"><span class="d"></span>{{ r.service.label }}</span></td>
  <td><span class="chip {{ r.insp.cls }}"><span class="d"></span>{{ r.insp.label }}</span></td>
  <td><span class="chip {{ r.reg.cls }}"><span class="d"></span>{{ r.reg.label }}</span></td>
