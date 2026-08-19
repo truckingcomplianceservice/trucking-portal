@@ -1,0 +1,24 @@
+{% extends "operations/app_base.html" %}
+{% block title %}Driver Qualification Files — Fleetline{% endblock %}
+{% block page_title %}Driver Qualification Files{% endblock %}
+{% block content %}
+<div class="toolbar"><div class="sub">FMCSA-oriented DQF checklist per driver. Percentages reflect required items on file. System defaults — have your compliance professional confirm which apply.</div></div>
+
+<div class="card"><div class="card-h"><h3>Fleet DQF status</h3></div>
+ <div style="padding:8px 14px 14px">
+  {% if rows %}<table><thead><tr><th>Driver</th><th>Company</th><th style="width:220px">DQF completion</th><th>Missing / expired</th></tr></thead><tbody>
+  {% for r in rows %}<tr>
+   <td><a href="/app/dqf/{{ r.d.id }}/" style="color:var(--blue);font-weight:600">{{ r.d.first_name }} {{ r.d.last_name }}</a></td>
+   <td class="sub">{{ r.d.company.name }}</td>
+   <td>
+    <div style="display:flex;align-items:center;gap:8px">
+     <div style="flex:1;height:8px;background:#eef0f4;border-radius:4px;overflow:hidden"><div style="height:100%;width:{{ r.pct }}%;background:{% if r.pct == 100 %}#2e9e6b{% elif r.pct >= 60 %}#c99a3a{% else %}#c0605a{% endif %}"></div></div>
+     <span style="font-size:12px;font-weight:700;min-width:70px">{{ r.pct }}% ({{ r.have }}/{{ r.need }})</span>
+    </div>
+   </td>
+   <td class="sub" style="font-size:12px">{% if r.missing %}{{ r.missing|join:", " }}{% else %}<span style="color:#137a51">Complete</span>{% endif %}</td>
+  </tr>{% endfor %}</tbody></table>
+  {% else %}<div class="sub">No active drivers yet.</div>{% endif %}
+ </div>
+</div>
+{% endblock %}

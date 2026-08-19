@@ -1,0 +1,22 @@
+{% extends "operations/app_base.html" %}
+{% block title %}DQF · {{ d.first_name }} {{ d.last_name }}{% endblock %}
+{% block page_title %}DQF · {{ d.first_name }} {{ d.last_name }}{% endblock %}
+{% block content %}
+{% if messages %}{% for m in messages %}<div style="margin:8px 0;padding:10px 14px;border-radius:8px;font-size:13px;background:#e4f4ec;color:#137a51">{{ m }}</div>{% endfor %}{% endif %}
+<div class="toolbar"><a class="btn ghost" href="/app/dqf/">← All drivers</a><div class="spacer"></div>
+ <span class="chip {% if dqf.pct == 100 %}c-green{% elif dqf.pct >= 60 %}c-warn{% else %}c-gray{% endif %}">{{ dqf.pct }}% complete ({{ dqf.have_required }}/{{ dqf.required_count }} required)</span></div>
+
+<div class="card"><div class="card-h"><h3>Qualification checklist</h3><a href="/admin/operations/compliancedocument/add/">+ Add document (admin)</a></div>
+ <div style="padding:8px 14px 14px">
+  <table><thead><tr><th>Requirement</th><th>Status</th><th>On file</th><th>Expiry</th></tr></thead><tbody>
+  {% for it in dqf.items %}<tr>
+   <td>{{ it.label }}{% if not it.required %} <span class="sub">(optional)</span>{% endif %}</td>
+   <td><span class="chip {{ it.chip }}"><span class="d"></span>
+     {% if it.state == 'ok' %}On file{% elif it.state == 'expiring' %}Expiring{% elif it.state == 'expired' %}Expired{% elif it.state == 'optional' %}Optional{% else %}Missing{% endif %}</span></td>
+   <td>{% if it.doc and it.doc.file %}<a class="btn ghost" style="padding:3px 9px;font-size:12px" href="{{ it.doc.file.url }}" target="_blank">View</a>{% else %}<span class="sub">—</span>{% endif %}</td>
+   <td class="sub">{% if it.doc and it.doc.expiry_date %}{{ it.doc.expiry_date }}{% else %}—{% endif %}</td>
+  </tr>{% endfor %}</tbody></table>
+  <div class="sub" style="margin-top:12px;line-height:1.6">Documents are managed in the driver's compliance records. This checklist reads them and shows what's on file, missing, or expiring. Requirements shown are <b>system defaults</b> based on common FMCSA driver-qualification items — your compliance professional should confirm which apply to your operation.</div>
+ </div>
+</div>
+{% endblock %}

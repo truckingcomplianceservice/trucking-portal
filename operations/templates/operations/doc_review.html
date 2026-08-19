@@ -1,0 +1,32 @@
+{% extends "operations/app_base.html" %}
+{% block title %}Document review — Fleetline{% endblock %}
+{% block page_title %}Document review queue{% endblock %}
+{% block content %}
+{% if messages %}{% for m in messages %}<div style="margin:8px 0;padding:10px 14px;border-radius:8px;font-size:13px;background:#e4f4ec;color:#137a51">{{ m }}</div>{% endfor %}{% endif %}
+<div class="toolbar"><div class="sub">Documents uploaded to driver files wait here for review. A file is not "verified" until you approve it.</div><div class="spacer"></div><span class="chip {% if count %}c-warn{% else %}c-green{% endif %}">{{ count }} pending</span></div>
+
+<div class="card"><div class="card-h"><h3>Awaiting review</h3></div>
+ <div style="padding:8px 14px 14px">
+  {% if pending %}
+  {% for doc in pending %}
+  <div style="border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:10px">
+   <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+    <div>
+     <b>{{ doc.driver.first_name }} {{ doc.driver.last_name }}</b> · {{ doc.get_doc_type_display }}
+     <div class="sub" style="font-size:12px">{{ doc.company.name }}{% if doc.expiry_date %} · expires {{ doc.expiry_date }}{% endif %}{% if doc.uploaded_at %} · uploaded {{ doc.uploaded_at|date:"M d, Y" }}{% endif %}</div>
+    </div>
+    {% if doc.file %}<a class="btn ghost" style="padding:4px 11px;font-size:12px" href="{{ doc.file.url }}" target="_blank">View file</a>{% endif %}
+   </div>
+   <form method="post" style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">{% csrf_token %}
+    <input type="hidden" name="doc_id" value="{{ doc.id }}">
+    <input name="reason" placeholder="Reason / note (for reject or replace)" style="flex:1;min-width:200px;padding:7px 10px;border:1px solid var(--line);border-radius:8px">
+    <button class="btn navy" name="action" value="approve" type="submit" style="padding:6px 14px">Approve</button>
+    <button class="btn ghost" name="action" value="replace" type="submit" style="padding:6px 12px">Request replacement</button>
+    <button class="btn ghost" name="action" value="reject" type="submit" style="padding:6px 12px;color:#c0392b">Reject</button>
+   </form>
+  </div>
+  {% endfor %}
+  {% else %}<div class="sub">Nothing waiting for review. All caught up.</div>{% endif %}
+ </div>
+</div>
+{% endblock %}

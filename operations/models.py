@@ -465,6 +465,17 @@ class ComplianceDocument(models.Model):
         help_text="Leave blank if this document does not expire.")
     file = models.FileField(upload_to="compliance/", blank=True)
     verified = models.BooleanField(default=False)
+    REVIEW_CHOICES = [("pending", "Pending review"), ("approved", "Approved"),
+                      ("rejected", "Rejected"), ("replace", "Replacement requested")]
+    review_status = models.CharField(max_length=10, choices=REVIEW_CHOICES, default="pending")
+    review_reason = models.CharField(max_length=200, blank=True)
+    reviewed_by = models.ForeignKey("auth.User", on_delete=models.SET_NULL, null=True, blank=True,
+                                    related_name="reviewed_docs")
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    superseded = models.BooleanField(default=False, help_text="An older version replaced by a newer upload.")
+    uploaded_by = models.ForeignKey("auth.User", on_delete=models.SET_NULL, null=True, blank=True,
+                                    related_name="uploaded_compliance_docs")
+    uploaded_at = models.DateTimeField(auto_now_add=True, null=True)
     notes = models.TextField(blank=True)
 
     class Meta:

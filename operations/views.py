@@ -3002,3 +3002,115 @@ def app_load_new(request):
                   {"companies": cs, "default_company": default_company,
                    "drivers": Driver.objects.filter(company__in=cs).order_by("first_name"),
                    "vehicles": Vehicle.objects.filter(company__in=cs).order_by("unit_number")})
+
+
+# ================= Phase 2: Driver Qualification File (DQF) checklist =================
+# Default FMCSA-oriented DQF requirements. Labeled as SYSTEM DEFAULTS — each
+# organization's compliance professional should review which apply to them.
+DQF_REQUIREMENTS = [
+    ("application", "Signed employment application", True, None),
+    ("cdl", "CDL / driver license", True, "expiry"),
+    ("medical", "Medical examiner's certificate", True, "expiry"),
+    ("mvr", "Motor Vehicle Record (initial)", True, None),
+    ("annual_review", "Annual review of driving record", True, "annual"),
+    ("road_test", "Road test certificate / equivalent", True, None),
+    ("safety_history", "Previous employer safety history", True, None),
+    ("psp", "PSP report", False, None),
+    ("clearinghouse", "Clearinghouse query", True, "annual"),
+    ("drug_test", "Pre-employment drug test", True, None),
+    ("eldt", "ELDT certificate (if applicable)", False, None),
+]
+
+
+def _dqf_status(driver):
+    """Build the DQF checklist for one driver from their compliance documents."""
+    today = _dt.date.today()
+    docs = list(ComplianceDocument.objects.filter(driver=driver))
+    by_type = {}
+    for d in docs:
+        by_type.setdefault(d.doc_type, []).append(d)
+    items = []
+    have = 0
+    for code, label, required, kind in DQF_REQUIREMENTS:
+        matches = by_type.get(code, [])
+        latest = None
+        if matches:
+            latest = sorted(matches, key=lambda x: (x.issued_date or _dt.date.min), reverse=True)[0]
+        state, chip = "missing", "c-gray"
+        if latest and latest.file:
+            if latest.expiry_date:
+                if latest.expiry_date < today:
+                    state, chip = "expired", "c-red"
+                elif (latest.expiry_date - today).days <= 30:
+                    state, chip = "expiring", "c-warn"
+                else:
+                    state, chip = "ok", "c-green"
+            else:
+                state, chip = "ok", "c-green"
+            have += 1
+        elif not required:
+            state, chip = "optional", "c-gray"
+        items.append({"code": code, "label": label, "required": required,
+                      "kind": kind, "state": state, "chip": chip, "doc": latest})
+    required_count = sum(1 for r in DQF_REQUIREMENTS if r[2])
+    have_required = sum(1 for it in items if it["required"] and it["state"] in ("ok", "expiring"))
+    pct = int(round(have_required / required_count * 100)) if required_count else 100
+    return {"items": items, "pct": pct, "have_required": have_required,
+            "required_count": required_count}
+
+
+@require_section("compliance")
+@login_required
+def dqf_list(request):
+    """Fleet DQF overview — every active driver with their completion %."""
+    cs = _companies(request)
+    rows = []
+    for d in Driver.objects.filter(company__in=cs, status="active").select_related("company"):
+        st = _dqf_status(d)
+        rows.append({"d": d, "pct": st["pct"],
+                     "have": st["have_required"], "need": st["required_count"],
+                     "missing": [it["label"] for it in st["items"]
+                                 if it["required"] and it["state"] in ("missing", "expired")][:4]})
+    rows.sort(key=lambda r: r["pct"])
+    return render(request, "operations/dqf_list.html", {"rows": rows})
+
+
+@require_section("compliance")
+@login_required
+def dqf_detail(request, pk):
+    cs = _companies(request)
+    d = _get(Driver, pk=pk, company__in=cs)
+    st = _dqf_status(d)
+    return render(request, "operations/dqf_detail.html",
+                  {"d": d, "dqf": st, "doc_types": ComplianceDocument.DOC_TYPE_CHOICES})
+
+
+# ================= Phase 3: Document review queue =================
+@require_section("compliance")
+@login_required
+def doc_review_queue(request):
+    """Queue of compliance documents awaiting review; approve/reject/replace."""
+    cs = _companies(request)
+    if request.method == "POST":
+        doc = ComplianceDocument.objects.filter(
+            pk=request.POST.get("doc_id"), company__in=cs).first()
+        action = request.POST.get("action")
+        if doc:
+            if action == "approve":
+                doc.review_status = "approved"; doc.verified = True
+            elif action == "reject":
+                doc.review_status = "rejected"; doc.verified = False
+            elif action == "replace":
+                doc.review_status = "replace"; doc.verified = False
+            doc.review_reason = request.POST.get("reason", "").strip()
+            doc.reviewed_by = request.user
+            from django.utils import timezone as _tz
+            doc.reviewed_at = _tz.now()
+            doc.save()
+            _messages.success(request, f"Document marked {doc.get_review_status_display()}.")
+        return redirect("doc_review_queue")
+    pending = ComplianceDocument.objects.filter(
+        company__in=cs, review_status="pending", superseded=False
+    ).select_related("driver", "company").exclude(file="")
+    return render(request, "operations/doc_review.html",
+                  {"pending": pending, "count": pending.count()})
