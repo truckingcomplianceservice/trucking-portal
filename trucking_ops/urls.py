@@ -56,6 +56,7 @@ urlpatterns = [
     path("app/vehicles/<int:pk>/report/", views.vehicle_report_pdf, name="vehicle_report_pdf"),
     path("app/vehicles/<int:pk>/report/email/", views.email_vehicle_report, name="email_vehicle_report"),
     path("app/hiring/", views.app_hiring, name="app_hiring"),
+    path("app/hiring/<int:pk>/", views.applicant_detail, name="applicant_detail"),
     path("app/brokers/", views.app_brokers, name="app_brokers"),
     path("app/fuel/", views.app_fuel, name="app_fuel"),
     path("app/fuel/add/", views.fuel_add, name="fuel_add"),

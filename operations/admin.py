@@ -7,7 +7,7 @@ so a person from one company can't see another's drivers or loads.
 from django import forms
 from django.contrib import admin
 from django.utils.safestring import mark_safe
-from .models import (Company, Profile, Driver, Vehicle, Load, Expense,
+from .models import (ApplicantStatusHistory, Company, Profile, Driver, Vehicle, Load, Expense,
                      Settlement, Applicant, ComplianceDocument, ActivityLog, NotificationRule,
                      Broker, FuelTransaction, TimeEntry, Invoice, Payment, MaintenanceRecord,
                      RentalContract, VehicleDocument, CompanyDocument)
@@ -306,3 +306,9 @@ class VehicleDocumentAdmin(CompanyScopedAdmin):
 class CompanyDocumentAdmin(CompanyScopedAdmin):
     list_display = ("company", "doc_type", "title", "expiry_date", "uploaded_at")
     list_filter = ("company", "doc_type")
+
+
+@admin.register(ApplicantStatusHistory)
+class ApplicantStatusHistoryAdmin(admin.ModelAdmin):
+    list_display = ("applicant", "from_stage", "to_stage", "changed_by", "changed_at")
+    list_filter = ("to_stage",)

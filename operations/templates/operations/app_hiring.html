@@ -2,16 +2,32 @@
 {% block title %}Hiring — Fleetline{% endblock %}
 {% block page_title %}Driver Hiring{% endblock %}
 {% block content %}
-<div class="toolbar"><div class="sub">Applicants move Applied → Screening → DQ file → Cleared. Send links from <a href="/hiring/links/" style="color:var(--blue)">Hiring links</a>.</div><div class="spacer"></div><a class="btn amber" href="/hiring/links/">Application links</a></div>
+{% if messages %}{% for m in messages %}<div style="margin:8px 0;padding:10px 14px;border-radius:8px;font-size:13px;background:#e4f4ec;color:#137a51">{{ m }}</div>{% endfor %}{% endif %}
+<div class="toolbar">
+ <form method="get" style="display:flex;gap:8px;align-items:center">
+  <input name="q" value="{{ q }}" placeholder="Search name, email, phone, tag" style="padding:8px 11px;border:1px solid var(--line);border-radius:8px;min-width:240px">
+  {% if show_all %}<input type="hidden" name="all" value="1">{% endif %}
+  <button class="btn navy" type="submit">Search</button>
+ </form>
+ <div class="spacer"></div>
+ <div class="sub" style="margin-right:10px">{{ total }} in pipeline</div>
+ {% if show_all %}<a class="btn ghost" href="/app/hiring/">Active only</a>{% else %}<a class="btn ghost" href="/app/hiring/?all=1">Show all stages</a>{% endif %}
+ <a class="btn amber" href="/hiring/links/">Application links</a>
+</div>
+
 <div class="pipe">
 {% for col in cols %}
 <div class="col"><h4>{{ col.label }}<span>{{ col.count }}</span></h4>
  {% for a in col.apps %}
- <a class="appcard" href="/admin/operations/applicant/{{ a.id }}/change/">
+ <a class="appcard" href="/app/hiring/{{ a.id }}/">
    <div class="nm">{{ a.first_name }} {{ a.last_name }}</div>
    <div class="mt">{{ a.company.name }}{% if a.cdl_class %} · Class {{ a.cdl_class }}{% endif %}</div>
+   <div style="margin-top:5px;height:5px;background:#eef0f4;border-radius:3px;overflow:hidden"><div style="height:100%;width:{{ a.completion }}%;background:{% if a.completion >= 80 %}#2e9e6b{% elif a.completion >= 40 %}#c99a3a{% else %}#c0605a{% endif %}"></div></div>
+   <div class="mt" style="margin-top:4px">{{ a.completion }}% complete{% if a.assigned_to %} · {{ a.assigned_to.username }}{% endif %}</div>
+   {% for t in a.tag_list %}<span style="display:inline-block;font-size:10px;background:#eef0f4;color:#333;border-radius:4px;padding:1px 6px;margin-top:4px;margin-right:3px">{{ t }}</span>{% endfor %}
  </a>
  {% empty %}<div class="sub" style="padding:6px 2px">None</div>{% endfor %}
 </div>
 {% endfor %}
-</div>{% endblock %}
+</div>
+{% endblock %}

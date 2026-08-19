@@ -9,7 +9,7 @@ from django.contrib.auth.models import User
 from django.core.files.uploadedfile import SimpleUploadedFile
 from operations.models import (Company, Driver, Vehicle, Load, Settlement,
                                Profile, VehicleDocument, CompanyDocument,
-                               FuelTransaction, Expense)
+                               FuelTransaction, Expense, Applicant)
 
 MEDIA = tempfile.mkdtemp()
 
@@ -113,3 +113,30 @@ class CoreSystemTests(TestCase):
         self._set_company(self.oc, self.a)
         for url in ["/dashboard/","/app/loads/","/app/vehicles/","/app/fuel/","/app/accounting/","/app/pay/","/app/company/documents/"]:
             self.assertEqual(self.oc.get(url).status_code, 200, f"{url} failed")
+
+    def test_hiring_pipeline_and_convert(self):
+        ap = Applicant.objects.create(company=self.a, first_name="Ash", last_name="Pal",
+            phone="555", cdl_number="D1", cdl_class="A", employment_history="x",
+            signature="Ash Pal", consent=True)
+        self._set_company(self.oc, self.a)
+        # move stage records history
+        self.oc.post(f"/app/hiring/{ap.id}/", {"action": "stage", "stage": "qualified", "reason": "ok"})
+        ap.refresh_from_db()
+        self.assertEqual(ap.stage, "qualified")
+        self.assertEqual(ap.history.count(), 1)
+        # convert to driver
+        self.oc.post(f"/app/hiring/{ap.id}/", {"action": "convert"})
+        ap.refresh_from_db()
+        self.assertIsNotNone(ap.converted_driver)
+        self.assertEqual(ap.stage, "active")
+
+    def test_hiring_pipeline_isolation(self):
+        other = Applicant.objects.create(company=self.b, first_name="Bob", last_name="Lee", phone="9")
+        self.oc.post("/app/company/access/", {"company": str(self.a.id), "username": "wgh",
+                                              "password": "secret12345", "role": "admin"})
+        from django.contrib.auth.models import User as U
+        wg = U.objects.get(username="wgh"); c = Client(); c.force_login(wg)
+        board = c.get("/app/hiring/?all=1").content.decode()
+        self.assertNotIn("Bob", board)
+        r = c.get(f"/app/hiring/{other.id}/", follow=True)
+        self.assertNotIn("Lee", r.content.decode())

@@ -1,0 +1,87 @@
+{% extends "operations/app_base.html" %}
+{% block title %}{{ a.full_name }} — Hiring{% endblock %}
+{% block page_title %}Applicant · {{ a.full_name }}{% endblock %}
+{% block content %}
+{% if messages %}{% for m in messages %}<div style="margin:8px 0;padding:10px 14px;border-radius:8px;font-size:13px;background:{% if m.tags == 'error' %}#fbe7e5;color:#b02b24{% else %}#e4f4ec;color:#137a51{% endif %}">{{ m }}</div>{% endfor %}{% endif %}
+<div class="toolbar"><a class="btn ghost" href="/app/hiring/">← Pipeline</a><div class="spacer"></div>
+ <span class="chip {% if a.completion >= 80 %}c-green{% elif a.completion >= 40 %}c-warn{% else %}c-gray{% endif %}">{{ a.completion }}% complete</span></div>
+
+<div class="grid2">
+ <div>
+  <div class="card"><div class="card-h"><h3>Application details</h3></div>
+   <div style="padding:14px 16px;font-size:13px;line-height:1.7">
+    <b>{{ a.full_name }}</b> · {{ a.company.name }}<br>
+    Phone: {{ a.phone|default:"—" }} · Email: {{ a.email|default:"—" }}<br>
+    Address: {{ a.current_address|default:"—" }}<br>
+    CDL: {{ a.cdl_number|default:"—" }} {% if a.cdl_class %}(Class {{ a.cdl_class }}){% endif %} {{ a.cdl_state }}<br>
+    Experience: {% if a.years_experience %}{{ a.years_experience }} yrs{% else %}—{% endif %}<br>
+    Applied: {{ a.created_at|date:"M d, Y" }} · Consent: {% if a.consent %}<span style="color:#137a51">Yes</span>{% else %}<span style="color:#b02b24">No</span>{% endif %} · Signature: {{ a.signature|default:"—" }}
+    <div style="margin-top:10px">
+     {% if a.cdl_file %}<a class="btn ghost" style="padding:3px 9px;font-size:12px" href="{{ a.cdl_file.url }}" target="_blank">CDL file</a>{% endif %}
+     {% if a.medical_file %}<a class="btn ghost" style="padding:3px 9px;font-size:12px" href="{{ a.medical_file.url }}" target="_blank">Medical</a>{% endif %}
+     {% if a.other_file %}<a class="btn ghost" style="padding:3px 9px;font-size:12px" href="{{ a.other_file.url }}" target="_blank">Other</a>{% endif %}
+    </div>
+    {% if a.employment_history %}<div style="margin-top:10px"><b>Employment history</b><br>{{ a.employment_history|linebreaksbr }}</div>{% endif %}
+    {% if a.accidents %}<div style="margin-top:10px"><b>Accidents / violations</b><br>{{ a.accidents|linebreaksbr }}</div>{% endif %}
+   </div>
+  </div>
+
+  {% if a.missing_items %}
+  <div class="card" style="margin-top:14px"><div class="card-h"><h3>Missing items</h3></div>
+   <div style="padding:12px 16px"><ul style="margin:0;padding-left:18px;font-size:13px;line-height:1.8">{% for m in a.missing_items %}<li>{{ m }}</li>{% endfor %}</ul></div>
+  </div>{% endif %}
+
+  <div class="card" style="margin-top:14px"><div class="card-h"><h3>Notes</h3></div>
+   <div style="padding:12px 16px">
+    {% if a.notes %}<div style="font-size:12px;white-space:pre-wrap;background:#f7f8fa;border-radius:8px;padding:10px;line-height:1.6">{{ a.notes }}</div>{% else %}<div class="sub">No notes yet.</div>{% endif %}
+    <form method="post" style="margin-top:10px">{% csrf_token %}<input type="hidden" name="action" value="note">
+     <textarea name="note" rows="2" placeholder="Add an internal note…" style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px"></textarea>
+     <button class="btn ghost" type="submit" style="margin-top:6px">Add note</button></form>
+   </div>
+  </div>
+ </div>
+
+ <div>
+  <div class="card"><div class="card-h"><h3>Pipeline stage</h3></div>
+   <div style="padding:14px 16px">
+    <div class="sub" style="margin-bottom:8px">Current: <b>{{ a.get_stage_display }}</b></div>
+    <form method="post">{% csrf_token %}<input type="hidden" name="action" value="stage">
+     <select name="stage" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px">
+      {% for code,label in stages %}<option value="{{ code }}"{% if code == a.stage %} selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+     <input name="reason" placeholder="Reason (for approve/reject)" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;margin-top:8px">
+     <button class="btn amber" type="submit" style="margin-top:10px;width:100%">Update stage</button>
+    </form>
+    {% if not a.converted_driver %}
+    <form method="post" onsubmit="return confirm('Convert this applicant into an active driver?');" style="margin-top:10px">{% csrf_token %}<input type="hidden" name="action" value="convert">
+     <button class="btn navy" type="submit" style="width:100%">✓ Convert to active driver</button></form>
+    {% else %}<div class="sub" style="margin-top:10px;color:#137a51">✓ Converted to driver: {{ a.converted_driver }}</div>{% endif %}
+   </div>
+  </div>
+
+  <div class="card" style="margin-top:14px"><div class="card-h"><h3>Assign & tags</h3></div>
+   <div style="padding:14px 16px">
+    <form method="post">{% csrf_token %}<input type="hidden" name="action" value="assign">
+     <label class="sub">Recruiter</label>
+     <select name="assigned_to" onchange="this.form.submit()" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px">
+      <option value="">— unassigned —</option>
+      {% for u in recruiters %}<option value="{{ u.id }}"{% if a.assigned_to_id == u.id %} selected{% endif %}>{{ u.get_full_name|default:u.username }}</option>{% endfor %}</select>
+    </form>
+    <form method="post" style="margin-top:10px">{% csrf_token %}<input type="hidden" name="action" value="tags">
+     <label class="sub">Tags (comma-separated)</label>
+     <input name="tags" value="{{ a.tags }}" placeholder="e.g. hazmat, local, rehire" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px">
+     <button class="btn ghost" type="submit" style="margin-top:6px">Save tags</button></form>
+   </div>
+  </div>
+
+  <div class="card" style="margin-top:14px"><div class="card-h"><h3>Status history</h3></div>
+   <div style="padding:12px 16px">
+    {% if history %}<div style="font-size:12px;line-height:1.7">
+    {% for h in history %}<div style="border-bottom:1px solid #eef0f4;padding:4px 0">
+     {{ h.changed_at|date:"M d, Y H:i" }} — <b>{{ h.to_stage }}</b>{% if h.reason %} · {{ h.reason }}{% endif %}{% if h.changed_by %} <span class="sub">by {{ h.changed_by.username }}</span>{% endif %}
+    </div>{% endfor %}</div>
+    {% else %}<div class="sub">No stage changes yet.</div>{% endif %}
+   </div>
+  </div>
+ </div>
+</div>
+{% endblock %}

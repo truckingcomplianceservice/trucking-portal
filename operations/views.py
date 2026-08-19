@@ -6,7 +6,7 @@ from django.db.models import Sum, Q
 from django.shortcuts import render, get_object_or_404, redirect
 from django.views.static import serve
 from django.conf import settings
-from .models import (Company, Load, Expense, Settlement, Driver, Vehicle, Applicant,
+from .models import (Company, Load, Expense, Settlement, Driver, Vehicle, Applicant, ApplicantStatusHistory,
                      ComplianceDocument, Broker, FuelTransaction, RentalContract, VehicleDocument, CompanyDocument, notify)
 
 
@@ -537,13 +537,79 @@ def maintenance_add(request, pk):
 @login_required
 def app_hiring(request):
     cs = _companies(request)
-    stages = [("applied", "Applied"), ("screening", "Screening"),
-              ("dq_file", "DQ file"), ("cleared", "Cleared / hired")]
+    q = (request.GET.get("q") or "").strip()
+    show_all = request.GET.get("all") == "1"
+    base = Applicant.objects.filter(company__in=cs)
+    if q:
+        base = base.filter(models.Q(first_name__icontains=q) | models.Q(last_name__icontains=q)
+                           | models.Q(email__icontains=q) | models.Q(phone__icontains=q)
+                           | models.Q(tags__icontains=q))
+    stages = Applicant.PIPELINE_STAGES if not show_all else [s[0] for s in Applicant.STAGE_CHOICES]
+    labels = dict(Applicant.STAGE_CHOICES)
     cols = []
-    for code, label in stages:
-        apps = Applicant.objects.filter(company__in=cs, stage=code)
-        cols.append({"label": label, "apps": apps, "count": apps.count()})
-    return render(request, "operations/app_hiring.html", {"cols": cols})
+    for code in stages:
+        apps = base.filter(stage=code).select_related("assigned_to")
+        cols.append({"code": code, "label": labels.get(code, code),
+                     "apps": apps, "count": apps.count()})
+    return render(request, "operations/app_hiring.html",
+                  {"cols": cols, "q": q, "show_all": show_all,
+                   "total": base.exclude(stage__in=["archived", "inactive"]).count()})
+
+
+@require_section("hiring")
+@login_required
+def applicant_detail(request, pk):
+    cs = _companies(request)
+    a = _get(Applicant, pk=pk, company__in=cs)
+    if request.method == "POST":
+        action = request.POST.get("action")
+        if action == "stage":
+            new_stage = request.POST.get("stage")
+            reason = request.POST.get("reason", "").strip()
+            valid = [s[0] for s in Applicant.STAGE_CHOICES]
+            if new_stage in valid and new_stage != a.stage:
+                ApplicantStatusHistory.objects.create(
+                    applicant=a, from_stage=a.stage, to_stage=new_stage,
+                    reason=reason, changed_by=request.user)
+                a.stage = new_stage
+                if reason:
+                    a.decision_reason = reason
+                a.save()
+                _messages.success(request, f"Moved to {a.get_stage_display()}.")
+        elif action == "assign":
+            uid = request.POST.get("assigned_to")
+            a.assigned_to = _User.objects.filter(pk=uid).first() if uid else None
+            a.save(); _messages.success(request, "Assignment updated.")
+        elif action == "tags":
+            a.tags = request.POST.get("tags", "").strip(); a.save()
+            _messages.success(request, "Tags updated.")
+        elif action == "note":
+            note = request.POST.get("note", "").strip()
+            if note:
+                stamp = _dt.datetime.now().strftime("%b %d, %Y %H:%M")
+                who = request.user.get_full_name() or request.user.username
+                a.notes = (a.notes + f"\n[{stamp} · {who}] {note}").strip()
+                a.save(); _messages.success(request, "Note added.")
+        elif action == "convert":
+            if a.converted_driver:
+                _messages.info(request, "Already converted to a driver.")
+            else:
+                d = Driver.objects.create(
+                    company=a.company, first_name=a.first_name, last_name=a.last_name,
+                    phone=a.phone, email=a.email, address=a.current_address,
+                    cdl_number=a.cdl_number, cdl_class=a.cdl_class or "", status="active")
+                a.converted_driver = d
+                ApplicantStatusHistory.objects.create(
+                    applicant=a, from_stage=a.stage, to_stage="active",
+                    reason="Converted to active driver", changed_by=request.user)
+                a.stage = "active"; a.save()
+                _messages.success(request, f"{a.full_name} is now an active driver.")
+                return redirect("applicant_detail", pk=a.pk)
+        return redirect("applicant_detail", pk=a.pk)
+    recruiters = _User.objects.filter(is_active=True).order_by("username")
+    return render(request, "operations/applicant_detail.html",
+                  {"a": a, "stages": Applicant.STAGE_CHOICES, "recruiters": recruiters,
+                   "history": a.history.select_related("changed_by")[:50]})
 
 
 @require_section("compliance")

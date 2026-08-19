@@ -335,12 +335,23 @@ class Settlement(models.Model):
 class Applicant(models.Model):
     """A driver who applied online via the company's hiring link."""
     STAGE_CHOICES = [
-        ("applied", "Applied"),
-        ("screening", "Screening (MVR / PSP)"),
-        ("dq_file", "DQ file"),
-        ("cleared", "Cleared / hired"),
-        ("declined", "Declined"),
+        ("invited", "Invited"),
+        ("started", "Application started"),
+        ("incomplete", "Application incomplete"),
+        ("applied", "Submitted"),
+        ("review", "Pending review"),
+        ("background", "Background checks pending"),
+        ("docs_missing", "Documents missing"),
+        ("qualified", "Qualified"),
+        ("approved", "Approved for hire"),
+        ("declined", "Rejected"),
+        ("active", "Active driver"),
+        ("inactive", "Inactive / terminated"),
+        ("archived", "Archived"),
     ]
+    # stages that count as "open" in the pipeline board
+    PIPELINE_STAGES = ["invited", "started", "incomplete", "applied", "review",
+                       "background", "docs_missing", "qualified", "approved"]
     CDL_CLASS_CHOICES = [("A", "Class A"), ("B", "Class B"), ("C", "Class C")]
 
     company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name="applicants")
@@ -366,14 +377,67 @@ class Applicant(models.Model):
     signature = models.CharField("Signature (typed full name)", max_length=100, blank=True)
 
     stage = models.CharField(max_length=12, choices=STAGE_CHOICES, default="applied")
+    assigned_to = models.ForeignKey("auth.User", on_delete=models.SET_NULL, null=True, blank=True,
+                                    related_name="assigned_applicants",
+                                    help_text="Recruiter handling this applicant.")
+    tags = models.CharField(max_length=200, blank=True, help_text="Comma-separated labels.")
+    decision_reason = models.CharField(max_length=200, blank=True,
+                                       help_text="Reason for approval or rejection.")
+    converted_driver = models.ForeignKey("Driver", on_delete=models.SET_NULL, null=True, blank=True,
+                                         related_name="from_applicant")
     created_at = models.DateTimeField(auto_now_add=True)
     notes = models.TextField(blank=True)
 
     class Meta:
         ordering = ["-created_at"]
 
+    @property
+    def full_name(self):
+        return f"{self.first_name} {self.last_name}".strip()
+
+    @property
+    def completion(self):
+        """Rough % of the key application fields that are filled in."""
+        fields = [self.first_name, self.last_name, self.phone, self.email,
+                  self.current_address, self.cdl_number, self.cdl_class, self.cdl_state,
+                  self.years_experience, self.employment_history, self.cdl_file,
+                  self.medical_file, self.signature]
+        filled = sum(1 for f in fields if f)
+        return int(round(filled / len(fields) * 100))
+
+    @property
+    def missing_items(self):
+        m = []
+        if not self.cdl_file: m.append("CDL upload")
+        if not self.medical_file: m.append("Medical certificate")
+        if not self.cdl_number: m.append("CDL number")
+        if not self.employment_history: m.append("Employment history")
+        if not self.signature: m.append("Signature")
+        if not self.consent: m.append("Consent")
+        return m
+
+    @property
+    def tag_list(self):
+        return [t.strip() for t in self.tags.split(",") if t.strip()]
+
     def __str__(self):
         return f"{self.first_name} {self.last_name} ({self.get_stage_display()})"
+
+
+class ApplicantStatusHistory(models.Model):
+    """A full audit trail of every stage change for an applicant."""
+    applicant = models.ForeignKey(Applicant, on_delete=models.CASCADE, related_name="history")
+    from_stage = models.CharField(max_length=12, blank=True)
+    to_stage = models.CharField(max_length=12)
+    reason = models.CharField(max_length=200, blank=True)
+    changed_by = models.ForeignKey("auth.User", on_delete=models.SET_NULL, null=True, blank=True)
+    changed_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-changed_at"]
+
+    def __str__(self):
+        return f"{self.applicant_id}: {self.from_stage}→{self.to_stage}"
 
 
 class ComplianceDocument(models.Model):
