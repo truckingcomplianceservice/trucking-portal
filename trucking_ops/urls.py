@@ -32,6 +32,7 @@ urlpatterns = [
     path("app/loads/", views.app_loads, name="app_loads"),
     path("app/loads/import/", views.load_import, name="load_import"),
     path("app/loads/new/", views.app_load_new, name="app_load_new"),
+    path("app/loads/estimate-miles/", views.estimate_miles_api, name="estimate_miles_api"),
     path("app/fmcsa/lookup/", views.fmcsa_lookup, name="fmcsa_lookup"),
     path("app/company/new/", views.company_new, name="company_new"),
     path("app/company/access/", views.company_access, name="company_access"),

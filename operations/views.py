@@ -3371,3 +3371,19 @@ def vehicle_photo_delete(request, pk, photo_id):
         if p:
             p.delete(); _messages.success(request, "Photo removed.")
     return redirect("app_vehicle_detail", pk=pk)
+
+
+@login_required
+def estimate_miles_api(request):
+    """Estimate loaded miles from an ordered list of stops (free, offline)."""
+    from django.http import JsonResponse
+    from .mileage import estimate_miles
+    stops = request.GET.getlist("stop") or request.GET.get("stops", "").split("|")
+    stops = [s for s in stops if s and s.strip()]
+    if len(stops) < 2:
+        return JsonResponse({"ok": False, "error": "Enter at least a pickup and a delivery stop."})
+    miles, unknown = estimate_miles(stops)
+    if miles <= 0:
+        return JsonResponse({"ok": False, "error": "Couldn't recognize those locations. Use 'City, ST' format, or enter miles manually."})
+    return JsonResponse({"ok": True, "miles": miles, "unknown": unknown,
+                         "note": "Estimate only — verify for billing/IFTA. You can edit it."})

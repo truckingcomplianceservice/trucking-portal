@@ -23,7 +23,7 @@
   </div>
 
   <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:14px">
-   <div><label class="sub">Loaded miles</label><input name="miles" id="m_loaded" value="0" oninput="calcMiles()" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px"></div>
+   <div><label class="sub">Loaded miles <a href="#" onclick="estMiles();return false;" style="font-size:11px;color:var(--blue)">· auto-estimate</a></label><input name="miles" id="m_loaded" value="0" oninput="calcMiles()" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px"></div>
    <div><label class="sub">Deadhead (empty) miles</label><input name="deadhead_miles" id="m_dead" value="0" oninput="calcMiles()" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px"></div>
    <div><label class="sub">Total miles</label><input id="m_total" value="0" readonly style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;background:#f7f8fa;font-weight:700"></div>
   </div>
@@ -66,6 +66,22 @@ function calcMiles(){
  var a=parseFloat(document.getElementById('m_loaded').value)||0;
  var b=parseFloat(document.getElementById('m_dead').value)||0;
  document.getElementById('m_total').value=(a+b);
+}
+function estMiles(){
+ var inputs=document.querySelectorAll('#stops input[name="stop"]');
+ var qs=[];
+ inputs.forEach(function(i){ if(i.value.trim()) qs.push('stop='+encodeURIComponent(i.value.trim())); });
+ if(qs.length<2){ alert('Enter at least a pickup and a delivery stop (City, ST) first.'); return; }
+ fetch('/app/loads/estimate-miles/?'+qs.join('&'))
+  .then(function(r){return r.json();})
+  .then(function(j){
+    if(!j.ok){ alert(j.error||'Could not estimate miles.'); return; }
+    document.getElementById('m_loaded').value=j.miles; calcMiles();
+    var msg='Estimated '+j.miles+' loaded miles. This is an estimate — please verify and edit if needed.';
+    if(j.unknown && j.unknown.length){ msg+='\n\nCouldn\'t place: '+j.unknown.join(', ')+' (add "City, ST").'; }
+    alert(msg);
+  })
+  .catch(function(e){ alert('Estimate error: '+e); });
 }
 renumber();
 </script>
