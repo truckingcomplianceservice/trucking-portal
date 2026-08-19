@@ -19,10 +19,24 @@ def _d_date_today():
 
 class Company(models.Model):
     FACTOR_CHOICES = [
+        ("None", "No factoring"),
         ("RTS", "RTS Financial"),
         ("Bobtail", "Bobtail"),
-        ("Other", "Other"),
-        ("None", "No factoring"),
+        ("TAFS", "TAFS"),
+        ("Apex", "Apex Capital"),
+        ("TBS", "TBS Factoring"),
+        ("OTR", "OTR Solutions"),
+        ("Triumph", "Triumph Business Capital"),
+        ("eCapital", "eCapital"),
+        ("Riviera", "Riviera Finance"),
+        ("Porter", "Porter Freight Funding"),
+        ("Compass", "Compass Funding Solutions"),
+        ("England", "England Carrier Services"),
+        ("Thunder", "Thunder Funding"),
+        ("Phoenix", "Phoenix Capital Group"),
+        ("Single", "Single Point Capital"),
+        ("Love", "Love's / TFS"),
+        ("Other", "Other (type below)"),
     ]
     name = models.CharField(max_length=120)
     mc_number = models.CharField("MC number", max_length=30, blank=True)
@@ -34,7 +48,8 @@ class Company(models.Model):
     email = models.EmailField(blank=True)
     logo = models.FileField("Company logo", upload_to="company_logos/", blank=True, null=True,
         help_text="Shown on this company's invoices and reports (PNG or JPG).")
-    factor = models.CharField(max_length=10, choices=FACTOR_CHOICES, default="None")
+    factor = models.CharField(max_length=20, choices=FACTOR_CHOICES, default="None")
+    factor_other = models.CharField("Factoring company (if 'Other')", max_length=80, blank=True)
     safety_rating = models.CharField("FMCSA safety rating", max_length=40, blank=True)
     fmcsa_status = models.CharField("FMCSA operating status", max_length=60, blank=True)
     power_units = models.IntegerField("Power units", null=True, blank=True)
@@ -60,6 +75,14 @@ class Company(models.Model):
                 slug = f"{base}-{i}"; i += 1
             self.slug = slug
         super().save(*args, **kwargs)
+
+    @property
+    def factor_name(self):
+        if self.factor == "Other" and self.factor_other:
+            return self.factor_other
+        if self.factor == "None":
+            return "No factoring"
+        return self.get_factor_display()
 
     def __str__(self):
         return self.name

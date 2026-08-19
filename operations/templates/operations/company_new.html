@@ -26,6 +26,10 @@
    <div style="grid-column:span 2"><label class="sub">Address</label><input name="address" id="c_addr" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px"></div>
    <div><label class="sub">Phone</label><input name="phone" id="c_phone" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px"></div>
    <div><label class="sub">Email</label><input name="email" id="c_email" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px"></div>
+   <div><label class="sub">Factoring company</label>
+    <select name="factor" id="c_factor" onchange="document.getElementById('c_factor_other_wrap').style.display=(this.value==='Other')?'block':'none'" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px">
+     {% for code,label in factor_choices %}<option value="{{ code }}">{{ label }}</option>{% endfor %}</select></div>
+   <div id="c_factor_other_wrap" style="grid-column:span 2;display:none"><label class="sub">Type the factoring company</label><input name="factor_other" placeholder="e.g. your factor's name" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px"></div>
    <div><label class="sub">FMCSA safety rating</label><input name="safety_rating" id="c_rating" readonly style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;background:#f7f8fa"></div>
    <div><label class="sub">Operating status</label><input name="fmcsa_status" id="c_status" readonly style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;background:#f7f8fa"></div>
    <div><label class="sub">Power units</label><input name="power_units" id="c_units" readonly style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;background:#f7f8fa"></div>

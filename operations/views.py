@@ -2673,6 +2673,8 @@ def company_new(request):
             address=request.POST.get("address", "").strip(),
             phone=request.POST.get("phone", "").strip(),
             email=request.POST.get("email", "").strip(),
+            factor=request.POST.get("factor", "None"),
+            factor_other=request.POST.get("factor_other", "").strip(),
             safety_rating=request.POST.get("safety_rating", "").strip(),
             fmcsa_status=request.POST.get("fmcsa_status", "").strip(),
             power_units=(int(_num(request.POST.get("power_units", "0"))) or None),
@@ -2681,7 +2683,8 @@ def company_new(request):
         # give the creating superuser access + set as active
         _messages.success(request, f"Company '{c.name}' added.")
         return redirect("dashboard")
-    return render(request, "operations/company_new.html", {"has_key": bool(_fmcsa_key())})
+    return render(request, "operations/company_new.html",
+                  {"has_key": bool(_fmcsa_key()), "factor_choices": Company.FACTOR_CHOICES})
 
 
 @login_required
