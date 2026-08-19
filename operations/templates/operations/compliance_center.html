@@ -1,0 +1,33 @@
+{% extends "operations/app_base.html" %}
+{% block title %}Compliance center — Fleetline{% endblock %}
+{% block page_title %}Compliance center{% endblock %}
+{% block content %}
+<div class="kpis">
+ <div class="kpi"><div class="l">Compliant drivers</div><div class="n" style="color:var(--green)">{{ compliant }}</div><div class="s">of {{ driver_total }} active</div></div>
+ <div class="kpi"><div class="l">Warning</div><div class="n" style="color:#c99a3a">{{ warning }}</div><div class="s">60–99% complete</div></div>
+ <div class="kpi"><div class="l">Incomplete</div><div class="n" style="color:var(--red)">{{ incomplete }}</div><div class="s">under 60%</div></div>
+ <div class="kpi"><div class="l">Pending reviews</div><div class="n">{{ pending_reviews }}</div><div class="s"><a href="/app/reviews/" style="color:var(--blue)">Review queue →</a></div></div>
+ <div class="kpi"><div class="l">Open applicants</div><div class="n">{{ open_apps }}</div><div class="s"><a href="/app/hiring/" style="color:var(--blue)">Pipeline →</a></div></div>
+</div>
+
+<div class="card" style="margin-top:16px"><div class="card-h"><h3>Documents expiring soon</h3><a href="/app/dqf/">Driver files →</a></div>
+ <div style="padding:10px 16px 16px">
+  {% if expired %}
+  <div style="margin-bottom:12px"><b style="color:var(--red)">Already expired ({{ expired|length }})</b>
+   <table style="margin-top:6px"><tbody>
+   {% for d in expired %}<tr><td><a href="/app/dqf/{{ d.driver.id }}/" style="color:var(--blue)">{{ d.driver.first_name }} {{ d.driver.last_name }}</a></td><td>{{ d.get_doc_type_display }}</td><td class="sub">expired {{ d.expiry_date }}</td></tr>{% endfor %}
+   </tbody></table></div>
+  {% endif %}
+  <table><thead><tr><th>Window</th><th>Documents expiring</th></tr></thead><tbody>
+  {% for b in bucket_list %}
+   <tr><td style="width:120px"><b>≤ {{ b.w }} days</b></td>
+   <td>
+    {% if b.items %}{% for d in b.items %}<div style="padding:2px 0"><a href="/app/dqf/{{ d.driver.id }}/" style="color:var(--blue)">{{ d.driver.first_name }} {{ d.driver.last_name }}</a> — {{ d.get_doc_type_display }} <span class="sub">({{ d.expiry_date }})</span></div>{% endfor %}
+    {% else %}<span class="sub">None</span>{% endif %}
+   </td></tr>
+  {% endfor %}
+  </tbody></table>
+  <div class="sub" style="margin-top:12px">Reminder emails go out automatically as documents approach expiry (your notification settings). This center gives you the whole fleet at a glance.</div>
+ </div>
+</div>
+{% endblock %}

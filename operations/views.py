@@ -6,7 +6,7 @@ from django.db.models import Sum, Q
 from django.shortcuts import render, get_object_or_404, redirect
 from django.views.static import serve
 from django.conf import settings
-from .models import (Company, Load, Expense, Settlement, Driver, Vehicle, Applicant, ApplicantStatusHistory,
+from .models import (Company, Load, Expense, Settlement, Driver, Vehicle, Applicant, ApplicantStatusHistory, SignatureRecord,
                      ComplianceDocument, Broker, FuelTransaction, RentalContract, VehicleDocument, CompanyDocument, notify)
 
 
@@ -80,10 +80,34 @@ def apply_view(request, token):
             applicant.company = company
             applicant.stage = "applied"
             applicant.save()
+            # capture an electronic-signature audit record
+            if applicant.signature:
+                _record_signature(
+                    request, company=company, applicant=applicant,
+                    form_name="Driver Employment Application", form_version="1.0",
+                    signer_name=applicant.signature,
+                    consent_text=("Applicant authorizes MVR, PSP, drug/alcohol and "
+                                  "Clearinghouse checks and certifies the information is true."),
+                    content=f"{applicant.id}|{applicant.first_name}|{applicant.last_name}|{applicant.signature}")
             return redirect("apply_thanks")
     else:
         form = ApplicantForm()
     return render(request, "operations/apply.html", {"form": form, "company": company})
+
+
+def _record_signature(request, company, form_name, signer_name, applicant=None,
+                      form_version="1.0", consent_text="", content=""):
+    """Create an immutable e-signature audit record with IP, device, and hash."""
+    import hashlib
+    from django.utils import timezone as _tz
+    xff = request.META.get("HTTP_X_FORWARDED_FOR", "")
+    ip = (xff.split(",")[0].strip() if xff else request.META.get("REMOTE_ADDR", "")) or ""
+    ua = request.META.get("HTTP_USER_AGENT", "")[:300]
+    h = hashlib.sha256(f"{content}|{signer_name}|{_tz.now().isoformat()}".encode()).hexdigest()
+    return SignatureRecord.objects.create(
+        company=company, applicant=applicant, form_name=form_name,
+        form_version=form_version, signer_name=signer_name, consent_text=consent_text,
+        ip_address=ip, user_agent=ua, content_hash=h)
 
 
 def apply_thanks(request):
@@ -609,7 +633,8 @@ def applicant_detail(request, pk):
     recruiters = _User.objects.filter(is_active=True).order_by("username")
     return render(request, "operations/applicant_detail.html",
                   {"a": a, "stages": Applicant.STAGE_CHOICES, "recruiters": recruiters,
-                   "history": a.history.select_related("changed_by")[:50]})
+                   "history": a.history.select_related("changed_by")[:50],
+                   "signatures": a.signatures.all()[:20]})
 
 
 @require_section("compliance")
@@ -3114,3 +3139,52 @@ def doc_review_queue(request):
     ).select_related("driver", "company").exclude(file="")
     return render(request, "operations/doc_review.html",
                   {"pending": pending, "count": pending.count()})
+
+
+# ================= Phase 5/6: Compliance command center =================
+@require_section("compliance")
+@login_required
+def compliance_center(request):
+    """Compliance dashboard: expirations by window, missing docs, pending reviews."""
+    cs = _companies(request)
+    today = _dt.date.today()
+    windows = [3, 7, 14, 30, 60, 90]
+    # gather all expiry-bearing compliance docs (approved/on-file)
+    docs = ComplianceDocument.objects.filter(company__in=cs, superseded=False).exclude(
+        expiry_date=None).select_related("driver")
+    buckets = {w: [] for w in windows}
+    expired = []
+    for d in docs:
+        if not d.file:
+            continue
+        days = (d.expiry_date - today).days
+        if days < 0:
+            expired.append(d)
+        else:
+            for w in windows:
+                if days <= w:
+                    buckets[w].append(d)
+                    break
+    # DQF completion across fleet
+    drivers = Driver.objects.filter(company__in=cs, status="active")
+    compliant = warning = incomplete = 0
+    for dr in drivers:
+        st = _dqf_status(dr)
+        if st["pct"] == 100:
+            compliant += 1
+        elif st["pct"] >= 60:
+            warning += 1
+        else:
+            incomplete += 1
+    pending_reviews = ComplianceDocument.objects.filter(
+        company__in=cs, review_status="pending", superseded=False).exclude(file="").count()
+    # applicants in pipeline
+    open_apps = Applicant.objects.filter(
+        company__in=cs, stage__in=Applicant.PIPELINE_STAGES).count()
+    return render(request, "operations/compliance_center.html", {
+        "windows": windows, "bucket_list": [{"w": w, "items": buckets[w]} for w in windows],
+        "expired": expired,
+        "compliant": compliant, "warning": warning, "incomplete": incomplete,
+        "driver_total": drivers.count(), "pending_reviews": pending_reviews,
+        "open_apps": open_apps,
+    })

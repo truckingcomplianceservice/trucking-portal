@@ -440,6 +440,28 @@ class ApplicantStatusHistory(models.Model):
         return f"{self.applicant_id}: {self.from_stage}→{self.to_stage}"
 
 
+class SignatureRecord(models.Model):
+    """An immutable electronic-signature audit record for a signed form.
+    Captures who signed, when, from where, and a hash of the signed content."""
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name="signatures")
+    applicant = models.ForeignKey(Applicant, on_delete=models.SET_NULL, null=True, blank=True,
+                                  related_name="signatures")
+    form_name = models.CharField(max_length=120)
+    form_version = models.CharField(max_length=20, default="1.0")
+    signer_name = models.CharField(max_length=120)
+    consent_text = models.TextField(blank=True)
+    signed_at = models.DateTimeField(auto_now_add=True)
+    ip_address = models.CharField(max_length=45, blank=True)
+    user_agent = models.CharField(max_length=300, blank=True)
+    content_hash = models.CharField(max_length=64, blank=True)  # SHA-256 of signed content
+
+    class Meta:
+        ordering = ["-signed_at"]
+
+    def __str__(self):
+        return f"{self.signer_name} — {self.form_name} v{self.form_version}"
+
+
 class ComplianceDocument(models.Model):
     """A document in a driver's qualification file, tracked with an expiry date."""
     DOC_TYPE_CHOICES = [

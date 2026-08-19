@@ -60,6 +60,7 @@ urlpatterns = [
     path("app/dqf/", views.dqf_list, name="dqf_list"),
     path("app/dqf/<int:pk>/", views.dqf_detail, name="dqf_detail"),
     path("app/reviews/", views.doc_review_queue, name="doc_review_queue"),
+    path("app/compliance-center/", views.compliance_center, name="compliance_center"),
     path("app/brokers/", views.app_brokers, name="app_brokers"),
     path("app/fuel/", views.app_fuel, name="app_fuel"),
     path("app/fuel/add/", views.fuel_add, name="fuel_add"),
