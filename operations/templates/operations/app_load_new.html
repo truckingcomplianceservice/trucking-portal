@@ -5,7 +5,7 @@
 {% if messages %}{% for m in messages %}<div style="margin:8px 0;padding:10px 14px;border-radius:8px;font-size:13px;background:{% if m.tags == 'error' %}#fbe7e5;color:#b02b24{% else %}#e4f4ec;color:#137a51{% endif %}">{{ m }}</div>{% endfor %}{% endif %}
 
 <div class="card" style="max-width:720px"><div class="card-h"><h3>Load details</h3></div>
- <form method="post" action="/app/loads/new/" style="padding:16px 18px">{% csrf_token %}
+ <form method="post" action="/app/loads/new/" enctype="multipart/form-data" style="padding:16px 18px">{% csrf_token %}
   {% if companies.count > 1 %}<div style="margin-bottom:10px"><label class="sub">Company</label><select name="company" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px">{% for c in companies %}<option value="{{ c.id }}"{% if c.id == default_company.id %} selected{% endif %}>{{ c.name }}</option>{% endfor %}</select></div>{% else %}{% for c in companies %}<input type="hidden" name="company" value="{{ c.id }}">{% endfor %}{% endif %}
 
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
@@ -37,6 +37,17 @@
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px">
    <div><label class="sub">Driver</label><select name="driver" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px"><option value="">—</option>{% for d in drivers %}<option value="{{ d.id }}">{{ d }}</option>{% endfor %}</select></div>
    <div><label class="sub">Truck</label><select name="vehicle" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px"><option value="">—</option>{% for v in vehicles %}<option value="{{ v.id }}">Unit {{ v.unit_number }}</option>{% endfor %}</select></div>
+   <div><label class="sub">Load status</label><select name="status" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px">{% for code,label in status_choices %}<option value="{{ code }}">{{ label }}</option>{% endfor %}</select></div>
+   <div><label class="sub">Payment status</label><select name="payment_status" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px">{% for code,label in payment_choices %}<option value="{{ code }}">{{ label }}</option>{% endfor %}</select></div>
+  </div>
+
+  <div style="margin-top:14px;border-top:1px solid var(--line);padding-top:12px"><label class="sub" style="font-weight:600">Documents (optional)</label>
+   <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:6px">
+    <div><label class="sub">Rate confirmation</label><input type="file" name="rate_confirmation" style="width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:8px"></div>
+    <div><label class="sub">Bill of lading (BOL)</label><input type="file" name="bill_of_lading" style="width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:8px"></div>
+    <div><label class="sub">Proof of delivery (POD)</label><input type="file" name="proof_of_delivery" style="width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:8px"></div>
+   </div>
+   <div class="sub" style="margin-top:4px">You can also add more documents later from the load's page.</div>
   </div>
 
   <button class="btn amber" type="submit" style="margin-top:16px">Add load</button>

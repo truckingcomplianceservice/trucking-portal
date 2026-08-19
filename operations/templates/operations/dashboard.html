@@ -45,7 +45,7 @@
 </div>
 {% endif %}
 <div class="toolbar">
- <a class="btn amber" href="/admin/operations/load/add/">+ New load</a>
+ <a class="btn amber" href="/app/loads/new/">+ New load</a>
  <a class="btn ghost" href="/admin/operations/driver/add/">+ Add driver</a>
  <a class="btn ghost" href="/admin/operations/expense/add/">+ Add expense</a>
  <a class="btn ghost" href="/app/hiring/">Hiring</a>
@@ -60,7 +60,7 @@
   <td><span class="chip c-gray"><span class="d"></span>{{ l.get_status_display }}</span></td>
   <td><span class="chip c-blue"><span class="d"></span>{{ l.get_payment_status_display }}</span></td>
  </tr>{% endfor %}</tbody></table>
- {% else %}<div class="empty">No loads yet. <a href="/admin/operations/load/add/" style="color:var(--blue)">Add your first load →</a></div>{% endif %}
+ {% else %}<div class="empty">No loads yet. <a href="/app/loads/new/" style="color:var(--blue)">Add your first load →</a></div>{% endif %}
  </div>
  <div class="card"><div class="card-h"><h3>Expiring documents</h3><a href="/app/compliance/">All →</a></div>
  {% if alerts %}{% for a in alerts %}

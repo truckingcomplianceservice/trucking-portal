@@ -3006,7 +3006,7 @@ def app_load_new(request):
         origin = stops[0] if stops else request.POST.get("origin", "").strip()
         destination = stops[-1] if len(stops) > 1 else request.POST.get("destination", "").strip()
         try:
-            Load.objects.create(
+            load = Load.objects.create(
                 company=company,
                 reference=request.POST.get("reference", "").strip() or "MANUAL",
                 customer=request.POST.get("customer", "").strip(),
@@ -3020,7 +3020,12 @@ def app_load_new(request):
                 delivery_date=_parse_date(request.POST.get("delivery_date", "")) or None,
                 driver=Driver.objects.filter(pk=request.POST.get("driver"), company__in=cs).first(),
                 vehicle=Vehicle.objects.filter(pk=request.POST.get("vehicle"), company__in=cs).first(),
-                status=request.POST.get("status", "booked"))
+                status=request.POST.get("status", "booked"),
+                payment_status=request.POST.get("payment_status", "unpaid"))
+            for field in ("rate_confirmation", "bill_of_lading", "proof_of_delivery"):
+                if request.FILES.get(field):
+                    setattr(load, field, request.FILES[field])
+            load.save()
             _messages.success(request, "Load added.")
             return redirect("app_loads")
         except Exception as e:
@@ -3028,7 +3033,9 @@ def app_load_new(request):
     return render(request, "operations/app_load_new.html",
                   {"companies": cs, "default_company": default_company,
                    "drivers": Driver.objects.filter(company__in=cs).order_by("first_name"),
-                   "vehicles": Vehicle.objects.filter(company__in=cs).order_by("unit_number")})
+                   "vehicles": Vehicle.objects.filter(company__in=cs).order_by("unit_number"),
+                   "status_choices": Load.STATUS_CHOICES,
+                   "payment_choices": Load.PAYMENT_CHOICES})
 
 
 # ================= Phase 2: Driver Qualification File (DQF) checklist =================

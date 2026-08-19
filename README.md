@@ -1,25 +1,30 @@
 # Trucking Compliance Services — Operations Portal
 
-Vehicle documents front-and-center (+ fixes a doc-name display bug).
+Ab har jagah SAME complete load form (stops/miles + documents + payment status).
 
 ## Deploy
-1. Download this zip, then in Terminal:
+1. Zip download karein, phir Terminal:
    cd ~/Documents/GitHub/trucking-portal && rm -rf operations trucking_ops templates manage.py requirements.txt Procfile README.md && unzip -o ~/Downloads/<THIS-FILE>.zip -d . && echo DONE
-2. GitHub Desktop -> Commit -> Push. Test in a private/incognito window.
+2. GitHub Desktop → Commit → Push. Incognito me test karein.
 
-## Vehicle documents
-- The Vehicles list now shows a "Docs" column: how many documents (and photos)
-  each truck has, at a glance.
-- Click any unit -> its page shows all documents with View, Email, Delete, and
-  an Upload form to add more (registration, insurance, inspection, lease, permits,
-  IFTA, cab card, or your own category + expiry date).
-- NEW: "Email" button on each vehicle document -- send it to anyone from your
-  company email (reply-to = your company).
-- FIX: vehicle document names/titles now display correctly (a label was not
-  showing before).
+## Kya theek hua (What changed)
+Pehle load 2 jagah se add hota tha aur farq tha:
+- Dispatch ka "+ New load" = achha form (stops/miles) but no documents / no payment status
+- Dashboard ka "+ New load" = purana Admin form (basic)
+
+Ab DONO jagah ka button SAME achhe form par jata hai, aur us form me ab ye sab hai:
+- Multiple stops / segments (LTL) + add/remove
+- Loaded + deadhead miles with auto-estimate + live total
+- Rate, dates, driver, truck
+- NEW: Load status (Booked/Dispatched/In transit/Delivered/Invoiced/Paid)
+- NEW: Payment status (Unpaid/Submitted to factor/Advanced/Reserve released/Closed)
+- NEW: Documents upload right on the form — Rate confirmation, BOL, POD
+  (aur baad me load ki page se aur bhi documents add kar sakte hain)
+
+Dashboard ke dono "+ New load" links ab is form par jaate hain (Admin par nahi).
 
 ## Includes everything to date
-Vehicle docs front + email + name fix, auto miles estimate, vehicle photos,
-email document, hiring phases 1-6, dashboard KPIs, professional 1099, R2 cloud
-backup, multi-stop load, truck P&L date fix, 12-test suite, factoring, doc
-viewer, company docs, company logins, FMCSA lookup.
+Unified load form, vehicle docs front, auto miles, vehicle photos, email document,
+hiring phases 1-6, dashboard KPIs, professional 1099, R2 cloud backup, multi-stop
+load, truck P&L date fix, 12-test suite, factoring, doc viewer, company docs,
+company logins, FMCSA lookup.
