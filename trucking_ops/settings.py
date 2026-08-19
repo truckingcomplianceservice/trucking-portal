@@ -131,9 +131,37 @@ STORAGES = {
     "staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"},
 }
 
-# Uploaded documents (BOL, POD, receipts). MEDIA_DIR points to the Railway volume in production.
+# Uploaded documents (BOL, POD, receipts, company/truck docs, logos).
+# By default they go to the local disk / Railway volume (MEDIA_DIR).
+# If Cloudflare R2 (or S3) keys are set in Railway Variables, uploads go there
+# instead — safe, permanent cloud storage that survives server resets.
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.environ.get('MEDIA_DIR') or (BASE_DIR / 'media')
+
+_R2_KEY = os.environ.get("R2_ACCESS_KEY_ID", "").strip()
+_R2_SECRET = os.environ.get("R2_SECRET_ACCESS_KEY", "").strip()
+_R2_BUCKET = os.environ.get("R2_BUCKET", "").strip()
+_R2_ENDPOINT = os.environ.get("R2_ENDPOINT", "").strip()  # https://<account>.r2.cloudflarestorage.com
+_R2_PUBLIC = os.environ.get("R2_PUBLIC_URL", "").strip()  # optional public bucket URL
+
+if _R2_KEY and _R2_SECRET and _R2_BUCKET and _R2_ENDPOINT:
+    STORAGES["default"] = {
+        "BACKEND": "storages.backends.s3.S3Storage",
+        "OPTIONS": {
+            "bucket_name": _R2_BUCKET,
+            "access_key": _R2_KEY,
+            "secret_key": _R2_SECRET,
+            "endpoint_url": _R2_ENDPOINT,
+            "region_name": "auto",
+            "signature_version": "s3v4",
+            "file_overwrite": False,
+            "default_acl": None,
+            "querystring_auth": True,       # signed links so private docs stay private
+            "querystring_expire": 3600,     # view links valid for 1 hour
+            **({"custom_domain": _R2_PUBLIC.replace("https://", "").replace("http://", "")}
+               if _R2_PUBLIC else {}),
+        },
+    }
 
 # Email notifications (optional). Set EMAIL_HOST etc. in Railway Variables to enable.
 # Without them, notifications stay in-app only (no errors).
