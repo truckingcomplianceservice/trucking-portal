@@ -1,5 +1,8 @@
 {% extends "operations/app_base.html" %}
-{% block title %}Unit {{ v.unit_number }} — Fleetline
+{% block title %}Unit {{ v.unit_number }} — Fleetline{% endblock %}
+{% block page_title %}Unit {{ v.unit_number }}{% endblock %}
+{% block content %}
+<a href="/app/vehicles/" class="sub" style="color:var(--blue)">&larr; All vehicles</a>
 <div class="card" style="margin-top:14px"><div class="card-h"><h3>Photos</h3></div>
  <div style="padding:14px 16px">
   {% if photos %}<div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px">
@@ -86,9 +89,6 @@ function evClose(){document.getElementById('evModal').style.display='none';}
   </form>
  </div>
 </div>
-{% endblock %}
-{% block page_title %}Unit {{ v.unit_number }}{% endblock %}
-{% block content %}
 <a href="/app/vehicles/" class="sub" style="color:var(--blue)">&larr; All vehicles</a>
 <div class="toolbar"><div class="spacer"></div>
  <a class="btn ghost" href="#" onclick="window.print();return false">Print</a>
