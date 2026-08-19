@@ -1,0 +1,51 @@
+{% extends "operations/app_base.html" %}
+{% block title %}Audit center — Fleetline{% endblock %}
+{% block page_title %}Audit center{% endblock %}
+{% block content %}
+{% if messages %}{% for m in messages %}<div style="margin:8px 0;padding:10px 14px;border-radius:8px;font-size:13px;background:#e4f4ec;color:#137a51">{{ m }}</div>{% endfor %}{% endif %}
+
+<div class="grid2">
+ <div>
+  <div class="card"><div class="card-h"><h3>Export a driver's file</h3></div>
+   <div style="padding:14px 16px">
+    <div class="sub" style="margin-bottom:10px">Generate a printable DQF audit summary PDF for any driver.</div>
+    {% for d in drivers %}<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid #eef0f4">
+     <span>{{ d.first_name }} {{ d.last_name }}</span>
+     <a class="btn ghost" style="padding:3px 10px;font-size:12px" href="/app/driver/{{ d.id }}/audit-pdf/" target="_blank">Audit PDF</a>
+    </div>{% empty %}<div class="sub">No active drivers.</div>{% endfor %}
+   </div>
+  </div>
+ </div>
+ <div>
+  <div class="card"><div class="card-h"><h3>Create auditor link</h3></div>
+   <form method="post" style="padding:14px 16px">{% csrf_token %}<input type="hidden" name="action" value="create">
+    <label class="sub">Scope</label>
+    <select name="driver" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;margin-bottom:8px">
+     <option value="">Whole company</option>
+     {% for d in drivers %}<option value="{{ d.id }}">{{ d.first_name }} {{ d.last_name }}</option>{% endfor %}</select>
+    <label class="sub">Label (optional)</label>
+    <input name="label" placeholder="e.g. DOT audit Aug 2026" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;margin-bottom:8px">
+    <label class="sub">Expires in (days)</label>
+    <input name="days" value="7" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px">
+    <button class="btn amber" type="submit" style="margin-top:12px;width:100%">Create read-only link</button>
+    <div class="sub" style="margin-top:8px">A secure, expiring, read-only link an outside auditor can open without a login. Every view is logged. You can revoke it anytime.</div>
+   </form>
+  </div>
+ </div>
+</div>
+
+<div class="card" style="margin-top:14px"><div class="card-h"><h3>Active auditor links</h3></div>
+ <div style="padding:8px 14px 14px">
+  {% if links %}<table><thead><tr><th>Scope</th><th>Label</th><th>Link</th><th>Views</th><th>Expires</th><th></th></tr></thead><tbody>
+  {% for lk in links %}<tr>
+   <td>{% if lk.driver %}{{ lk.driver.first_name }} {{ lk.driver.last_name }}{% else %}Whole company{% endif %}</td>
+   <td class="sub">{{ lk.label|default:"—" }}</td>
+   <td class="sub" style="font-size:11px">{% if lk.is_valid %}<span style="word-break:break-all">{{ base_url }}/audit/{{ lk.token }}/</span>{% else %}<span style="color:#c0392b">{% if lk.revoked %}revoked{% else %}expired{% endif %}</span>{% endif %}</td>
+   <td>{{ lk.view_count }}</td>
+   <td class="sub">{{ lk.expires_at|date:"M d, Y" }}</td>
+   <td>{% if lk.is_valid %}<form method="post" onsubmit="return confirm('Revoke this link?');" style="display:inline">{% csrf_token %}<input type="hidden" name="action" value="revoke"><input type="hidden" name="link_id" value="{{ lk.id }}"><button class="btn ghost" style="padding:3px 8px;font-size:11px;color:#c0392b" type="submit">Revoke</button></form>{% endif %}</td>
+  </tr>{% endfor %}</tbody></table>
+  {% else %}<div class="sub">No auditor links yet.</div>{% endif %}
+ </div>
+</div>
+{% endblock %}

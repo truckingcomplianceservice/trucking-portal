@@ -1,0 +1,35 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Compliance audit — {{ company.name }}</title><style>
+ body{font-family:-apple-system,Segoe UI,Arial,sans-serif;background:#f4f5f7;margin:0;color:#1e2d45}
+ .wrap{max-width:820px;margin:0 auto;padding:24px}
+ .card{background:#fff;border:1px solid #e2e6ee;border-radius:12px;padding:18px 20px;margin-bottom:14px}
+ h1{font-size:20px;margin:0 0 4px} .sub{color:#667;font-size:13px}
+ table{width:100%;border-collapse:collapse;margin-top:8px}
+ th,td{border:1px solid #e2e6ee;padding:6px 9px;text-align:left;font-size:13px} th{background:#f7f8fa}
+ .bar{height:8px;background:#eef0f4;border-radius:4px;overflow:hidden}
+ .ok{color:#137a51;font-weight:600}.bad{color:#c0392b;font-weight:600}.warn{color:#a97400;font-weight:600}
+ .banner{background:#eef4ff;border:1px solid #cfe0ff;border-radius:8px;padding:10px 14px;font-size:12px;color:#2c4a7c}
+</style></head><body><div class="wrap">
+ <div class="card"><h1>{{ company.name }} — Compliance summary</h1>
+  <div class="sub">{% if company.dot_number %}USDOT {{ company.dot_number }} · {% endif %}Read-only auditor view{% if lk.label %} · {{ lk.label }}{% endif %}</div>
+  <div class="banner" style="margin-top:10px">This is a secure, read-only, expiring view provided for audit purposes. Access is logged. Expires {{ lk.expires_at|date:"M d, Y" }}.</div>
+ </div>
+ {% for r in rows %}
+ <div class="card">
+  <div style="display:flex;justify-content:space-between;align-items:center">
+   <b>{{ r.d.first_name }} {{ r.d.last_name }}</b>
+   <span class="{% if r.dqf.pct == 100 %}ok{% elif r.dqf.pct >= 60 %}warn{% else %}bad{% endif %}">{{ r.dqf.pct }}% complete</span>
+  </div>
+  <div class="bar" style="margin-top:6px"><div style="height:100%;width:{{ r.dqf.pct }}%;background:{% if r.dqf.pct == 100 %}#2e9e6b{% elif r.dqf.pct >= 60 %}#c99a3a{% else %}#c0605a{% endif %}"></div></div>
+  <table><thead><tr><th>Requirement</th><th>Status</th><th>Expiry</th></tr></thead><tbody>
+  {% for it in r.dqf.items %}<tr>
+   <td>{{ it.label }}{% if not it.required %} (optional){% endif %}</td>
+   <td class="{% if it.state == 'ok' %}ok{% elif it.state == 'expired' or it.state == 'missing' %}bad{% elif it.state == 'expiring' %}warn{% endif %}">
+    {% if it.state == 'ok' %}On file{% elif it.state == 'expiring' %}Expiring{% elif it.state == 'expired' %}Expired{% elif it.state == 'optional' %}Optional{% else %}Missing{% endif %}</td>
+   <td>{% if it.doc and it.doc.expiry_date %}{{ it.doc.expiry_date }}{% else %}—{% endif %}</td>
+  </tr>{% endfor %}
+  </tbody></table>
+ </div>
+ {% endfor %}
+ <div class="sub" style="text-align:center;padding:10px">Requirements shown are system defaults based on common FMCSA items and should be verified by a compliance professional.</div>
+</div></body></html>

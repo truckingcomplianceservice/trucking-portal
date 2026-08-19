@@ -1,0 +1,33 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+ @page { size: letter; margin: 1.4cm; }
+ body { font-family: Helvetica, Arial, sans-serif; color:#111; font-size: 10px; }
+ h1 { font-size:17px; margin:0 0 2px; }
+ .sub { color:#555; font-size:9px; }
+ table { width:100%; border-collapse:collapse; margin-top:8px; }
+ th,td { border:1px solid #bbb; padding:5px 7px; text-align:left; font-size:9px; }
+ th { background:#f0f0f0; }
+ .ok { color:#1b6b40; font-weight:bold; }
+ .bad { color:#b00; font-weight:bold; }
+ .warn { color:#a97400; font-weight:bold; }
+ .pct { font-size:20px; font-weight:bold; }
+</style></head><body>
+ <h1>Driver Qualification File — Audit Summary</h1>
+ <div class="sub">{{ company.name }}{% if company.dot_number %} · USDOT {{ company.dot_number }}{% endif %} · Generated {{ generated }}</div>
+ <div style="margin-top:10px;padding:8px 10px;background:#f6f7f9;border-radius:6px">
+  <b>{{ d.first_name }} {{ d.last_name }}</b>{% if d.cdl_number %} · CDL {{ d.cdl_number }}{% endif %}
+  <span style="float:right" class="pct">{{ dqf.pct }}% complete</span>
+ </div>
+ <table><thead><tr><th>Requirement</th><th>Status</th><th>Expiry</th></tr></thead><tbody>
+ {% for it in dqf.items %}<tr>
+  <td>{{ it.label }}{% if not it.required %} (optional){% endif %}</td>
+  <td class="{% if it.state == 'ok' %}ok{% elif it.state == 'expired' or it.state == 'missing' %}bad{% elif it.state == 'expiring' %}warn{% endif %}">
+   {% if it.state == 'ok' %}On file{% elif it.state == 'expiring' %}Expiring{% elif it.state == 'expired' %}Expired{% elif it.state == 'optional' %}Optional{% else %}Missing{% endif %}</td>
+  <td>{% if it.doc and it.doc.expiry_date %}{{ it.doc.expiry_date }}{% else %}—{% endif %}</td>
+ </tr>{% endfor %}
+ </tbody></table>
+ {% if signatures %}<h3 style="font-size:12px;margin-top:14px">Signature audit</h3>
+ <table><thead><tr><th>Form</th><th>Signer</th><th>Date</th><th>IP</th><th>Hash</th></tr></thead><tbody>
+ {% for sg in signatures %}<tr><td>{{ sg.form_name }} v{{ sg.form_version }}</td><td>{{ sg.signer_name }}</td><td>{{ sg.signed_at|date:"M d, Y H:i" }}</td><td>{{ sg.ip_address }}</td><td>{{ sg.content_hash|slice:":16" }}…</td></tr>{% endfor %}
+ </tbody></table>{% endif %}
+ <div class="sub" style="margin-top:14px">This is a compliance data summary generated from company records. Requirements shown are system defaults based on common FMCSA driver-qualification items and should be verified by the company's compliance professional. Not legal advice.</div>
+</body></html>

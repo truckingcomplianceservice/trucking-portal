@@ -6,7 +6,7 @@ from django.db.models import Sum, Q
 from django.shortcuts import render, get_object_or_404, redirect
 from django.views.static import serve
 from django.conf import settings
-from .models import (Company, Load, Expense, Settlement, Driver, Vehicle, Applicant, ApplicantStatusHistory, SignatureRecord,
+from .models import (Company, Load, Expense, Settlement, Driver, Vehicle, Applicant, ApplicantStatusHistory, SignatureRecord, AuditorLink,
                      ComplianceDocument, Broker, FuelTransaction, RentalContract, VehicleDocument, CompanyDocument, notify)
 
 
@@ -3188,3 +3188,74 @@ def compliance_center(request):
         "driver_total": drivers.count(), "pending_reviews": pending_reviews,
         "open_apps": open_apps,
     })
+
+
+# ================= Phase 6: Audit center =================
+def _driver_audit_context(driver):
+    st = _dqf_status(driver)
+    docs = ComplianceDocument.objects.filter(driver=driver, superseded=False).exclude(file="")
+    sigs = SignatureRecord.objects.filter(applicant__converted_driver=driver)[:20]
+    return {"d": driver, "company": driver.company, "dqf": st, "docs": docs,
+            "signatures": sigs, "generated": _dt.date.today().strftime("%B %d, %Y")}
+
+
+@require_section("compliance")
+@login_required
+def driver_audit_pdf(request, pk):
+    cs = _companies(request)
+    d = _get(Driver, pk=pk, company__in=cs)
+    ctx = _driver_audit_context(d)
+    pdf = _render_pdf("operations/pdf_driver_audit.html", ctx)
+    resp = HttpResponse(pdf, content_type="application/pdf")
+    resp["Content-Disposition"] = f'inline; filename="DQF-audit-{d.last_name}.pdf"'
+    return resp
+
+
+@require_section("compliance")
+@login_required
+def audit_center(request):
+    cs = _companies(request)
+    if request.method == "POST":
+        action = request.POST.get("action")
+        if action == "create":
+            import secrets
+            from django.utils import timezone as _tz
+            company = cs.first()
+            driver = Driver.objects.filter(pk=request.POST.get("driver"), company__in=cs).first()
+            days = int(_num(request.POST.get("days", "7")) or 7)
+            AuditorLink.objects.create(
+                company=driver.company if driver else company,
+                driver=driver, token=secrets.token_urlsafe(24),
+                label=request.POST.get("label", "").strip(),
+                created_by=request.user,
+                expires_at=_tz.now() + _dt.timedelta(days=days))
+            _messages.success(request, "Auditor link created.")
+        elif action == "revoke":
+            lk = AuditorLink.objects.filter(pk=request.POST.get("link_id"), company__in=cs).first()
+            if lk:
+                lk.revoked = True; lk.save()
+                _messages.success(request, "Link revoked.")
+        return redirect("audit_center")
+    links = AuditorLink.objects.filter(company__in=cs).select_related("driver")[:50]
+    drivers = Driver.objects.filter(company__in=cs, status="active")
+    return render(request, "operations/audit_center.html",
+                  {"links": links, "drivers": drivers,
+                   "base_url": request.build_absolute_uri("/audit/")[:-1]})
+
+
+def auditor_view(request, token):
+    """Public, read-only, expiring auditor view. Logs every access."""
+    from django.utils import timezone as _tz
+    lk = get_object_or_404(AuditorLink, token=token)
+    if not lk.is_valid:
+        return render(request, "operations/auditor_expired.html", {})
+    lk.view_count += 1
+    lk.last_viewed = _tz.now()
+    lk.save(update_fields=["view_count", "last_viewed"])
+    if lk.driver:
+        drivers = [lk.driver]
+    else:
+        drivers = list(Driver.objects.filter(company=lk.company, status="active"))
+    rows = [{"d": d, "dqf": _dqf_status(d)} for d in drivers]
+    return render(request, "operations/auditor_view.html",
+                  {"lk": lk, "company": lk.company, "rows": rows})

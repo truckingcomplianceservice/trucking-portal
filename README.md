@@ -1,32 +1,29 @@
 # Trucking Compliance Services — Operations Portal
 
-Hiring PHASES 1-5: pipeline + DQF + doc review + e-signature audit + compliance center.
+Hiring PHASE 6 — Audit center (export packages + expiring auditor links).
 
 ## Deploy
 1. Download this zip, then in Terminal:
    cd ~/Documents/GitHub/trucking-portal && rm -rf operations trucking_ops templates manage.py requirements.txt Procfile README.md && unzip -o ~/Downloads/<THIS-FILE>.zip -d . && echo DONE
 2. GitHub Desktop -> Commit -> Push. Test in a private/incognito window.
 
-## What's new since Phase 1-3
+## PHASE 6 — Audit center (sidebar -> Audit center)
+- Export a driver's DQF as a printable Audit Summary PDF (checklist status +
+  signature audit records).
+- Create a secure, EXPIRING, READ-ONLY auditor link (per driver or whole
+  company) that an outside auditor opens WITHOUT a login. Every view is logged
+  (count + last-viewed). Revoke any link instantly; revoked/expired links show
+  a friendly "no longer active" page.
 
-PHASE 4 — Electronic signature audit trail
-When an applicant signs and submits the application, the system records an
-immutable signature audit entry: signer name, timestamp, IP address, device/
-browser, form name + version, and a SHA-256 content hash. Shown on the
-applicant's profile under "Signature audit". NOTE: mechanics only -- not
-certified legally compliant until reviewed by an attorney (ESIGN/UETA/FCRA).
+## Hiring module so far (Phases 1-6)
+1 Recruiting pipeline · 2 DQF checklist · 3 Document review queue ·
+4 E-signature audit trail · 5 Compliance center · 6 Audit center.
 
-PHASE 5/6 — Compliance center (sidebar -> Compliance center)
-Whole-fleet compliance at a glance: compliant / warning / incomplete driver
-counts, pending document reviews, open applicants, and documents expiring within
-3, 7, 14, 30, 60, 90 days plus already-expired. Links straight to each driver's
-DQF and the review queue.
-
-## Still to come: Phase 6 audit-export package + expiring auditor links; Phase 7
-MVR/PSP/Clearinghouse provider interfaces (sandbox until you have vendor
-credentials + contracts). Legal review required before any compliance claim.
+## Remaining: Phase 7 MVR/PSP/Clearinghouse provider interfaces -- these will be
+built in SANDBOX/MOCK mode and cannot go live until you have vendor contracts +
+API credentials. Legal review still required before any compliance claim.
 
 ## Includes everything to date
-Hiring phases 1-5, dashboard KPIs, professional 1099, R2 cloud backup, multi-stop
+Hiring phases 1-6, dashboard KPIs, professional 1099, R2 cloud backup, multi-stop
 load, truck P&L date fix, 12-test suite, factoring, doc viewer, company docs,
 company logins, FMCSA lookup.

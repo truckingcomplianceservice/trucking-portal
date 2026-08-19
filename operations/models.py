@@ -462,6 +462,33 @@ class SignatureRecord(models.Model):
         return f"{self.signer_name} — {self.form_name} v{self.form_version}"
 
 
+class AuditorLink(models.Model):
+    """A secure, expiring, read-only link for an outside auditor to view a
+    driver's (or the fleet's) compliance summary. Every view is logged."""
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name="auditor_links")
+    driver = models.ForeignKey(Driver, on_delete=models.CASCADE, null=True, blank=True,
+                               related_name="auditor_links", help_text="Blank = whole company.")
+    token = models.CharField(max_length=40, unique=True, db_index=True)
+    label = models.CharField(max_length=120, blank=True)
+    created_by = models.ForeignKey("auth.User", on_delete=models.SET_NULL, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    revoked = models.BooleanField(default=False)
+    view_count = models.PositiveIntegerField(default=0)
+    last_viewed = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    @property
+    def is_valid(self):
+        from django.utils import timezone as _tz
+        return (not self.revoked) and self.expires_at > _tz.now()
+
+    def __str__(self):
+        return f"Auditor link {self.token[:8]}… ({self.company})"
+
+
 class ComplianceDocument(models.Model):
     """A document in a driver's qualification file, tracked with an expiry date."""
     DOC_TYPE_CHOICES = [
