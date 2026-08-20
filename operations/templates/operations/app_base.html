@@ -144,8 +144,19 @@
        </div>
      </div>
      <div id="flChatMsgs"><div class="fl-chat-empty">Loading…</div></div>
+     <div id="flTaskBox" style="display:none;padding:10px 12px;border-top:1px solid #e2e6ee;background:#fbfbfd">
+       <div style="font-size:12px;font-weight:700;color:#1e2d45;margin-bottom:5px">Assign as task</div>
+       <input id="flTaskTitle" placeholder="Task title" style="width:100%;padding:7px 9px;border:1px solid var(--line,#e2e6ee);border-radius:8px;font-size:12.5px;margin-bottom:6px">
+       <select id="flTaskAssignee" style="width:100%;padding:7px 9px;border:1px solid var(--line,#e2e6ee);border-radius:8px;font-size:12.5px;margin-bottom:6px"><option value="">Assign to… (optional)</option></select>
+       <select id="flTaskPriority" style="width:100%;padding:7px 9px;border:1px solid var(--line,#e2e6ee);border-radius:8px;font-size:12.5px;margin-bottom:6px"><option value="normal">Normal</option><option value="high">High</option><option value="urgent">Urgent</option><option value="low">Low</option></select>
+       <div style="text-align:right"><button class="btn ghost" style="padding:3px 10px;font-size:12px" onclick="flTaskCancel()">Cancel</button> <button class="btn amber" style="padding:3px 10px;font-size:12px" onclick="flTaskSave()">Create task</button></div>
+     </div>
      <div id="flChatInput">
-       <input id="flChatText" placeholder="Message your team…" onkeydown="if(event.key==='Enter')flChatSend()">
+       <div style="position:relative;flex:1">
+         <div id="flMentionList"></div>
+         <input id="flChatText" placeholder="Message your team… use @ to tag" autocomplete="off" oninput="flMentionCheck()" onkeydown="if(event.key==='Enter')flChatSend()">
+       </div>
+       <button class="btn ghost" style="padding:6px 9px;font-size:12px" title="Assign as task" onclick="flTaskOpen()">✓ Task</button>
        <button class="btn amber" style="padding:6px 12px" onclick="flChatSend()">Send</button>
      </div>
    </div>
@@ -173,35 +184,75 @@
    .fl-msg.me{float:right;text-align:right}
    .fl-msg.me .bub{background:#1e2d45;color:#fff;display:inline-block;text-align:left}
    #flChatInput{display:flex;gap:8px;padding:10px;border-top:1px solid #e2e6ee;background:#fff}
-   #flChatText{flex:1;padding:9px 11px;border:1px solid #e2e6ee;border-radius:20px;font-size:13px;outline:none}
+   #flChatText{flex:1;padding:9px 11px;border:1px solid #e2e6ee;border-radius:20px;font-size:13px;outline:none;width:100%}
+   .fl-mention{background:#fff3cd;color:#8a6d1f;border-radius:4px;padding:0 3px;font-weight:600}
+   .fl-msg.tagme .bub{box-shadow:0 0 0 2px #f0c040}
+   #flMentionList{display:none;position:absolute;bottom:44px;left:0;right:0;background:#fff;border:1px solid #e2e6ee;border-radius:10px;box-shadow:0 8px 24px rgba(20,28,43,.2);max-height:150px;overflow:auto;z-index:5}
+   #flMentionList div{padding:8px 12px;cursor:pointer;font-size:13px}
+   #flMentionList div:hover,#flMentionList div.sel{background:#eef4ff}
    @media(max-width:480px){#flChatPanel{width:calc(100vw - 30px);height:70vh}}
  </style>
  <script>
  var flCsrf="{{ csrf_token }}";
+ var flTeam=[];
  function flChatToggle(){var c=document.getElementById('flChat');var open=c.getAttribute('data-open')==='1';c.setAttribute('data-open',open?'0':'1');if(!open){flChatLoad();flChatStart();}else{flChatStop();}}
  function flEsc(t){var d=document.createElement('div');d.textContent=t;return d.innerHTML;}
+ function flHighlight(t){return flEsc(t).replace(/@([A-Za-z0-9_.\-]+)/g,'<span class="fl-mention">@$1</span>');}
  function flChatLoad(){
    fetch('/app/chat/poll/').then(function(r){return r.json();}).then(function(j){
      if(!j.ok)return;
      document.getElementById('flChatCo').textContent=j.company+' · team';
-     // handoff
+     flTeam=j.team||[];
+     // fill task assignee dropdown
+     var sel=document.getElementById('flTaskAssignee');
+     if(sel && sel.options.length<=1){flTeam.forEach(function(m){var o=document.createElement('option');o.value=m.id;o.textContent=m.name;sel.appendChild(o);});}
      var hv=document.getElementById('flHandoffView');
      if(j.handoff&&j.handoff.body){hv.textContent=j.handoff.body+(j.handoff.who?('  — '+j.handoff.who+', '+j.handoff.when):'');}
      else{hv.textContent='No handoff note yet. Click Edit to leave one for the next shift.';}
-     // messages
      var box=document.getElementById('flChatMsgs');var atBottom=(box.scrollHeight-box.scrollTop-box.clientHeight)<40;
      if(!j.messages.length){box.innerHTML='<div class="fl-chat-empty">No messages yet. Say hello to your team.</div>';}
-     else{box.innerHTML=j.messages.map(function(m){return '<div class="fl-msg '+(m.mine?'me':'them')+'"><div class="who">'+flEsc(m.who)+' · '+flEsc(m.when)+'</div><div class="bub">'+flEsc(m.body)+'</div></div><div style="clear:both"></div>';}).join('');}
+     else{box.innerHTML=j.messages.map(function(m){return '<div class="fl-msg '+(m.mine?'me':'them')+(m.mentions_me?' tagme':'')+'"><div class="who">'+flEsc(m.who)+' · '+flEsc(m.when)+'</div><div class="bub">'+flHighlight(m.body)+'</div></div><div style="clear:both"></div>';}).join('');}
      if(atBottom)box.scrollTop=box.scrollHeight;
    });
+ }
+ // @mention autocomplete
+ function flMentionCheck(){
+   var inp=document.getElementById('flChatText');var list=document.getElementById('flMentionList');
+   var val=inp.value;var m=val.slice(0,inp.selectionStart).match(/@([A-Za-z0-9_.\-]*)$/);
+   if(!m){list.style.display='none';return;}
+   var q=m[1].toLowerCase();
+   var hits=flTeam.filter(function(t){return t.username.toLowerCase().indexOf(q)===0||t.name.toLowerCase().indexOf(q)>=0;}).slice(0,6);
+   if(!hits.length){list.style.display='none';return;}
+   list.innerHTML=hits.map(function(t){return '<div onclick="flMentionPick(\''+flEsc(t.username)+'\')">'+flEsc(t.name)+' <span style="color:#8a93a6">@'+flEsc(t.username)+'</span></div>';}).join('');
+   list.style.display='block';
+ }
+ function flMentionPick(uname){
+   var inp=document.getElementById('flChatText');
+   inp.value=inp.value.replace(/@([A-Za-z0-9_.\-]*)$/,'@'+uname+' ');
+   document.getElementById('flMentionList').style.display='none';inp.focus();
  }
  var flTimer=null;
  function flChatStart(){flChatStop();flTimer=setInterval(flChatLoad,4000);}
  function flChatStop(){if(flTimer){clearInterval(flTimer);flTimer=null;}}
  function flChatSend(){
    var t=document.getElementById('flChatText');var v=t.value.trim();if(!v)return;t.value='';
+   document.getElementById('flMentionList').style.display='none';
    var fd=new FormData();fd.append('body',v);fd.append('csrfmiddlewaretoken',flCsrf);
    fetch('/app/chat/send/',{method:'POST',body:fd}).then(function(){flChatLoad();});
+ }
+ function flTaskOpen(){var box=document.getElementById('flTaskBox');box.style.display='block';
+   var txt=document.getElementById('flChatText').value.trim();if(txt){document.getElementById('flTaskTitle').value=txt.replace(/@[A-Za-z0-9_.\-]+/g,'').trim();}}
+ function flTaskCancel(){document.getElementById('flTaskBox').style.display='none';}
+ function flTaskSave(){
+   var title=document.getElementById('flTaskTitle').value.trim();if(!title){alert('Task needs a title.');return;}
+   var fd=new FormData();fd.append('title',title);
+   fd.append('assignee',document.getElementById('flTaskAssignee').value);
+   fd.append('priority',document.getElementById('flTaskPriority').value);
+   fd.append('csrfmiddlewaretoken',flCsrf);
+   fetch('/app/chat/to-task/',{method:'POST',body:fd}).then(function(r){return r.json();}).then(function(j){
+     if(!j.ok){alert(j.error||'Could not create task.');return;}
+     document.getElementById('flTaskTitle').value='';flTaskCancel();flChatLoad();
+   });
  }
  function flHandoffEdit(){document.getElementById('flHandoffView').style.display='none';document.getElementById('flHandoffEditBox').style.display='block';
    var cur=document.getElementById('flHandoffView').textContent;if(cur.indexOf('No handoff note')<0){document.getElementById('flHandoffText').value=cur.split('  — ')[0];}

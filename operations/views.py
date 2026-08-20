@@ -3656,15 +3656,24 @@ def chat_poll(request):
     ).select_related("author").order_by("-created_at")[:40])
     msgs.reverse()
     me = request.user.id
+    my_names = [request.user.username.lower()]
+    if request.user.first_name:
+        my_names.append(request.user.first_name.lower())
     data = [{"id": m.id, "who": m.author_name or "Someone",
              "mine": (m.author_id == me),
              "body": m.body,
+             "mentions_me": any(("@" + n) in m.body.lower() for n in my_names),
              "when": m.created_at.strftime("%b %d, %I:%M %p")} for m in msgs]
     handoff = getattr(company, "handoff", None)
     hoff = {"body": handoff.body if handoff else "",
             "who": handoff.updated_by_name if handoff else "",
             "when": handoff.updated_at.strftime("%b %d, %I:%M %p") if handoff and handoff.body else ""}
-    return JsonResponse({"ok": True, "company": company.name, "messages": data, "handoff": hoff})
+    # teammates in this company (for @mention autocomplete)
+    mates = _User.objects.filter(is_active=True, profile__companies=company).distinct()
+    team = [{"id": u.id, "name": (u.get_full_name() or u.username),
+             "username": u.username} for u in mates]
+    return JsonResponse({"ok": True, "company": company.name, "messages": data,
+                         "handoff": hoff, "team": team, "me_id": me})
 
 
 @login_required
@@ -3697,3 +3706,34 @@ def chat_handoff_save(request):
         handoff.save()
         return JsonResponse({"ok": True})
     return JsonResponse({"ok": False})
+
+
+@login_required
+def chat_to_task(request):
+    """Turn a chat message into an assigned task (company-private)."""
+    from django.http import JsonResponse
+    cs = _companies(request)
+    company = cs.first()
+    if request.method == "POST" and company:
+        title = (request.POST.get("title") or "").strip()
+        assignee_id = request.POST.get("assignee") or ""
+        if not title:
+            return JsonResponse({"ok": False, "error": "Task needs a title."})
+        assignee = None
+        if assignee_id:
+            # assignee must be a teammate of this company
+            assignee = _User.objects.filter(
+                pk=assignee_id, is_active=True, profile__companies=company).first()
+        t = Task.objects.create(
+            company=company, title=title[:200],
+            details=request.POST.get("details", "").strip(),
+            priority=request.POST.get("priority", "normal"),
+            assignee=assignee, created_by=request.user)
+        # also drop a note in chat so the team sees it was actioned
+        who = assignee.get_full_name() or assignee.username if assignee else "the team"
+        TeamMessage.objects.create(
+            company=company, author=request.user,
+            author_name=request.user.get_full_name() or request.user.username,
+            body=f"✅ Task created for {who}: {t.title}")
+        return JsonResponse({"ok": True})
+    return JsonResponse({"ok": False, "error": "Could not create task."})

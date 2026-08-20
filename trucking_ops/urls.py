@@ -10,6 +10,7 @@ urlpatterns = [
     path("app/chat/poll/", views.chat_poll, name="chat_poll"),
     path("app/chat/send/", views.chat_send, name="chat_send"),
     path("app/chat/handoff/", views.chat_handoff_save, name="chat_handoff_save"),
+    path("app/chat/to-task/", views.chat_to_task, name="chat_to_task"),
     path("app/messages/", views.message_board, name="message_board"),
     path("app/messages/add-note/", views.add_note, name="add_note"),
     path("app/messages/<int:pk>/delete/", views.delete_message, name="delete_message"),
