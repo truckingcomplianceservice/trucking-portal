@@ -3576,7 +3576,13 @@ def deadhead_api(request):
     miles, source = best_leg(prev.destination, pickup)
     if not miles or miles <= 0:
         return JsonResponse({"ok": False, "error": f"Couldn't estimate from '{prev.destination}'. Enter deadhead manually."})
-    note = ("Exact road miles (Google Maps)." if source == "google" else "Estimate only.")
+    if source == "google":
+        note = "Exact road miles (Google Maps)."
+    elif source == "estimate_rough":
+        note = ("Rough estimate — one location wasn't recognized as a city, so this "
+                "may be off. Please double-check and edit if needed.")
+    else:
+        note = "Estimate only."
     return JsonResponse({"ok": True, "miles": miles, "source": source,
                          "from": prev.destination, "to": pickup, "note": note})
 

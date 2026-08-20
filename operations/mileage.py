@@ -66,6 +66,21 @@ CITY_COORDS = {
     ("little rock", "AR"): (34.75, -92.29), ("omaha", "NE"): (41.26, -95.93),
     ("des moines", "IA"): (41.59, -93.62), ("wichita", "KS"): (37.69, -97.34),
     ("albuquerque", "NM"): (35.08, -106.65), ("amarillo", "TX"): (35.22, -101.83),
+    ("sparks", "NV"): (39.53, -119.75), ("carson city", "NV"): (39.16, -119.77),
+    ("elko", "NV"): (40.83, -115.76), ("henderson", "NV"): (36.04, -114.98),
+    ("modesto", "CA"): (37.64, -120.997), ("san bernardino", "CA"): (34.11, -117.29),
+    ("riverside", "CA"): (33.95, -117.40), ("long beach", "CA"): (33.77, -118.19),
+    ("san jose", "CA"): (37.34, -121.89), ("santa ana", "CA"): (33.75, -117.87),
+    ("chico", "CA"): (39.73, -121.84), ("redding", "CA"): (40.59, -122.39),
+    ("salinas", "CA"): (36.68, -121.66), ("victorville", "CA"): (34.54, -117.29),
+    ("indio", "CA"): (33.72, -116.22), ("barstow", "CA"): (34.90, -117.02),
+    ("tracy", "CA"): (37.74, -121.43), ("fontana", "CA"): (34.09, -117.44),
+    ("commerce", "CA"): (33.99, -118.16), ("mira loma", "CA"): (33.99, -117.51),
+    ("eugene", "OR"): (44.05, -123.09), ("salem", "OR"): (44.94, -123.04),
+    ("medford", "OR"): (42.33, -122.87), ("tacoma", "WA"): (47.25, -122.44),
+    ("kent", "WA"): (47.38, -122.23), ("fife", "WA"): (47.24, -122.36),
+    ("laredo", "TX"): (27.53, -99.49), ("mcallen", "TX"): (26.20, -98.23),
+    ("lubbock", "TX"): (33.58, -101.86), ("waco", "TX"): (31.55, -97.15),
 }
 
 _STATE_RE = re.compile(r",?\s*([A-Za-z]{2})\b\.?\s*(?:\d{5})?\s*$")
@@ -85,19 +100,25 @@ def _parse(location):
     return city, state
 
 
-def coords_for(location):
-    """Best-effort (lat, lon) for a location string, or None."""
+def coords_for(location, want_precision=False):
+    """Best-effort (lat, lon) for a location string, or None.
+    If want_precision=True, returns (lat, lon, precision) where precision is
+    'city' (exact city known) or 'state' (only the state center — rough)."""
     city, state = _parse(location)
+    result = None
+    precision = None
     if city and state and (city, state) in CITY_COORDS:
-        return CITY_COORDS[(city, state)]
-    if state and state in STATE_COORDS:
-        return STATE_COORDS[state]
-    # try city match against any state
-    if city:
+        result = CITY_COORDS[(city, state)]; precision = "city"
+    elif city:
+        # try city match against any state
         for (c, st), xy in CITY_COORDS.items():
             if c == city:
-                return xy
-    return None
+                result = xy; precision = "city"; break
+    if result is None and state and state in STATE_COORDS:
+        result = STATE_COORDS[state]; precision = "state"
+    if want_precision:
+        return (result[0], result[1], precision) if result else (None, None, None)
+    return result
 
 
 def haversine_miles(a, b):
@@ -129,11 +150,25 @@ def estimate_miles(stops):
 
 
 def estimate_leg(a, b):
-    """Estimate miles between two location strings (for deadhead)."""
-    ca, cb = coords_for(a), coords_for(b)
-    if not ca or not cb:
+    """Estimate miles between two location strings (for deadhead).
+    Returns miles (int) or None."""
+    ca = coords_for(a, want_precision=True)
+    cb = coords_for(b, want_precision=True)
+    if not ca[0] or not cb[0]:
         return None
-    return int(round(haversine_miles(ca, cb) * ROAD_FACTOR))
+    return int(round(haversine_miles((ca[0], ca[1]), (cb[0], cb[1])) * ROAD_FACTOR))
+
+
+def estimate_leg_detailed(a, b):
+    """Like estimate_leg but returns (miles, rough) where rough=True if either
+    endpoint was only matched to a state center (so the number is unreliable)."""
+    ca = coords_for(a, want_precision=True)
+    cb = coords_for(b, want_precision=True)
+    if not ca[0] or not cb[0]:
+        return None, False
+    miles = int(round(haversine_miles((ca[0], ca[1]), (cb[0], cb[1])) * ROAD_FACTOR))
+    rough = (ca[2] == "state" or cb[2] == "state")
+    return miles, rough
 
 
 # ---- Google Maps (exact road miles) — used only when a key is configured ----
@@ -179,9 +214,10 @@ def best_miles(waypoints):
 
 
 def best_leg(a, b):
-    """Miles between two points — Google if available, else free estimate."""
+    """Miles between two points — Google if available, else free estimate.
+    Returns (miles, source). source is 'google', 'estimate', or 'estimate_rough'."""
     g = google_miles([a, b])
     if g:
         return g, "google"
-    est = estimate_leg(a, b)
-    return est, "estimate"
+    miles, rough = estimate_leg_detailed(a, b)
+    return miles, ("estimate_rough" if rough else "estimate")
