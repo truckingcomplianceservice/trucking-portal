@@ -1863,7 +1863,18 @@ def _ratecon_heuristic(text):
     if cities: d["origin"] = cities[0].strip()
     if len(cities) > 1: d["destination"] = cities[1].strip()
     lines = [l.strip() for l in text.splitlines() if l.strip()]
-    if lines: d["broker_name"] = lines[0][:120]
+    # Try to find the broker name from an explicit label first
+    bm = _re.search(r"(?:broker|brokerage|3pl|logistics company|bill\s*to)\s*[:\-]?\s*([A-Z][^\n]{2,60})", text, _re.I)
+    if bm:
+        d["broker_name"] = bm.group(1).strip()[:120]
+    else:
+        # look for a line containing common broker-name words
+        for l in lines[:15]:
+            if _re.search(r"logistics|transport|freight|brokerage|shipping|3pl|worldwide|express|carriers?\b", l, _re.I) \
+               and len(l) < 60 and not _re.search(r"\d{3,}", l):
+                d["broker_name"] = l[:120]; break
+        if not d["broker_name"] and lines:
+            d["broker_name"] = lines[0][:120]
     return d
 
 
@@ -1951,7 +1962,17 @@ def load_from_ratecon(request):
         ActivityLog.objects.create(category="load", user=request.user, company=company,
             text=f"Created load {load.reference or load.id} from rate confirmation"
                  + (f" · added broker {broker.name}" if broker else ""))
-        _messages.success(request, "Load created from the rate confirmation. Please review and correct any fields below.")
+        if broker:
+            _messages.success(request,
+                f"Load created. Broker '{broker.name}' was added/linked in your Brokers list"
+                + (f" with agent {broker_agent.name}." if broker_agent else ".")
+                + " Please review and correct any fields below.")
+        else:
+            _messages.warning(request,
+                "Load created, but no broker name could be read from this rate confirmation, "
+                "so no broker was added. You can set the broker on the load below. "
+                + ("(Tip: turn on the AI key for better extraction.)"
+                   if not _os.environ.get("ANTHROPIC_API_KEY") else ""))
         return redirect(f"/admin/operations/load/{load.id}/change/")
     return render(request, "operations/app_ratecon.html",
                   {"companies": companies, "ai_on": bool(_os.environ.get("ANTHROPIC_API_KEY"))})
