@@ -819,17 +819,16 @@ def app_brokers(request):
         per_company.append({"name": c.name, "brokers": n_brokers,
                             "loads": loads.count(),
                             "rev": loads.aggregate(s=Sum("rate"))["s"] or 0})
-    # broker table (across the scoped companies)
+    # broker table — show ALL brokers, with their load/revenue stats (0 if none yet)
     brokers = []
-    for b in Broker.objects.all():
+    for b in Broker.objects.all().prefetch_related("agents"):
         bl = Load.objects.filter(broker=b, company__in=cs)
-        if bl.exists():
-            companies_served = ", ".join(sorted({l.company.name for l in bl}))
-            brokers.append({"o": b, "loads": bl.count(),
-                            "rev": bl.aggregate(s=Sum("rate"))["s"] or 0,
-                            "companies": companies_served,
-                            "agents": b.agents.count()})
-    brokers.sort(key=lambda x: x["loads"], reverse=True)
+        companies_served = ", ".join(sorted({l.company.name for l in bl})) if bl.exists() else "—"
+        brokers.append({"o": b, "loads": bl.count(),
+                        "rev": bl.aggregate(s=Sum("rate"))["s"] or 0,
+                        "companies": companies_served,
+                        "agents": b.agents.count()})
+    brokers.sort(key=lambda x: (x["loads"], x["o"].name.lower()), reverse=True)
     return render(request, "operations/app_brokers.html",
                   {"per_company": per_company, "brokers": brokers})
 
