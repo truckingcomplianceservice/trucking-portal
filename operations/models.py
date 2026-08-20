@@ -563,7 +563,9 @@ class TeamMessage(models.Model):
     company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name="team_messages")
     author = models.ForeignKey("auth.User", on_delete=models.SET_NULL, null=True, blank=True)
     author_name = models.CharField(max_length=120, blank=True)
-    body = models.TextField()
+    body = models.TextField(blank=True)
+    attachment = models.FileField(upload_to="chat_files/", blank=True)
+    attachment_name = models.CharField(max_length=200, blank=True)
     # Optional attachment to a record (all optional -> board post when all blank):
     load = models.ForeignKey("Load", on_delete=models.CASCADE, null=True, blank=True, related_name="msg_notes")
     driver = models.ForeignKey("Driver", on_delete=models.CASCADE, null=True, blank=True, related_name="msg_notes")
@@ -618,7 +620,9 @@ class TaskComment(models.Model):
     task = models.ForeignKey("Task", on_delete=models.CASCADE, related_name="comments")
     author = models.ForeignKey("auth.User", on_delete=models.SET_NULL, null=True, blank=True)
     author_name = models.CharField(max_length=120, blank=True)
-    body = models.TextField()
+    body = models.TextField(blank=True)
+    attachment = models.FileField(upload_to="task_files/", blank=True)
+    attachment_name = models.CharField(max_length=200, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

@@ -167,7 +167,10 @@
        <div style="position:relative;flex:1">
          <div id="flMentionList"></div>
          <input id="flChatText" placeholder="Message your team… use @ to tag" autocomplete="off" oninput="flMentionCheck()" onkeydown="if(event.key==='Enter')flChatSend()">
+         <div id="flFileChip" style="display:none;font-size:11px;color:#137a51;margin-top:3px"></div>
        </div>
+       <input type="file" id="flChatFile" style="display:none" onchange="flFilePicked()">
+       <button class="btn ghost" style="padding:6px 9px;font-size:14px" title="Attach a file" onclick="document.getElementById('flChatFile').click()">📎</button>
        <button class="btn ghost" style="padding:6px 9px;font-size:12px" title="Assign as task" onclick="flTaskOpen()">✓ Task</button>
        <button class="btn amber" style="padding:6px 12px" onclick="flChatSend()">Send</button>
      </div>
@@ -242,7 +245,15 @@
      else{hv.textContent='No handoff note yet. Click Edit to leave one for the next shift.';}
      var box=document.getElementById('flChatMsgs');var atBottom=(box.scrollHeight-box.scrollTop-box.clientHeight)<40;
      if(!j.messages.length){box.innerHTML='<div class="fl-chat-empty">No messages yet. Say hello to your team.</div>';}
-     else{box.innerHTML=j.messages.map(function(m){return '<div class="fl-msg '+(m.mine?'me':'them')+(m.mentions_me?' tagme':'')+'"><div class="who">'+flEsc(m.who)+' · '+flEsc(m.when)+'</div><div class="bub">'+flHighlight(m.body)+'</div></div><div style="clear:both"></div>';}).join('');}
+     else{box.innerHTML=j.messages.map(function(m){
+       var fileHtml='';
+       if(m.file_url){var isImg=/\.(jpg|jpeg|png|gif|webp)$/i.test(m.file_name||'');
+         fileHtml=isImg
+           ? '<a href="'+m.file_url+'" target="_blank"><img src="'+m.file_url+'" style="max-width:180px;max-height:140px;border-radius:8px;margin-top:5px;display:block"></a>'
+           : '<a href="'+m.file_url+'" target="_blank" style="display:inline-block;margin-top:5px;padding:5px 9px;background:rgba(0,0,0,.06);border-radius:8px;font-size:12px;text-decoration:none">📎 '+flEsc(m.file_name||'file')+'</a>';
+       }
+       return '<div class="fl-msg '+(m.mine?'me':'them')+(m.mentions_me?' tagme':'')+'"><div class="who">'+flEsc(m.who)+' · '+flEsc(m.when)+'</div><div class="bub">'+flHighlight(m.body)+fileHtml+'</div></div><div style="clear:both"></div>';
+     }).join('');}
      if(atBottom)box.scrollTop=box.scrollHeight;
    });
  }
@@ -265,10 +276,15 @@
  var flTimer=null;
  function flChatStart(){flChatStop();flTimer=setInterval(flChatLoad,4000);}
  function flChatStop(){if(flTimer){clearInterval(flTimer);flTimer=null;}}
+ function flFilePicked(){var f=document.getElementById('flChatFile').files[0];var chip=document.getElementById('flFileChip');if(f){chip.style.display='block';chip.textContent='📎 '+f.name+' (will send)';}else{chip.style.display='none';}}
  function flChatSend(){
-   var t=document.getElementById('flChatText');var v=t.value.trim();if(!v)return;t.value='';
+   var t=document.getElementById('flChatText');var v=t.value.trim();
+   var fileInput=document.getElementById('flChatFile');var hasFile=fileInput.files.length>0;
+   if(!v&&!hasFile)return;
    document.getElementById('flMentionList').style.display='none';
    var fd=new FormData();fd.append('body',v);fd.append('csrfmiddlewaretoken',flCsrf);
+   if(hasFile)fd.append('attachment',fileInput.files[0]);
+   t.value='';fileInput.value='';document.getElementById('flFileChip').style.display='none';
    fetch('/app/chat/send/',{method:'POST',body:fd}).then(function(){flChatLoad();});
  }
  function flTaskOpen(){var box=document.getElementById('flTaskBox');box.style.display='block';

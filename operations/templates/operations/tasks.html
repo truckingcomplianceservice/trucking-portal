@@ -29,9 +29,10 @@
     </td>
    </tr>
    <tr id="resp{{ t.id }}" style="display:none"><td colspan="6" style="background:#f7f8fa">
-     {% for cm in t.comments.all %}<div style="padding:6px 4px;border-bottom:1px solid #eef0f4;font-size:13px"><b>{{ cm.author_name }}</b> <span class="sub" style="font-size:11px">{{ cm.created_at|date:"M d, g:i A" }}</span><div style="white-space:pre-wrap">{{ cm.body }}</div></div>{% empty %}<div class="sub" style="padding:4px">No responses yet.</div>{% endfor %}
-     <form method="post" action="/app/tasks/{{ t.id }}/respond/" style="display:flex;gap:8px;margin-top:8px">{% csrf_token %}
-       <input name="body" required placeholder="Write a response…" style="flex:1;padding:8px 10px;border:1px solid var(--line);border-radius:8px">
+     {% for cm in t.comments.all %}<div style="padding:6px 4px;border-bottom:1px solid #eef0f4;font-size:13px"><b>{{ cm.author_name }}</b> <span class="sub" style="font-size:11px">{{ cm.created_at|date:"M d, g:i A" }}</span>{% if cm.body %}<div style="white-space:pre-wrap">{{ cm.body }}</div>{% endif %}{% if cm.attachment %}<a href="{{ cm.attachment.url }}" target="_blank" style="display:inline-block;margin-top:3px;padding:4px 9px;background:#eef0f4;border-radius:7px;font-size:12px;text-decoration:none">📎 {{ cm.attachment_name|default:"file" }}</a>{% endif %}</div>{% empty %}<div class="sub" style="padding:4px">No responses yet.</div>{% endfor %}
+     <form method="post" action="/app/tasks/{{ t.id }}/respond/" enctype="multipart/form-data" style="display:flex;gap:8px;margin-top:8px;align-items:center">{% csrf_token %}
+       <input name="body" placeholder="Write a response…" style="flex:1;padding:8px 10px;border:1px solid var(--line);border-radius:8px">
+       <label style="cursor:pointer;padding:6px 8px;font-size:15px" title="Attach a file">📎<input type="file" name="attachment" style="display:none"></label>
        <button class="btn amber" type="submit" style="padding:6px 14px">Send</button>
      </form>
    </td></tr>{% endfor %}</tbody></table>

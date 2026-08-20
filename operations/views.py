@@ -3672,6 +3672,8 @@ def chat_poll(request):
     data = [{"id": m.id, "who": m.author_name or "Someone",
              "mine": (m.author_id == me),
              "body": m.body,
+             "file_url": (m.attachment.url if m.attachment else ""),
+             "file_name": m.attachment_name,
              "mentions_me": any(("@" + n) in m.body.lower() for n in my_names),
              "when": m.created_at.strftime("%b %d, %I:%M %p")} for m in msgs]
     handoff = getattr(company, "handoff", None)
@@ -3693,12 +3695,17 @@ def chat_send(request):
     company = cs.first()
     if request.method == "POST" and company:
         body = (request.POST.get("body") or "").strip()
-        if body:
+        upload = request.FILES.get("attachment")
+        if body or upload:
             who = request.user.get_full_name() or request.user.username
-            TeamMessage.objects.create(
+            msg = TeamMessage(
                 company=company, author=request.user,
-                author_name=who,
-                body=body[:2000])
+                author_name=who, body=body[:2000])
+            if upload:
+                import os
+                msg.attachment = upload
+                msg.attachment_name = os.path.basename(upload.name)[:200]
+            msg.save()
             # notify any @mentioned teammates in this company
             import re as _re2
             handles = set(h.lower() for h in _re2.findall(r"@([A-Za-z0-9_.\-]+)", body))
@@ -3827,14 +3834,20 @@ def task_respond(request, pk):
     t = Task.objects.filter(pk=pk, company__in=cs).first()
     if request.method == "POST" and t:
         body = (request.POST.get("body") or "").strip()
-        if body:
+        upload = request.FILES.get("attachment")
+        if body or upload:
             who = request.user.get_full_name() or request.user.username
-            TaskComment.objects.create(task=t, author=request.user, author_name=who, body=body[:2000])
+            cm = TaskComment(task=t, author=request.user, author_name=who, body=body[:2000])
+            if upload:
+                import os
+                cm.attachment = upload
+                cm.attachment_name = os.path.basename(upload.name)[:200]
+            cm.save()
             url = "/app/tasks/"
             # notify the creator and the assignee (whoever isn't the author)
             for target in {t.created_by, t.assignee}:
                 if target and target != request.user:
-                    notify(target, f"{who} responded on task '{t.title}': {body[:80]}",
+                    notify(target, f"{who} responded on task '{t.title}': {body[:80] or 'sent a file'}",
                            kind="task_response", url=url, company=t.company)
             _messages.success(request, "Response posted.")
     return redirect(request.META.get("HTTP_REFERER", "/app/tasks/"))
