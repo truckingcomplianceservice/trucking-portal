@@ -10,7 +10,42 @@
 
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
    <div><label class="sub">Load / ref #</label><input name="reference" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px"></div>
-   <div><label class="sub">Customer / broker</label><input name="customer" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px"></div>
+   <div><label class="sub">Broker</label>
+    <select name="broker" id="brokerSel" onchange="brokerChanged()" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px">
+     <option value="">— Select broker —</option>
+     {% for b in brokers %}<option value="{{ b.id }}">{{ b.name }}{% if b.mc_number %} (MC {{ b.mc_number }}){% endif %}</option>{% endfor %}
+     <option value="__new__">+ Add a new broker…</option>
+    </select>
+   </div>
+  </div>
+
+  <div id="agentRow" style="display:grid;grid-template-columns:1fr;gap:10px;margin-top:10px">
+   <div><label class="sub">Agent / rep (optional)</label>
+    <select name="broker_agent" id="agentSel" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px">
+     <option value="">— Select agent —</option>
+     {% for a in agents %}<option value="{{ a.id }}" data-broker="{{ a.broker_id }}">{{ a.name }}{% if a.phone %} · {{ a.phone_display }}{% endif %}</option>{% endfor %}
+    </select>
+    <div class="sub">For brokers like TQL, pick the specific agent (with their phone + extension).</div>
+   </div>
+  </div>
+
+  <div id="newBrokerBox" style="display:none;margin-top:10px;padding:12px 14px;background:#f6f7f9;border-radius:8px">
+   <div class="sub" style="font-weight:600;margin-bottom:6px">New broker (from the rate confirmation)</div>
+   <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+    <div><label class="sub">Broker company name</label><input name="new_broker_name" style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px"></div>
+    <div><label class="sub">MC number</label><input name="new_broker_mc" style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px"></div>
+    <div><label class="sub">Main phone</label><input name="new_broker_phone" style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px"></div>
+    <div><label class="sub">Email</label><input name="new_broker_email" style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px"></div>
+    <div style="grid-column:1/3"><label class="sub">Address</label><input name="new_broker_address" style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px"></div>
+    <div><label class="sub">City</label><input name="new_broker_city" style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px"></div>
+    <div><label class="sub">State</label><input name="new_broker_state" style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px"></div>
+   </div>
+   <div class="sub" style="font-weight:600;margin:10px 0 6px">Agent / rep (optional — e.g. your TQL rep)</div>
+   <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:8px">
+    <div><label class="sub">Agent name</label><input name="new_agent_name" style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px"></div>
+    <div><label class="sub">Direct phone</label><input name="new_agent_phone" style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px"></div>
+    <div><label class="sub">Extension</label><input name="new_agent_ext" style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px"></div>
+   </div>
   </div>
 
   <div style="margin-top:14px"><label class="sub" style="font-weight:600">Stops (in order) — add as many as the trip has</label>
@@ -109,6 +144,21 @@ function estDeadhead(){
    document.getElementById('m_dead').value=j.miles; calcMiles();
    alert('Deadhead '+j.miles+' miles (from previous drop "'+j.from+'" to this pickup "'+j.to+'"). '+(j.note||'')+' You can edit it.');
  }).catch(function(e){ alert('Deadhead error: '+e); });
+}
+function brokerChanged(){
+ var sel=document.getElementById('brokerSel');
+ var box=document.getElementById('newBrokerBox');
+ var agentRow=document.getElementById('agentRow');
+ if(sel.value==='__new__'){ box.style.display='block'; agentRow.style.display='none'; }
+ else {
+   box.style.display='none'; agentRow.style.display='grid';
+   var opts=document.querySelectorAll('#agentSel option');
+   opts.forEach(function(o){
+     if(!o.value){ o.hidden=false; return; }
+     o.hidden = (o.getAttribute('data-broker') !== sel.value);
+   });
+   document.getElementById('agentSel').value='';
+ }
 }
 renumber();
 </script>

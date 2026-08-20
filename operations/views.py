@@ -6,7 +6,7 @@ from django.db.models import Sum, Q
 from django.shortcuts import render, get_object_or_404, redirect
 from django.views.static import serve
 from django.conf import settings
-from .models import (TeamMessage, Company, Load, Expense, Settlement, Driver, Vehicle, Applicant, ApplicantStatusHistory, SignatureRecord, AuditorLink,
+from .models import (TeamMessage, BrokerAgent, Company, Load, Expense, Settlement, Driver, Vehicle, Applicant, ApplicantStatusHistory, SignatureRecord, AuditorLink,
                      ComplianceDocument, Broker, FuelTransaction, RentalContract, VehicleDocument, VehiclePhoto, CompanyDocument, notify)
 
 
@@ -827,7 +827,8 @@ def app_brokers(request):
             companies_served = ", ".join(sorted({l.company.name for l in bl}))
             brokers.append({"o": b, "loads": bl.count(),
                             "rev": bl.aggregate(s=Sum("rate"))["s"] or 0,
-                            "companies": companies_served})
+                            "companies": companies_served,
+                            "agents": b.agents.count()})
     brokers.sort(key=lambda x: x["loads"], reverse=True)
     return render(request, "operations/app_brokers.html",
                   {"per_company": per_company, "brokers": brokers})
@@ -3029,11 +3030,40 @@ def app_load_new(request):
         stops = [s.strip() for s in request.POST.getlist("stop") if s.strip()]
         origin = stops[0] if stops else request.POST.get("origin", "").strip()
         destination = stops[-1] if len(stops) > 1 else request.POST.get("destination", "").strip()
+        # ---- Broker: pick existing, or create a new one from the rate con ----
+        broker = None
+        broker_agent = None
+        broker_val = request.POST.get("broker", "")
+        if broker_val == "__new__":
+            nb_name = request.POST.get("new_broker_name", "").strip()
+            if nb_name:
+                broker = Broker.objects.create(
+                    name=nb_name,
+                    mc_number=request.POST.get("new_broker_mc", "").strip(),
+                    phone=request.POST.get("new_broker_phone", "").strip(),
+                    email=request.POST.get("new_broker_email", "").strip(),
+                    address_line=request.POST.get("new_broker_address", "").strip(),
+                    city=request.POST.get("new_broker_city", "").strip(),
+                    state=request.POST.get("new_broker_state", "").strip())
+                # optional agent for the new broker
+                na_name = request.POST.get("new_agent_name", "").strip()
+                if na_name:
+                    broker_agent = BrokerAgent.objects.create(
+                        broker=broker, name=na_name,
+                        phone=request.POST.get("new_agent_phone", "").strip(),
+                        extension=request.POST.get("new_agent_ext", "").strip())
+        elif broker_val:
+            broker = Broker.objects.filter(pk=broker_val).first()
+            agent_val = request.POST.get("broker_agent", "")
+            if agent_val:
+                broker_agent = BrokerAgent.objects.filter(pk=agent_val, broker=broker).first()
         try:
             load = Load.objects.create(
                 company=company,
                 reference=request.POST.get("reference", "").strip() or "MANUAL",
-                customer=request.POST.get("customer", "").strip(),
+                customer=(broker.name if broker else request.POST.get("customer", "").strip()),
+                broker=broker,
+                broker_agent=broker_agent,
                 origin=origin,
                 destination=destination,
                 stops="\n".join(stops),
@@ -3058,6 +3088,8 @@ def app_load_new(request):
                   {"companies": cs, "default_company": default_company,
                    "drivers": Driver.objects.filter(company__in=cs).order_by("first_name"),
                    "vehicles": Vehicle.objects.filter(company__in=cs).order_by("unit_number"),
+                   "brokers": Broker.objects.all().order_by("name"),
+                   "agents": BrokerAgent.objects.select_related("broker").order_by("name"),
                    "status_choices": Load.STATUS_CHOICES,
                    "payment_choices": Load.PAYMENT_CHOICES})
 

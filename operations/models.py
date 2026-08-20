@@ -232,6 +232,7 @@ class Load(models.Model):
     reference = models.CharField("Load / reference #", max_length=40)
     customer = models.CharField("Broker / customer", max_length=120, blank=True)
     broker = models.ForeignKey("Broker", on_delete=models.SET_NULL, null=True, blank=True, related_name="loads")
+    broker_agent = models.ForeignKey("BrokerAgent", on_delete=models.SET_NULL, null=True, blank=True, related_name="loads")
     origin = models.CharField(max_length=120)
     destination = models.CharField(max_length=120)
     stops = models.TextField("All stops (multi-stop / LTL)", blank=True, help_text="One stop per line, in order.")
@@ -675,8 +676,12 @@ class Broker(models.Model):
     """A broker/customer you haul for. Loads link to a broker; works across companies."""
     name = models.CharField(max_length=140)
     mc_number = models.CharField("MC number", max_length=30, blank=True)
-    phone = models.CharField(max_length=30, blank=True)
+    phone = models.CharField("Main phone", max_length=30, blank=True)
     email = models.EmailField(blank=True)
+    address_line = models.CharField("Address", max_length=200, blank=True)
+    city = models.CharField(max_length=80, blank=True)
+    state = models.CharField(max_length=30, blank=True)
+    zip_code = models.CharField("ZIP", max_length=15, blank=True)
     notes = models.TextField(blank=True)
 
     class Meta:
@@ -684,6 +689,28 @@ class Broker(models.Model):
 
     def __str__(self):
         return self.name
+
+class BrokerAgent(models.Model):
+    """An individual agent/rep at a broker (e.g. a specific TQL rep) with their
+    own direct phone and extension. Loads can select the exact agent."""
+    broker = models.ForeignKey(Broker, on_delete=models.CASCADE, related_name="agents")
+    name = models.CharField(max_length=120)
+    phone = models.CharField(max_length=30, blank=True)
+    extension = models.CharField("Ext.", max_length=15, blank=True)
+    email = models.EmailField(blank=True)
+    notes = models.CharField(max_length=200, blank=True)
+
+    class Meta:
+        ordering = ["name"]
+
+    @property
+    def phone_display(self):
+        if self.phone and self.extension:
+            return f"{self.phone} x{self.extension}"
+        return self.phone or ""
+
+    def __str__(self):
+        return f"{self.name} ({self.broker.name})"
 
 
 class FuelTransaction(models.Model):

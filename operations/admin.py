@@ -9,7 +9,7 @@ from django.contrib import admin
 from django.utils.safestring import mark_safe
 from .models import (VehiclePhoto, ApplicantStatusHistory, Company, Profile, Driver, Vehicle, Load, Expense,
                      Settlement, Applicant, ComplianceDocument, ActivityLog, NotificationRule,
-                     Broker, FuelTransaction, TimeEntry, Invoice, Payment, MaintenanceRecord,
+                     Broker, BrokerAgent, FuelTransaction, TimeEntry, Invoice, Payment, MaintenanceRecord,
                      RentalContract, VehicleDocument, CompanyDocument)
 
 
@@ -216,10 +216,23 @@ class ActivityLogAdmin(admin.ModelAdmin):
         return False
 
 
+class BrokerAgentInline(admin.TabularInline):
+    model = BrokerAgent
+    extra = 1
+
+
 @admin.register(Broker)
 class BrokerAdmin(admin.ModelAdmin):
-    list_display = ("name", "mc_number", "phone", "email")
-    search_fields = ("name", "mc_number")
+    list_display = ("name", "mc_number", "phone", "city", "state", "email")
+    search_fields = ("name", "mc_number", "city")
+    inlines = [BrokerAgentInline]
+
+
+@admin.register(BrokerAgent)
+class BrokerAgentAdmin(admin.ModelAdmin):
+    list_display = ("name", "broker", "phone", "extension", "email")
+    search_fields = ("name", "broker__name")
+    list_filter = ("broker",)
 
 
 @admin.register(FuelTransaction)
