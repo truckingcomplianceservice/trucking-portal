@@ -233,6 +233,7 @@ class Load(models.Model):
     customer = models.CharField("Broker / customer", max_length=120, blank=True)
     broker = models.ForeignKey("Broker", on_delete=models.SET_NULL, null=True, blank=True, related_name="loads")
     broker_agent = models.ForeignKey("BrokerAgent", on_delete=models.SET_NULL, null=True, blank=True, related_name="loads")
+    ratecon_hash = models.CharField(max_length=64, blank=True, db_index=True, help_text="Fingerprint of the uploaded rate confirmation, to prevent duplicates.")
     origin = models.CharField(max_length=120)
     destination = models.CharField(max_length=120)
     stops = models.TextField("All stops (multi-stop / LTL)", blank=True, help_text="One stop per line, in order.")

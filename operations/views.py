@@ -1812,10 +1812,31 @@ def load_from_ratecon(request):
     companies = _companies_all(request)
     if request.method == "POST" and request.FILES.get("ratecon"):
         f = request.FILES["ratecon"]
-        text = _ratecon_text(f)
-        data = _ratecon_ai(text) or _ratecon_heuristic(text)
+        # fingerprint the uploaded file to catch duplicate uploads
+        import hashlib
+        f.seek(0)
+        file_hash = hashlib.sha256(f.read()).hexdigest()
+        f.seek(0)
         company = _get(Company, pk=request.POST.get("company"),
                        pk__in=companies.values_list("pk", flat=True))
+        # 1) exact same file already uploaded for this company?
+        dupe = Load.objects.filter(company=company, ratecon_hash=file_hash).first()
+        if dupe:
+            _messages.error(request,
+                f"This rate confirmation was already uploaded (load {dupe.reference or dupe.id}). "
+                "It was not added again.")
+            return redirect(f"/admin/operations/load/{dupe.id}/change/")
+        text = _ratecon_text(f)
+        data = _ratecon_ai(text) or _ratecon_heuristic(text)
+        # 2) same reference number already on a load for this company?
+        ref = str(data.get("reference") or "").strip()
+        if ref:
+            ref_dupe = Load.objects.filter(company=company, reference__iexact=ref).first()
+            if ref_dupe:
+                _messages.error(request,
+                    f"A load with reference '{ref}' already exists for {company.name}. "
+                    "This looks like a duplicate - it was not added again.")
+                return redirect(f"/admin/operations/load/{ref_dupe.id}/change/")
         # auto-add / link broker (with contact details) + agent
         broker = None
         mc = str(data.get("mc_number") or "").strip()
@@ -1865,7 +1886,7 @@ def load_from_ratecon(request):
             customer=bname[:120], broker=broker, broker_agent=broker_agent,
             origin=str(data.get("origin") or "")[:120], destination=str(data.get("destination") or "")[:120],
             pickup_date=date(data.get("pickup_date")), delivery_date=date(data.get("delivery_date")),
-            rate=rate(), rate_confirmation=f, status="booked")
+            rate=rate(), rate_confirmation=f, status="booked", ratecon_hash=file_hash)
         ActivityLog.objects.create(category="load", user=request.user, company=company,
             text=f"Created load {load.reference or load.id} from rate confirmation"
                  + (f" · added broker {broker.name}" if broker else ""))
