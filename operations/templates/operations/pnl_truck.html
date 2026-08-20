@@ -16,13 +16,14 @@
 
 {% for g in groups %}
 <div class="card" style="margin-bottom:14px"><div class="card-h"><h3>{{ g.company.name }}</h3></div>
-<table><thead><tr><th>Truck</th><th class="n">Loads</th><th class="n">Revenue</th><th class="n">Fuel</th><th class="n">Maintenance</th><th class="n">Net</th></tr></thead><tbody>
+<table><thead><tr><th>Truck</th><th class="n">Loads</th><th class="n">Revenue</th><th class="n">Fuel</th><th class="n">Maintenance</th><th class="n">Expenses</th><th class="n">Net</th></tr></thead><tbody>
 {% for t in g.trucks %}<tr onclick="location.href='/reports/truck/{{ t.v.id }}/'" style="cursor:pointer">
  <td><b>Unit {{ t.v.unit_number }}</b></td>
  <td class="n">{{ t.loads }}</td>
  <td class="n">${{ t.rev|floatformat:2|intcomma }}</td>
  <td class="n">${{ t.fuel|floatformat:2|intcomma }}</td>
  <td class="n">${{ t.maint|floatformat:2|intcomma }}</td>
+ <td class="n">${{ t.expenses|floatformat:2|intcomma }}</td>
  <td class="n" style="font-weight:700;color:{% if t.net >= 0 %}#137a51{% else %}#c0392b{% endif %}">${{ t.net|floatformat:2|intcomma }}</td>
 </tr>{% endfor %}</tbody></table>
 </div>
@@ -34,8 +35,9 @@
 <tr><td>Total revenue</td><td class="n">${{ gt.rev|floatformat:2|intcomma }}</td></tr>
 <tr><td>Total fuel</td><td class="n">${{ gt.fuel|floatformat:2|intcomma }}</td></tr>
 <tr><td>Total maintenance</td><td class="n">${{ gt.maint|floatformat:2|intcomma }}</td></tr>
-<tr><td><b>Net (revenue − fuel − maintenance)</b></td><td class="n" style="font-weight:700;color:{% if gt.net >= 0 %}#137a51{% else %}#c0392b{% endif %}">${{ gt.net|floatformat:2|intcomma }}</td></tr>
+<tr><td>Total expenses</td><td class="n">${{ gt.expenses|floatformat:2|intcomma }}</td></tr>
+<tr><td><b>Net (revenue − fuel − maintenance − expenses)</b></td><td class="n" style="font-weight:700;color:{% if gt.net >= 0 %}#137a51{% else %}#c0392b{% endif %}">${{ gt.net|floatformat:2|intcomma }}</td></tr>
 </tbody></table></div>
-<div class="sub" style="margin-top:8px">Net here is revenue minus fuel and maintenance for that truck. It does not include driver pay or company overhead (those aren't tracked per truck).</div>
+<div class="sub" style="margin-top:8px">Net here is revenue minus fuel, maintenance, and expenses (from Accounting) for that truck. It does not include driver pay or company overhead unless you logged those as expenses tied to the truck.</div>
 {% endif %}
 {% endblock %}

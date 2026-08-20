@@ -2106,30 +2106,36 @@ def _per_truck_data(request):
     start = _parse_date(request.GET.get("start", ""))
     end = _parse_date(request.GET.get("end", ""))
     groups = []
-    gt = {"rev": 0, "fuel": 0, "maint": 0, "net": 0, "loads": 0}
+    gt = {"rev": 0, "fuel": 0, "maint": 0, "expenses": 0, "net": 0, "loads": 0}
     for c in cs.order_by("name"):
         trucks = []
         for v in Vehicle.objects.filter(company=c).order_by("unit_number"):
             lq = Load.objects.filter(vehicle=v)
             fq = FuelTransaction.objects.filter(vehicle=v)
             mq = MaintenanceRecord.objects.filter(vehicle=v)
+            eq = Expense.objects.filter(vehicle=v)
             if start or end:
                 from django.db.models import Q as _Q
                 dcond = _Q()
                 if start:
                     dcond &= (_Q(pickup_date__gte=start) | _Q(pickup_date__isnull=True, delivery_date__gte=start))
                     fq = fq.filter(date__gte=start); mq = mq.filter(date__gte=start)
+                    eq = eq.filter(date__gte=start)
                 if end:
                     dcond &= (_Q(pickup_date__lte=end) | _Q(pickup_date__isnull=True, delivery_date__lte=end))
                     fq = fq.filter(date__lte=end); mq = mq.filter(date__lte=end)
+                    eq = eq.filter(date__lte=end)
                 lq = lq.filter(dcond)
             rev = lq.aggregate(s=Sum("rate"))["s"] or 0
             fuel = fq.aggregate(s=Sum("amount"))["s"] or 0
             maint = sum((r.parts_cost or 0) + (r.labor_cost or 0) for r in mq)
+            expenses = eq.aggregate(s=Sum("amount"))["s"] or 0
             loads = lq.count()
-            net = rev - fuel - maint
-            trucks.append({"v": v, "rev": rev, "fuel": fuel, "maint": maint, "net": net, "loads": loads})
-            gt["rev"] += rev; gt["fuel"] += fuel; gt["maint"] += maint; gt["net"] += net; gt["loads"] += loads
+            net = rev - fuel - maint - expenses
+            trucks.append({"v": v, "rev": rev, "fuel": fuel, "maint": maint,
+                           "expenses": expenses, "net": net, "loads": loads})
+            gt["rev"] += rev; gt["fuel"] += fuel; gt["maint"] += maint
+            gt["expenses"] += expenses; gt["net"] += net; gt["loads"] += loads
         if trucks:
             groups.append({"company": c, "trucks": trucks})
     # letterhead company (only when a single company is in scope)
