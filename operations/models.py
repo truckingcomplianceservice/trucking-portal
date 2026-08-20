@@ -554,6 +554,30 @@ class ActivityLog(models.Model):
     def __str__(self):
         return self.text
 
+class TeamMessage(models.Model):
+    """Internal, company-private communication. Either a board post (no target)
+    or a note attached to a specific load/driver/applicant. Never crosses
+    companies: each message belongs to one company."""
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name="team_messages")
+    author = models.ForeignKey("auth.User", on_delete=models.SET_NULL, null=True, blank=True)
+    author_name = models.CharField(max_length=120, blank=True)
+    body = models.TextField()
+    # Optional attachment to a record (all optional -> board post when all blank):
+    load = models.ForeignKey("Load", on_delete=models.CASCADE, null=True, blank=True, related_name="msg_notes")
+    driver = models.ForeignKey("Driver", on_delete=models.CASCADE, null=True, blank=True, related_name="msg_notes")
+    applicant = models.ForeignKey("Applicant", on_delete=models.CASCADE, null=True, blank=True, related_name="msg_notes")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    @property
+    def is_board_post(self):
+        return not (self.load_id or self.driver_id or self.applicant_id)
+
+    def __str__(self):
+        return f"{self.author_name or self.author}: {self.body[:40]}"
+
 
 class NotificationRule(models.Model):
     """Which events notify you, and how. You control these in the admin."""

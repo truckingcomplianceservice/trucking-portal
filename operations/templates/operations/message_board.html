@@ -1,0 +1,31 @@
+{% extends "operations/app_base.html" %}
+{% block title %}Team messages — Fleetline{% endblock %}
+{% block page_title %}Team messages{% endblock %}
+{% block content %}
+{% if messages %}{% for m in messages %}<div style="margin:8px 0;padding:10px 14px;border-radius:8px;font-size:13px;background:#e4f4ec;color:#137a51">{{ m }}</div>{% endfor %}{% endif %}
+
+<div class="card">
+ <div class="card-h"><h3>Post to your team{% if company %} · {{ company.name }}{% endif %}</h3></div>
+ <form method="post" action="/app/messages/" style="padding:14px 16px">{% csrf_token %}
+  <textarea name="body" rows="3" required placeholder="Write a message for your team…" style="width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px"></textarea>
+  <div style="text-align:right;margin-top:10px"><button class="btn amber" type="submit">Post message</button></div>
+  <div class="sub">Only your company's team can see this. Messages never cross between companies.</div>
+ </form>
+</div>
+
+<div class="card" style="margin-top:14px">
+ <div class="card-h"><h3>Recent messages</h3></div>
+ <div style="padding:8px 16px 16px">
+  {% for p in posts %}
+  <div style="padding:12px 0;border-bottom:1px solid #eef0f4">
+   <div style="display:flex;justify-content:space-between;align-items:baseline">
+    <b>{{ p.author_name|default:"Someone" }}</b>
+    <span class="sub" style="font-size:12px">{{ p.created_at|date:"M d, Y g:i A" }}</span>
+   </div>
+   <div style="margin-top:4px;white-space:pre-wrap">{{ p.body }}</div>
+   <form method="post" action="/app/messages/{{ p.id }}/delete/" onsubmit="return confirm('Remove this message?');" style="margin-top:4px">{% csrf_token %}<button type="submit" class="btn ghost" style="padding:2px 8px;font-size:11px;color:#c0392b">Delete</button></form>
+  </div>
+  {% empty %}<div class="sub" style="padding:12px 0">No messages yet. Post the first one above.</div>{% endfor %}
+ </div>
+</div>
+{% endblock %}

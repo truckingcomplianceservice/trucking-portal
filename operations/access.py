@@ -1,20 +1,20 @@
 """Central role-based access map. One place to decide what each role can reach."""
 
-SECTIONS = ["portfolio", "dashboard", "dispatch", "brokers", "drivers", "hiring",
+SECTIONS = ["portfolio", "dashboard", "messages", "dispatch", "brokers", "drivers", "hiring",
             "vehicles", "fuel", "compliance", "billing", "accounting", "tax",
             "reports", "team"]
 
 # Which sections each role may access. "ALL" = every section.
 ROLE_SECTIONS = {
     "admin": "ALL",
-    "manager": ["dashboard", "dispatch", "brokers", "drivers", "hiring", "vehicles",
+    "manager": ["dashboard", "messages", "dispatch", "brokers", "drivers", "hiring", "vehicles",
                 "fuel", "compliance", "billing", "accounting", "tax", "reports", "team"],
-    "dispatcher": ["dashboard", "dispatch", "brokers", "drivers", "vehicles"],
-    "compliance": ["dashboard", "drivers", "vehicles", "hiring", "compliance"],
-    "safety": ["dashboard", "drivers", "vehicles", "compliance"],
-    "accountant": ["dashboard", "fuel", "billing", "accounting", "tax", "reports"],
-    "billing": ["dashboard", "billing", "accounting", "tax", "reports"],
-    "driver": ["dashboard"],
+    "dispatcher": ["dashboard", "messages", "dispatch", "brokers", "drivers", "vehicles"],
+    "compliance": ["dashboard", "messages", "drivers", "vehicles", "hiring", "compliance"],
+    "safety": ["dashboard", "messages", "drivers", "vehicles", "compliance"],
+    "accountant": ["dashboard", "messages", "fuel", "billing", "accounting", "tax", "reports"],
+    "billing": ["dashboard", "messages", "billing", "accounting", "tax", "reports"],
+    "driver": ["dashboard", "messages"],
 }
 
 

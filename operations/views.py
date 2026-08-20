@@ -6,7 +6,7 @@ from django.db.models import Sum, Q
 from django.shortcuts import render, get_object_or_404, redirect
 from django.views.static import serve
 from django.conf import settings
-from .models import (Company, Load, Expense, Settlement, Driver, Vehicle, Applicant, ApplicantStatusHistory, SignatureRecord, AuditorLink,
+from .models import (TeamMessage, Company, Load, Expense, Settlement, Driver, Vehicle, Applicant, ApplicantStatusHistory, SignatureRecord, AuditorLink,
                      ComplianceDocument, Broker, FuelTransaction, RentalContract, VehicleDocument, VehiclePhoto, CompanyDocument, notify)
 
 
@@ -703,7 +703,10 @@ def expense_receipt(request, pk):
     e = _get(Expense, pk=pk, company__in=_companies(request))
     if request.method == "POST":
         if request.POST.get("action") == "delete":
-            e.delete(); _messages.success(request, "Expense removed.")
+            if not _can_delete(request.user):
+                _messages.error(request, "Only an administrator can delete. You can edit instead.")
+            else:
+                e.delete(); _messages.success(request, "Expense removed.")
         elif request.FILES.get("receipt"):
             try:
                 import os
@@ -1101,6 +1104,18 @@ def _is_manager(user):
         return True
     try:
         return user.profile.role in ("admin", "manager")
+    except Exception:
+        return False
+
+
+def _can_delete(user):
+    """Only the owner (superuser) and administrators can DELETE things.
+    Everyone else (dispatcher, manager, compliance, etc.) can view and edit,
+    but not delete."""
+    if user.is_superuser:
+        return True
+    try:
+        return user.profile.role == "admin"
     except Exception:
         return False
 
@@ -2401,6 +2416,9 @@ def driver_pay_detail(request, pk):
             else:
                 _messages.error(request, "That load could not be added.")
         elif action == "delete":
+            if not _can_delete(request.user):
+                _messages.error(request, "Only an administrator can delete. You can edit instead.")
+                return redirect("driver_pay_detail", pk=pk)
             # free the attached loads, then remove the settlement
             s.loads.update(settlement=None)
             s.delete()
@@ -2767,7 +2785,10 @@ def vehicle_doc_delete(request, pk, doc_id):
     if request.method == "POST":
         d = v.documents.filter(pk=doc_id).first()
         if d:
-            d.delete(); _messages.success(request, "Document removed.")
+            if not _can_delete(request.user):
+                _messages.error(request, "Only an administrator can delete. You can edit instead.")
+            else:
+                d.delete(); _messages.success(request, "Document removed.")
     return redirect("app_vehicle_detail", pk=pk)
 
 
@@ -2965,6 +2986,9 @@ def company_docs(request):
     if request.method == "POST":
         action = request.POST.get("action")
         if action == "delete":
+            if not _can_delete(request.user):
+                _messages.error(request, "Only an administrator can delete. You can edit instead.")
+                return redirect("company_docs")
             d = CompanyDocument.objects.filter(pk=request.POST.get("doc_id"), company__in=cs).first()
             if d:
                 d.delete(); _messages.success(request, "Document removed.")
@@ -3377,7 +3401,10 @@ def vehicle_photo_delete(request, pk, photo_id):
     if request.method == "POST":
         p = VehiclePhoto.objects.filter(pk=photo_id, vehicle=v).first()
         if p:
-            p.delete(); _messages.success(request, "Photo removed.")
+            if not _can_delete(request.user):
+                _messages.error(request, "Only an administrator can delete. You can edit instead.")
+            else:
+                p.delete(); _messages.success(request, "Photo removed.")
     return redirect("app_vehicle_detail", pk=pk)
 
 
@@ -3434,3 +3461,73 @@ def deadhead_api(request):
     note = ("Exact road miles (Google Maps)." if source == "google" else "Estimate only.")
     return JsonResponse({"ok": True, "miles": miles, "source": source,
                          "from": prev.destination, "to": pickup, "note": note})
+
+
+# ================= Internal team communication (company-private) =================
+@require_section("messages")
+@login_required
+def message_board(request):
+    """A simple company-private team board. Members of a company see only their
+    own company's posts. Owner sees the active company's board."""
+    cs = _companies(request)
+    company = cs.first()
+    if request.method == "POST":
+        body = request.POST.get("body", "").strip()
+        if body:
+            TeamMessage.objects.create(
+                company=company, author=request.user,
+                author_name=request.user.get_full_name() or request.user.username,
+                body=body)
+            _messages.success(request, "Message posted.")
+        return redirect("message_board")
+    # board posts only (not record-attached notes), scoped to accessible companies
+    posts = TeamMessage.objects.filter(
+        company__in=cs, load__isnull=True, driver__isnull=True, applicant__isnull=True
+    ).select_related("author", "company")[:100]
+    return render(request, "operations/message_board.html",
+                  {"posts": posts, "company": company})
+
+
+@login_required
+def add_note(request):
+    """Add an internal note to a load, driver, or applicant (company-scoped)."""
+    cs = _companies(request)
+    if request.method != "POST":
+        return redirect("dashboard")
+    body = request.POST.get("body", "").strip()
+    kind = request.POST.get("kind", "")
+    obj_id = request.POST.get("id", "")
+    back = request.META.get("HTTP_REFERER", "/dashboard/")
+    if not body:
+        _messages.error(request, "Write a note first.")
+        return redirect(back)
+    kw = {"company": _companies(request).first(), "author": request.user,
+          "author_name": request.user.get_full_name() or request.user.username, "body": body}
+    if kind == "load":
+        obj = Load.objects.filter(pk=obj_id, company__in=cs).first()
+        if obj: kw["load"] = obj
+    elif kind == "driver":
+        obj = Driver.objects.filter(pk=obj_id, company__in=cs).first()
+        if obj: kw["driver"] = obj
+    elif kind == "applicant":
+        obj = Applicant.objects.filter(pk=obj_id, company__in=cs).first()
+        if obj: kw["applicant"] = obj
+    if kind and "load" not in kw and "driver" not in kw and "applicant" not in kw:
+        _messages.error(request, "That record wasn't found.")
+        return redirect(back)
+    TeamMessage.objects.create(**kw)
+    _messages.success(request, "Note added.")
+    return redirect(back)
+
+
+@login_required
+def delete_message(request, pk):
+    """Delete a message/note — author or admin/owner only."""
+    cs = _companies(request)
+    m = TeamMessage.objects.filter(pk=pk, company__in=cs).first()
+    if request.method == "POST" and m:
+        if request.user == m.author or _can_delete(request.user):
+            m.delete(); _messages.success(request, "Message removed.")
+        else:
+            _messages.error(request, "You can only delete your own messages.")
+    return redirect(request.META.get("HTTP_REFERER", "/app/messages/"))

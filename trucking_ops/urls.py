@@ -7,6 +7,9 @@ from django.views.generic import RedirectView
 from operations import views
 
 urlpatterns = [
+    path("app/messages/", views.message_board, name="message_board"),
+    path("app/messages/add-note/", views.add_note, name="add_note"),
+    path("app/messages/<int:pk>/delete/", views.delete_message, name="delete_message"),
     path("admin/", admin.site.urls),
     path("dashboard/", views.dashboard, name="dashboard"),
     path("app/tasks/", views.tasks_page, name="tasks_page"),
