@@ -6,7 +6,7 @@ from django.db.models import Sum, Q
 from django.shortcuts import render, get_object_or_404, redirect
 from django.views.static import serve
 from django.conf import settings
-from .models import (TeamMessage, BrokerAgent, Company, Load, Expense, Settlement, Driver, Vehicle, Applicant, ApplicantStatusHistory, SignatureRecord, AuditorLink,
+from .models import (TeamMessage, ShiftHandoff, BrokerAgent, Company, Load, Expense, Settlement, Driver, Vehicle, Applicant, ApplicantStatusHistory, SignatureRecord, AuditorLink,
                      ComplianceDocument, Broker, FuelTransaction, RentalContract, VehicleDocument, VehiclePhoto, CompanyDocument, notify)
 
 
@@ -3615,3 +3615,61 @@ def delete_message(request, pk):
         else:
             _messages.error(request, "You can only delete your own messages.")
     return redirect(request.META.get("HTTP_REFERER", "/app/messages/"))
+
+
+# ================= Floating team chat widget (company-private) =================
+@login_required
+def chat_poll(request):
+    """Return recent company chat messages + the pinned handoff note as JSON.
+    Used by the floating chat widget, which polls every few seconds."""
+    from django.http import JsonResponse
+    cs = _companies(request)
+    company = cs.first()
+    if not company:
+        return JsonResponse({"ok": False, "messages": [], "handoff": ""})
+    msgs = list(TeamMessage.objects.filter(
+        company=company, load__isnull=True, driver__isnull=True, applicant__isnull=True
+    ).select_related("author").order_by("-created_at")[:40])
+    msgs.reverse()
+    me = request.user.id
+    data = [{"id": m.id, "who": m.author_name or "Someone",
+             "mine": (m.author_id == me),
+             "body": m.body,
+             "when": m.created_at.strftime("%b %d, %I:%M %p")} for m in msgs]
+    handoff = getattr(company, "handoff", None)
+    hoff = {"body": handoff.body if handoff else "",
+            "who": handoff.updated_by_name if handoff else "",
+            "when": handoff.updated_at.strftime("%b %d, %I:%M %p") if handoff and handoff.body else ""}
+    return JsonResponse({"ok": True, "company": company.name, "messages": data, "handoff": hoff})
+
+
+@login_required
+def chat_send(request):
+    from django.http import JsonResponse
+    cs = _companies(request)
+    company = cs.first()
+    if request.method == "POST" and company:
+        body = (request.POST.get("body") or "").strip()
+        if body:
+            TeamMessage.objects.create(
+                company=company, author=request.user,
+                author_name=request.user.get_full_name() or request.user.username,
+                body=body[:2000])
+            return JsonResponse({"ok": True})
+    return JsonResponse({"ok": False})
+
+
+@login_required
+def chat_handoff_save(request):
+    from django.http import JsonResponse
+    cs = _companies(request)
+    company = cs.first()
+    if request.method == "POST" and company:
+        body = (request.POST.get("body") or "").strip()
+        handoff, _ = ShiftHandoff.objects.get_or_create(company=company)
+        handoff.body = body[:5000]
+        handoff.updated_by = request.user
+        handoff.updated_by_name = request.user.get_full_name() or request.user.username
+        handoff.save()
+        return JsonResponse({"ok": True})
+    return JsonResponse({"ok": False})

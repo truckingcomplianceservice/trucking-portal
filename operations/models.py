@@ -580,6 +580,18 @@ class TeamMessage(models.Model):
     def __str__(self):
         return f"{self.author_name or self.author}: {self.body[:40]}"
 
+class ShiftHandoff(models.Model):
+    """One pinned handoff note per company — 'what's going on right now' so the
+    next person on shift can pick up and respond to brokers/drivers correctly."""
+    company = models.OneToOneField(Company, on_delete=models.CASCADE, related_name="handoff")
+    body = models.TextField(blank=True)
+    updated_by = models.ForeignKey("auth.User", on_delete=models.SET_NULL, null=True, blank=True)
+    updated_by_name = models.CharField(max_length=120, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Handoff note — {self.company.name}"
+
 
 class NotificationRule(models.Model):
     """Which events notify you, and how. You control these in the admin."""
