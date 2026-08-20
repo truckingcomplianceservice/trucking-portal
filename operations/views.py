@@ -6,7 +6,7 @@ from django.db.models import Sum, Q
 from django.shortcuts import render, get_object_or_404, redirect
 from django.views.static import serve
 from django.conf import settings
-from .models import (TeamMessage, ShiftHandoff, Notification, TaskComment, BrokerAgent, Company, Load, Expense, Settlement, Driver, Vehicle, Applicant, ApplicantStatusHistory, SignatureRecord, AuditorLink,
+from .models import (TeamMessage, ShiftHandoff, Notification, TaskComment, IftaStateEntry, BrokerAgent, Company, Load, Expense, Settlement, Driver, Vehicle, Applicant, ApplicantStatusHistory, SignatureRecord, AuditorLink,
                      ComplianceDocument, Broker, FuelTransaction, RentalContract, VehicleDocument, VehiclePhoto, CompanyDocument, notify)
 
 
@@ -877,6 +877,7 @@ def fuel_add(request):
                 vehicle=Vehicle.objects.filter(pk=request.POST.get("vehicle"), company__in=cs).first(),
                 driver=Driver.objects.filter(pk=request.POST.get("driver"), company__in=cs).first(),
                 location=request.POST.get("location", "").strip()[:160],
+                ifta_state=request.POST.get("ifta_state", "").strip().upper()[:2],
                 gallons=round(_num(request.POST.get("gallons", "0")), 2),
                 amount=round(_num(request.POST.get("amount", "0")), 2),
                 card_last4=request.POST.get("card_last4", "").strip()[-4:],
@@ -3860,3 +3861,85 @@ def task_respond(request, pk):
                            kind="task_response", url=url, company=t.company)
             _messages.success(request, "Response posted.")
     return redirect(request.META.get("HTTP_REFERER", "/app/tasks/"))
+
+
+# ================= IFTA quarterly calculator (owner/admin only) =================
+IFTA_QUARTERS = {1: (1, 3), 2: (4, 6), 3: (7, 9), 4: (10, 12)}
+
+
+@login_required
+def ifta_report(request):
+    """IFTA quarterly worksheet. Owner/admin only. Pulls gallons-by-state from
+    fuel transactions; user enters miles-by-state and each state's tax rate."""
+    if not _can_delete(request.user):  # admin/owner only
+        _messages.error(request, "IFTA is available to administrators only.")
+        return redirect("dashboard")
+    cs = _companies(request)
+    company = cs.first()
+    today = _dt.date.today()
+    cur_q = (today.month - 1) // 3 + 1
+    year = int(request.GET.get("year", today.year))
+    quarter = int(request.GET.get("quarter", cur_q))
+    m1, m2 = IFTA_QUARTERS[quarter]
+    start = _dt.date(year, m1, 1)
+    end = _dt.date(year, m2, 28) + _dt.timedelta(days=4)
+    end = end.replace(day=1) - _dt.timedelta(days=1)
+
+    # Save posted miles/rates
+    if request.method == "POST":
+        states = request.POST.getlist("state")
+        miles = request.POST.getlist("miles")
+        rates = request.POST.getlist("rate")
+        for i, st in enumerate(states):
+            st = (st or "").strip().upper()[:2]
+            if not st:
+                continue
+            IftaStateEntry.objects.update_or_create(
+                company=company, year=year, quarter=quarter, state=st,
+                defaults={"miles": _num(miles[i]) if i < len(miles) else 0,
+                          "tax_rate": _num(rates[i]) if i < len(rates) else 0})
+        _messages.success(request, "IFTA figures saved.")
+        return redirect(f"/app/ifta/?year={year}&quarter={quarter}")
+
+    # Gallons purchased per state (from fuel transactions in the quarter)
+    from django.db.models import Sum as _Sum
+    fuel = (FuelTransaction.objects.filter(company=company, date__gte=start, date__lte=end)
+            .exclude(ifta_state="").values("ifta_state")
+            .annotate(g=_Sum("gallons")))
+    gallons_by_state = {f["ifta_state"].upper(): float(f["g"] or 0) for f in fuel}
+    unassigned = (FuelTransaction.objects.filter(company=company, date__gte=start, date__lte=end,
+                  ifta_state="").aggregate(g=_Sum("gallons"))["g"] or 0)
+
+    # Saved miles/rates
+    saved = {e.state: e for e in IftaStateEntry.objects.filter(
+        company=company, year=year, quarter=quarter)}
+
+    # Build the combined state list (any state with gallons OR saved miles)
+    all_states = sorted(set(gallons_by_state) | set(saved))
+    total_miles = sum(float(saved[s].miles) for s in saved)
+    total_gallons = sum(gallons_by_state.values())
+    fleet_mpg = (total_miles / total_gallons) if total_gallons else 0
+
+    rows = []
+    total_tax = 0.0
+    for st in all_states:
+        e = saved.get(st)
+        miles = float(e.miles) if e else 0
+        rate = float(e.tax_rate) if e else 0
+        bought = gallons_by_state.get(st, 0)
+        taxable_gal = (miles / fleet_mpg) if fleet_mpg else 0
+        net_gal = taxable_gal - bought
+        tax = net_gal * rate
+        total_tax += tax
+        rows.append({"state": st, "miles": miles, "bought": round(bought, 1),
+                     "taxable_gal": round(taxable_gal, 1), "net_gal": round(net_gal, 1),
+                     "rate": rate, "tax": round(tax, 2)})
+
+    years = list(range(today.year, today.year - 4, -1))
+    return render(request, "operations/ifta.html", {
+        "company": company, "year": year, "quarter": quarter,
+        "years": years, "start": start, "end": end,
+        "rows": rows, "fleet_mpg": round(fleet_mpg, 2),
+        "total_miles": round(total_miles, 1), "total_gallons": round(total_gallons, 1),
+        "total_tax": round(total_tax, 2), "unassigned_gallons": round(float(unassigned), 1),
+    })

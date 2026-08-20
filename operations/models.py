@@ -632,6 +632,25 @@ class TaskComment(models.Model):
         return f"{self.author_name} on {self.task_id}: {self.body[:30]}"
 
 
+class IftaStateEntry(models.Model):
+    """Per-state miles + tax rate the user enters for an IFTA quarter.
+    Gallons purchased are pulled automatically from fuel transactions."""
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name="ifta_entries")
+    year = models.PositiveIntegerField()
+    quarter = models.PositiveSmallIntegerField()  # 1-4
+    state = models.CharField(max_length=2)
+    miles = models.DecimalField(max_digits=10, decimal_places=1, default=0)
+    tax_rate = models.DecimalField(max_digits=6, decimal_places=4, default=0,
+                                   help_text="State fuel tax rate per gallon for this quarter.")
+
+    class Meta:
+        ordering = ["state"]
+        unique_together = [("company", "year", "quarter", "state")]
+
+    def __str__(self):
+        return f"{self.company} {self.year}Q{self.quarter} {self.state}"
+
+
 class NotificationRule(models.Model):
     """Which events notify you, and how. You control these in the admin."""
     EVENT_CHOICES = [
@@ -773,6 +792,7 @@ class FuelTransaction(models.Model):
     vehicle = models.ForeignKey(Vehicle, on_delete=models.SET_NULL, null=True, blank=True)
     card_last4 = models.CharField("Card (last 4)", max_length=8, blank=True)
     location = models.CharField(max_length=160, blank=True)
+    ifta_state = models.CharField("State (for IFTA)", max_length=2, blank=True, help_text="2-letter state where fuel was purchased, e.g. CA, NV, TX.")
     gallons = models.DecimalField(max_digits=8, decimal_places=2, default=0)
     amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     source = models.CharField(max_length=20, default="csv")

@@ -32,6 +32,7 @@
    <div><label class="sub">Truck</label><select name="vehicle" style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px"><option value="">—</option>{% for v in vehicles %}<option value="{{ v.id }}">Unit {{ v.unit_number }}</option>{% endfor %}</select></div>
    <div><label class="sub">Driver</label><select name="driver" style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px"><option value="">—</option>{% for d in drivers %}<option value="{{ d.id }}">{{ d }}</option>{% endfor %}</select></div>
    <div><label class="sub">Location</label><input name="location" style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px"></div>
+   <div><label class="sub">State (IFTA)</label><input name="ifta_state" maxlength="2" placeholder="e.g. CA" style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px;text-transform:uppercase"></div>
    <div><label class="sub">Gallons</label><input name="gallons" placeholder="0" style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px"></div>
    <div><label class="sub">Amount ($)</label><input name="amount" placeholder="0.00" style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px"></div>
    <div style="grid-column:span 3"><label class="sub">Receipt / invoice (optional)</label><input type="file" name="receipt" style="width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:8px"></div>

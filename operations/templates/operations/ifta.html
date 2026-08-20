@@ -1,0 +1,74 @@
+{% extends "operations/app_base.html" %}
+{% block title %}IFTA — Fleetline{% endblock %}
+{% block page_title %}IFTA fuel tax worksheet{% endblock %}
+{% block content %}
+{% if messages %}{% for m in messages %}<div style="margin:8px 0;padding:10px 14px;border-radius:8px;font-size:13px;background:#e4f4ec;color:#137a51">{{ m }}</div>{% endfor %}{% endif %}
+
+<div class="toolbar">
+ <form method="get" style="display:flex;gap:8px;align-items:center">
+  <label class="sub">Quarter</label>
+  <select name="quarter" onchange="this.form.submit()" style="padding:7px 10px;border:1px solid var(--line);border-radius:8px">
+   {% for q in "1234" %}<option value="{{ q }}"{% if quarter|stringformat:'s' == q %} selected{% endif %}>Q{{ q }}</option>{% endfor %}
+  </select>
+  <select name="year" onchange="this.form.submit()" style="padding:7px 10px;border:1px solid var(--line);border-radius:8px">
+   {% for y in years %}<option value="{{ y }}"{% if year == y %} selected{% endif %}>{{ y }}</option>{% endfor %}
+  </select>
+  <span class="sub">{{ start }} → {{ end }}{% if company %} · {{ company.name }}{% endif %}</span>
+ </form>
+</div>
+
+<div class="kpis" style="margin-bottom:14px">
+ <div class="kpi"><div class="kpi-label">Total miles</div><div class="kpi-value">{{ total_miles }}</div></div>
+ <div class="kpi"><div class="kpi-label">Total gallons</div><div class="kpi-value">{{ total_gallons }}</div></div>
+ <div class="kpi"><div class="kpi-label">Fleet MPG</div><div class="kpi-value">{{ fleet_mpg }}</div></div>
+ <div class="kpi"><div class="kpi-label">Net tax {% if total_tax >= 0 %}owed{% else %}credit{% endif %}</div><div class="kpi-value">${{ total_tax }}</div></div>
+</div>
+
+{% if unassigned_gallons %}<div style="margin-bottom:12px;padding:10px 14px;border-radius:8px;background:#fff7e6;color:#8a6d1f;font-size:13px">⚠️ {{ unassigned_gallons }} gallons of fuel this quarter have no state set. Add the state on those fuel transactions (Fuel page) so they count toward the right state.</div>{% endif %}
+
+<form method="post">{% csrf_token %}
+<div class="card"><div class="card-h"><h3>Miles & fuel tax by state</h3><span class="sub">Enter miles driven and each state's tax rate. Gallons purchased are pulled from your fuel records.</span></div>
+ <div style="padding:8px 14px 14px;overflow-x:auto">
+ <table>
+  <thead><tr>
+   <th>State</th><th>Miles driven</th><th>Gallons bought</th><th>Taxable gallons</th><th>Net gallons</th><th>Tax rate $/gal</th><th>Tax owed/(credit)</th>
+  </tr></thead>
+  <tbody>
+  {% for r in rows %}<tr>
+   <td><input name="state" value="{{ r.state }}" style="width:54px;padding:5px 7px;border:1px solid var(--line);border-radius:6px;text-transform:uppercase"></td>
+   <td><input name="miles" value="{{ r.miles }}" style="width:90px;padding:5px 7px;border:1px solid var(--line);border-radius:6px"></td>
+   <td class="sub">{{ r.bought }}</td>
+   <td class="sub">{{ r.taxable_gal }}</td>
+   <td class="sub">{{ r.net_gal }}</td>
+   <td><input name="rate" value="{{ r.rate }}" style="width:80px;padding:5px 7px;border:1px solid var(--line);border-radius:6px"></td>
+   <td style="font-weight:600;{% if r.tax > 0 %}color:#b00{% elif r.tax < 0 %}color:#137a51{% endif %}">${{ r.tax }}</td>
+  </tr>{% endfor %}
+  <!-- blank rows to add states -->
+  {% for i in "123" %}<tr>
+   <td><input name="state" placeholder="ST" style="width:54px;padding:5px 7px;border:1px solid var(--line);border-radius:6px;text-transform:uppercase"></td>
+   <td><input name="miles" placeholder="0" style="width:90px;padding:5px 7px;border:1px solid var(--line);border-radius:6px"></td>
+   <td class="sub">—</td><td class="sub">—</td><td class="sub">—</td>
+   <td><input name="rate" placeholder="0.00" style="width:80px;padding:5px 7px;border:1px solid var(--line);border-radius:6px"></td>
+   <td class="sub">—</td>
+  </tr>{% endfor %}
+  </tbody>
+ </table>
+ </div>
+ <div style="padding:0 14px 16px"><button class="btn amber" type="submit">Save & recalculate</button></div>
+</div>
+</form>
+
+<div class="card" style="margin-top:14px"><div class="card-h"><h3>How this works</h3></div>
+ <div style="padding:14px 16px;font-size:13px;color:#555;line-height:1.6">
+  Fleet MPG = total miles ÷ total gallons. For each state: taxable gallons = miles ÷ fleet MPG;
+  net gallons = taxable gallons − gallons bought there; tax = net gallons × that state's rate.
+  A positive number means you owe that state; a negative number is a credit.<br><br>
+  <b>You must enter:</b> miles driven in each state, and each state's current fuel tax rate
+  (rates change every quarter — get them from your IFTA filing packet or your base state's rate sheet).
+  <b>Pulled automatically:</b> gallons purchased per state (from your Fuel records — make sure each
+  fuel transaction has its state set).<br><br>
+  This is a worksheet to help you file — it is not an official return and does not submit to any
+  state. Please verify figures before filing, or share them with your accountant.
+ </div>
+</div>
+{% endblock %}
