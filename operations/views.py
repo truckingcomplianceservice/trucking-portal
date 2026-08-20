@@ -170,6 +170,9 @@ def _scoped_companies(request):
     companies = Company.objects.all()
     if not request.user.is_superuser:
         companies = companies.filter(pk__in=request.user.profile.companies.all())
+    ac = _active(request)
+    if ac and ac != "all":
+        companies = companies.filter(pk=ac)
     return companies
 
 
