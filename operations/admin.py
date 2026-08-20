@@ -10,7 +10,7 @@ from django.utils.safestring import mark_safe
 from .models import (VehiclePhoto, ApplicantStatusHistory, Company, Profile, Driver, Vehicle, Load, Expense,
                      Settlement, Applicant, ComplianceDocument, ActivityLog, NotificationRule,
                      Broker, BrokerAgent, FuelTransaction, TimeEntry, Invoice, Payment, MaintenanceRecord,
-                     RentalContract, VehicleDocument, CompanyDocument)
+                     RentalContract, VehicleDocument, CompanyDocument, TeamInvite)
 
 
 class RentalContractInline(admin.TabularInline):
@@ -331,3 +331,9 @@ class ApplicantStatusHistoryAdmin(admin.ModelAdmin):
 @admin.register(VehiclePhoto)
 class VehiclePhotoAdmin(admin.ModelAdmin):
     list_display = ("vehicle", "caption", "uploaded_at")
+
+
+try:
+    admin.site.register(TeamInvite)
+except Exception:
+    pass

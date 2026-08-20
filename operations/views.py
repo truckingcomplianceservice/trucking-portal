@@ -6,7 +6,7 @@ from django.db.models import Sum, Q
 from django.shortcuts import render, get_object_or_404, redirect
 from django.views.static import serve
 from django.conf import settings
-from .models import (TeamMessage, ShiftHandoff, Notification, TaskComment, IftaStateEntry, BrokerAgent, Company, Load, Expense, Settlement, Driver, Vehicle, Applicant, ApplicantStatusHistory, SignatureRecord, AuditorLink,
+from .models import (TeamMessage, ShiftHandoff, Notification, TaskComment, IftaStateEntry, TeamInvite, BrokerAgent, Company, Load, Expense, Settlement, Driver, Vehicle, Applicant, ApplicantStatusHistory, SignatureRecord, AuditorLink,
                      ComplianceDocument, Broker, FuelTransaction, RentalContract, VehicleDocument, VehiclePhoto, CompanyDocument, notify)
 
 
@@ -1180,11 +1180,20 @@ def app_team(request):
         })
     my_open = TimeEntry.objects.filter(user=request.user, clock_out__isnull=True).first()
     recent = ActivityLog.objects.select_related("user", "company")[:12]
+    # pending team invites for the companies in scope
+    cs = _companies(request)
+    pending_invites = (TeamInvite.objects.filter(company__in=cs, status="submitted")
+                       .select_related("user", "company"))
+    active_links = (TeamInvite.objects.filter(company__in=cs, status="pending")
+                    .select_related("company"))
+    base = getattr(settings, "APP_BASE_URL", "").rstrip("/")
+    link_rows = [{"inv": i, "link": (base or "") + f"/join/{i.token}/"} for i in active_links]
     return render(request, "operations/app_team.html", {
         "roster": roster, "roles": Profile.ROLE_CHOICES,
         "all_companies": _companies_all(request), "my_open": my_open,
         "recent": recent, "can_manage": _is_manager(request.user),
         "can_delete": _can_delete(request.user),
+        "pending_invites": pending_invites, "active_links": link_rows,
     })
 
 
@@ -4003,3 +4012,110 @@ def ifta_report(request):
         "total_miles": round(total_miles, 1), "total_gallons": round(total_gallons, 1),
         "total_tax": round(total_tax, 2), "unassigned_gallons": round(float(unassigned), 1),
     })
+
+
+# ================= Team invites: secure self-signup + approval =================
+@login_required
+def team_invite_create(request):
+    """Admin/manager creates an invite link for a chosen role. Returns the link."""
+    if not _is_manager(request.user):
+        _messages.error(request, "Only managers or admins can invite team members.")
+        return redirect("app_team")
+    cs = _companies(request)
+    company = cs.first()
+    if request.method == "POST" and company:
+        role = request.POST.get("role", "dispatcher")
+        valid_roles = [r[0] for r in Profile.ROLE_CHOICES]
+        if role not in valid_roles:
+            role = "dispatcher"
+        # non-admins cannot mint admin invites
+        if role == "admin" and not _can_delete(request.user):
+            role = "manager"
+        inv = TeamInvite.objects.create(
+            company=company, role=role,
+            invited_email=request.POST.get("email", "").strip()[:254],
+            invited_by=request.user)
+        base = getattr(settings, "APP_BASE_URL", "").rstrip("/")
+        link = (base or "") + f"/join/{inv.token}/"
+        _messages.success(request, f"Invite link created (expires in 7 days): {link}")
+    return redirect("app_team")
+
+
+def team_join(request, token):
+    """PUBLIC page: a new member opens the invite link, fills info, sets password."""
+    inv = TeamInvite.objects.filter(token=token).select_related("company").first()
+    if not inv or not inv.is_valid():
+        return render(request, "operations/join.html", {"invalid": True})
+    if request.method == "POST":
+        username = (request.POST.get("username") or "").strip()
+        first = (request.POST.get("first_name") or "").strip()
+        last = (request.POST.get("last_name") or "").strip()
+        email = (request.POST.get("email") or "").strip()
+        pw1 = request.POST.get("password") or ""
+        pw2 = request.POST.get("password2") or ""
+        err = None
+        if not username or not first:
+            err = "Please enter at least a username and your first name."
+        elif len(pw1) < 8:
+            err = "Password must be at least 8 characters."
+        elif pw1 != pw2:
+            err = "The two passwords do not match."
+        elif _User.objects.filter(username__iexact=username).exists():
+            err = "That username is taken — please choose another."
+        if err:
+            return render(request, "operations/join.html",
+                          {"inv": inv, "error": err, "company": inv.company,
+                           "form": request.POST})
+        # create the user INACTIVE until approved
+        user = _User.objects.create_user(username=username, password=pw1,
+                                        first_name=first[:150], last_name=last[:150],
+                                        email=email[:254])
+        user.is_active = False   # cannot log in until approved
+        user.is_staff = True     # needs staff to use the app admin-backed pages
+        user.save()
+        prof, _ = Profile.objects.get_or_create(user=user)
+        prof.role = inv.role
+        prof.save()
+        prof.companies.add(inv.company)
+        inv.user = user
+        inv.status = "submitted"
+        inv.save()
+        # notify managers/admins of this company to approve
+        mgrs = _User.objects.filter(is_active=True, profile__companies=inv.company,
+                                   profile__role__in=["admin", "manager"]).distinct()
+        for m in mgrs:
+            notify(m, f"{first} {last} signed up to join {inv.company.name} — approve them in Team.",
+                   kind="general", url="/app/team/", company=inv.company)
+        return render(request, "operations/join.html", {"done": True, "company": inv.company})
+    return render(request, "operations/join.html", {"inv": inv, "company": inv.company})
+
+
+@login_required
+def team_invite_approve(request, pk):
+    """Admin/manager approves (activates) a submitted member, or revokes."""
+    if not _is_manager(request.user):
+        _messages.error(request, "Only managers or admins can approve members.")
+        return redirect("app_team")
+    cs = _companies(request)
+    inv = TeamInvite.objects.filter(pk=pk, company__in=cs).select_related("user").first()
+    if inv and request.method == "POST":
+        action = request.POST.get("action")
+        if action == "approve" and inv.user:
+            from django.utils import timezone
+            inv.user.is_active = True
+            inv.user.save()
+            inv.status = "approved"
+            inv.approved_by = request.user
+            inv.approved_at = timezone.now()
+            inv.save()
+            notify(inv.user, f"You've been approved to join {inv.company.name}. You can now log in.",
+                   kind="general", url="/dashboard/", company=inv.company)
+            _messages.success(request, f"{inv.user.get_full_name() or inv.user.username} approved and can now log in.")
+        elif action == "revoke":
+            if inv.user and inv.status != "approved":
+                inv.user.is_active = False
+                inv.user.save()
+            inv.status = "revoked"
+            inv.save()
+            _messages.success(request, "Invite revoked.")
+    return redirect("app_team")

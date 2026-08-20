@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Join the team</title>
+<style>
+ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#1e2d45;margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+ .box{background:#fff;border-radius:16px;max-width:440px;width:100%;padding:32px;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+ h1{font-size:20px;margin:0 0 4px;color:#1e2d45}
+ .sub{color:#6b7385;font-size:13px;margin-bottom:20px}
+ label{display:block;font-size:12px;color:#6b7385;margin:12px 0 4px;font-weight:600}
+ input{width:100%;padding:10px 12px;border:1px solid #d8dde6;border-radius:8px;font-size:14px;box-sizing:border-box}
+ .btn{width:100%;margin-top:20px;padding:12px;background:#b39a6d;color:#fff;border:none;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer}
+ .btn:hover{background:#a08957}
+ .err{background:#fdecea;color:#b0281a;padding:10px 12px;border-radius:8px;font-size:13px;margin-bottom:12px}
+ .ok{background:#e4f4ec;color:#137a51;padding:16px;border-radius:8px;font-size:14px;text-align:center}
+ .role{display:inline-block;background:#eef2f8;color:#1e2d45;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600}
+</style></head><body>
+<div class="box">
+{% if invalid %}
+ <h1>This invite link is not valid</h1>
+ <p class="sub">It may have expired, already been used, or been revoked. Please ask your manager to send you a new invite link.</p>
+{% elif done %}
+ <h1>Thanks — you're almost in!</h1>
+ <div class="ok">Your details were submitted to <b>{{ company.name }}</b>.<br><br>A manager needs to approve you before you can log in. You'll get an email once you're approved.</div>
+{% else %}
+ <h1>Join {{ company.name }}</h1>
+ <p class="sub">You've been invited as <span class="role">{{ inv.get_role_display }}</span>. Fill in your details and choose a password.</p>
+ {% if error %}<div class="err">{{ error }}</div>{% endif %}
+ <form method="post">{% csrf_token %}
+  <label>Username *</label>
+  <input name="username" required value="{{ form.username|default:'' }}" placeholder="e.g. john.d">
+  <label>First name *</label>
+  <input name="first_name" required value="{{ form.first_name|default:'' }}">
+  <label>Last name</label>
+  <input name="last_name" value="{{ form.last_name|default:'' }}">
+  <label>Email</label>
+  <input name="email" type="email" value="{{ form.email|default:inv.invited_email }}" placeholder="you@example.com">
+  <label>Password * (at least 8 characters)</label>
+  <input name="password" type="password" required>
+  <label>Confirm password *</label>
+  <input name="password2" type="password" required>
+  <button class="btn" type="submit">Submit to join</button>
+ </form>
+{% endif %}
+</div>
+</body></html>

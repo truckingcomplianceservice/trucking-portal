@@ -7,6 +7,9 @@ from django.views.generic import RedirectView
 from operations import views
 
 urlpatterns = [
+    path("join/<str:token>/", views.team_join, name="team_join"),
+    path("app/team/invite/", views.team_invite_create, name="team_invite_create"),
+    path("app/team/invite/<int:pk>/approve/", views.team_invite_approve, name="team_invite_approve"),
     path("app/ifta/", views.ifta_report, name="ifta_report"),
     path("app/notifications/poll/", views.notif_poll, name="notif_poll"),
     path("app/notifications/read/", views.notif_read, name="notif_read"),

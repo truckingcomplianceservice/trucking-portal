@@ -30,8 +30,45 @@
 <div class="toolbar"><b style="font-size:14px">Team members</b><div class="spacer"></div>
  <a class="btn ghost" href="/admin/operations/company/">Company settings</a>
  <a class="btn ghost" href="/app/timesheet/">Timesheet</a>
- {% if can_manage %}<button class="btn amber" onclick="document.getElementById('addm').classList.add('open')">+ Add team member</button>{% endif %}
+ {% if can_manage %}<button class="btn ghost" onclick="document.getElementById('invm').classList.add('open')">🔗 Invite by link</button>
+ <button class="btn amber" onclick="document.getElementById('addm').classList.add('open')">+ Add team member</button>{% endif %}
 </div>
+
+{% if can_manage and pending_invites %}
+<div class="card" style="margin-bottom:14px;border-left:4px solid #f0c040">
+ <div class="card-h"><h3>Awaiting your approval ({{ pending_invites|length }})</h3></div>
+ <table><thead><tr><th>Name</th><th>Username</th><th>Role</th><th>Company</th><th>Email</th><th></th></tr></thead><tbody>
+ {% for i in pending_invites %}<tr>
+  <td><b>{{ i.user.get_full_name|default:i.user.username }}</b></td>
+  <td class="sub">{{ i.user.username }}</td>
+  <td>{{ i.get_role_display }}</td>
+  <td class="sub">{{ i.company.name }}</td>
+  <td class="sub">{{ i.user.email|default:"—" }}</td>
+  <td>
+   <form method="post" action="/app/team/invite/{{ i.id }}/approve/" style="display:inline">{% csrf_token %}
+    <input type="hidden" name="action" value="approve">
+    <button class="btn amber" style="padding:5px 12px;font-size:12px">Approve</button></form>
+   <form method="post" action="/app/team/invite/{{ i.id }}/approve/" style="display:inline">{% csrf_token %}
+    <input type="hidden" name="action" value="revoke">
+    <button class="btn ghost" style="padding:5px 10px;font-size:12px">Reject</button></form>
+  </td>
+ </tr>{% endfor %}
+ </tbody></table>
+</div>
+{% endif %}
+
+{% if can_manage and active_links %}
+<div class="card" style="margin-bottom:14px">
+ <div class="card-h"><h3>Open invite links</h3><span class="sub">Share these — they expire in 7 days</span></div>
+ <table><thead><tr><th>Role</th><th>Company</th><th>Link</th></tr></thead><tbody>
+ {% for row in active_links %}<tr>
+  <td>{{ row.inv.get_role_display }}</td>
+  <td class="sub">{{ row.inv.company.name }}</td>
+  <td><input readonly value="{{ row.link }}" onclick="this.select()" style="width:100%;padding:5px 8px;border:1px solid var(--line);border-radius:6px;font-size:12px"></td>
+ </tr>{% endfor %}
+ </tbody></table>
+</div>
+{% endif %}
 
 <div class="card">
 <table><thead><tr><th>Member</th><th>Role</th><th>Companies</th><th>Status</th><th>On clock</th><th>Today</th>{% if can_manage %}<th></th>{% endif %}</tr></thead><tbody>
@@ -66,6 +103,18 @@
    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:6px">
     <button type="button" class="btn ghost" onclick="document.getElementById('addm').classList.remove('open')">Cancel</button>
     <button type="submit" class="btn amber">Add member</button></div>
+  </form>
+ </div>
+</div>
+<div class="modal-bg" id="invm">
+ <div class="modal"><h3>Invite a team member by link</h3>
+  <p class="sub" style="font-size:13px;color:#6b7385;margin-top:0">Pick a role and (optionally) their email. You'll get a secure link to share — they set their own password, then you approve them.</p>
+  <form method="post" action="/app/team/invite/">{% csrf_token %}
+   <div class="frow"><label>Role</label><select name="role">{% for code,label in roles %}{% if code != 'admin' or can_delete %}<option value="{{ code }}">{{ label }}</option>{% endif %}{% endfor %}</select></div>
+   <div class="frow"><label>Their email (optional)</label><input name="email" type="email" placeholder="prefilled on the form for them"></div>
+   <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:6px">
+    <button type="button" class="btn ghost" onclick="document.getElementById('invm').classList.remove('open')">Cancel</button>
+    <button type="submit" class="btn amber">Create invite link</button></div>
   </form>
  </div>
 </div>

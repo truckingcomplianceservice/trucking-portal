@@ -651,6 +651,43 @@ class IftaStateEntry(models.Model):
         return f"{self.company} {self.year}Q{self.quarter} {self.state}"
 
 
+class TeamInvite(models.Model):
+    """A secure, expiring invitation link for a new team member to self-register.
+    The person opens the link, fills in their info, and sets their own password.
+    An admin/manager then approves them before they gain access."""
+    STATUS = [("pending", "Awaiting sign-up"), ("submitted", "Awaiting approval"),
+              ("approved", "Approved"), ("revoked", "Revoked")]
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name="invites")
+    token = models.CharField(max_length=64, unique=True, db_index=True)
+    role = models.CharField(max_length=20, default="dispatcher")
+    invited_email = models.EmailField(blank=True)
+    invited_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True,
+                                   related_name="sent_invites")
+    user = models.OneToOneField(User, on_delete=models.SET_NULL, null=True, blank=True,
+                                related_name="invite")
+    status = models.CharField(max_length=12, choices=STATUS, default="pending")
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    approved_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True,
+                                    related_name="approved_invites")
+    approved_at = models.DateTimeField(null=True, blank=True)
+
+    def save(self, *args, **kwargs):
+        if not self.token:
+            self.token = secrets.token_urlsafe(32)
+        if not self.expires_at:
+            from django.utils import timezone
+            self.expires_at = timezone.now() + __import__("datetime").timedelta(days=7)
+        super().save(*args, **kwargs)
+
+    def is_valid(self):
+        from django.utils import timezone
+        return self.status in ("pending", "submitted") and self.expires_at > timezone.now()
+
+    def __str__(self):
+        return f"Invite to {self.company.name} ({self.get_status_display()})"
+
+
 class NotificationRule(models.Model):
     """Which events notify you, and how. You control these in the admin."""
     EVENT_CHOICES = [
