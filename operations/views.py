@@ -515,26 +515,59 @@ def app_vehicle_detail(request, pk):
     v = _get(Vehicle, pk=pk, company__in=_companies_all(request))
     records = v.maintenance.all()
     today = _dt.date.today()
-    total_all = sum((r.total for r in records), 0)
-    total_year = sum((r.total for r in records if r.date and r.date.year == today.year), 0)
-    total_month = sum((r.total for r in records if r.date and r.date.year == today.year
-                       and r.date.month == today.month), 0)
+    # expenses tied to this vehicle (from Accounting), plus fuel
+    vehicle_expenses = Expense.objects.filter(vehicle=v).order_by("-date")
+    exp_total = sum((float(e.amount) for e in vehicle_expenses), 0.0)
+    total_all = float(sum((r.total for r in records), 0)) + exp_total
+    total_year = (float(sum((r.total for r in records if r.date and r.date.year == today.year), 0))
+                  + sum((float(e.amount) for e in vehicle_expenses
+                         if e.date and e.date.year == today.year), 0.0))
+    total_month = (float(sum((r.total for r in records if r.date and r.date.year == today.year
+                       and r.date.month == today.month), 0))
+                   + sum((float(e.amount) for e in vehicle_expenses if e.date
+                          and e.date.year == today.year and e.date.month == today.month), 0.0))
     months = {}
     for r in records:
         if r.date:
             key = r.date.strftime("%Y-%m")
-            months[key] = months.get(key, 0) + r.total
+            months[key] = months.get(key, 0) + float(r.total)
+    for e in vehicle_expenses:
+        if e.date:
+            key = e.date.strftime("%Y-%m")
+            months[key] = months.get(key, 0) + float(e.amount)
     monthly = [{"month": _dt.datetime.strptime(k, "%Y-%m").strftime("%b %Y"), "total": t}
                for k, t in sorted(months.items(), reverse=True)]
     docs = [{"o": d, "chip": _exp_chip(d.expiry_date) if d.expiry_date else None}
             for d in v.documents.all()]
+    # ---- Cost breakdown by category (with %) ----
+    cat_totals = {}
+    # maintenance/service as one category
+    svc_total = sum((float(r.total) for r in records), 0.0)
+    if svc_total:
+        cat_totals["Service / maintenance"] = svc_total
+    # fuel as its own category
+    fuel_total = float(FuelTransaction.objects.filter(vehicle=v)
+                       .aggregate(s=Sum("amount"))["s"] or 0)
+    if fuel_total:
+        cat_totals["Fuel"] = fuel_total
+    # each expense category
+    for e in vehicle_expenses:
+        cat = (e.category or "Other").strip() or "Other"
+        cat_totals[cat] = cat_totals.get(cat, 0.0) + float(e.amount)
+    grand_total = sum(cat_totals.values())
+    cost_breakdown = []
+    for cat, amt in sorted(cat_totals.items(), key=lambda x: x[1], reverse=True):
+        pct = (amt / grand_total * 100) if grand_total else 0
+        cost_breakdown.append({"category": cat, "amount": round(amt, 2),
+                               "pct": round(pct, 1)})
     return render(request, "operations/app_vehicle_detail.html",
                   {"v": v, "insp": _exp_chip(v.inspection_expiry),
                    "reg": _exp_chip(v.registration_expiry), "service": _service_chip(v),
                    "records": records, "total_all": total_all, "total_year": total_year,
                    "total_month": total_month, "monthly": monthly, "today": today.isoformat(),
                    "docs": docs, "doc_types": VehicleDocument.DOC_TYPES,
-                   "photos": v.photos.all()})
+                   "photos": v.photos.all(), "vehicle_expenses": vehicle_expenses,
+                   "cost_breakdown": cost_breakdown, "cost_grand_total": round(grand_total, 2)})
 
 
 @login_required

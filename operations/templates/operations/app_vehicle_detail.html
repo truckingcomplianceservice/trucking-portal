@@ -149,8 +149,34 @@ function evClose(){document.getElementById('evModal').style.display='none';}
    <td>{% if r.receipt %}<a href="{{ r.receipt.url }}" target="_blank" style="color:var(--blue)">View</a>{% else %}—{% endif %}</td>
   </tr>{% endfor %}</tbody></table>
   {% else %}<div class="empty">No service records yet. Add one on the right.</div>{% endif %}
-  {% if monthly %}<div style="padding:12px 18px;border-top:1px solid var(--line)"><b style="font-size:12px">Spend by month</b>
+  {% if vehicle_expenses %}<div style="padding:12px 18px;border-top:1px solid var(--line)"><b style="font-size:12px">Expenses (from Accounting)</b>
+   <table style="margin-top:6px"><thead><tr><th>Date</th><th>Category</th><th>Vendor</th><th style="text-align:right">Amount</th><th>Receipt</th></tr></thead><tbody>
+   {% for e in vehicle_expenses %}<tr>
+    <td class="sub">{{ e.date|date:"M d, Y" }}</td>
+    <td>{{ e.category }}</td>
+    <td class="sub">{{ e.vendor|default:"—" }}</td>
+    <td style="text-align:right">${{ e.amount|floatformat:2 }}</td>
+    <td>{% if e.receipt %}<a href="{{ e.receipt.url }}" target="_blank" class="sub" style="color:var(--blue)">View</a>{% else %}<span class="sub">—</span>{% endif %}</td>
+   </tr>{% endfor %}
+   </tbody></table>
+  </div>{% endif %}
+  {% if monthly %}<div style="padding:12px 18px;border-top:1px solid var(--line)"><b style="font-size:12px">Spend by month (service + expenses)</b>
    {% for m in monthly %}<div style="display:flex;justify-content:space-between;font-size:13px;padding:4px 0"><span class="sub">{{ m.month }}</span><span>${{ m.total|floatformat:2 }}</span></div>{% endfor %}
+  </div>{% endif %}
+  {% if cost_breakdown %}<div style="padding:12px 18px;border-top:1px solid var(--line)">
+   <b style="font-size:12px">Cost breakdown by category</b>
+   <div class="sub" style="font-size:11px;margin-bottom:8px">Total ${{ cost_grand_total|floatformat:2 }} (fuel + service + expenses)</div>
+   {% for cb in cost_breakdown %}
+   <div style="margin-bottom:8px">
+     <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:2px">
+       <span>{{ cb.category }}</span>
+       <span><b>{{ cb.pct }}%</b> <span class="sub">· ${{ cb.amount|floatformat:2 }}</span></span>
+     </div>
+     <div style="height:8px;background:#eef0f4;border-radius:4px;overflow:hidden">
+       <div style="height:100%;width:{{ cb.pct }}%;background:#b39a6d"></div>
+     </div>
+   </div>
+   {% endfor %}
   </div>{% endif %}
  </div>
  <div class="card" style="align-self:start"><div class="card-h"><h3>Log a service</h3></div>
