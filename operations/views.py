@@ -6,7 +6,7 @@ from django.db.models import Sum, Q
 from django.shortcuts import render, get_object_or_404, redirect
 from django.views.static import serve
 from django.conf import settings
-from .models import (TeamMessage, ShiftHandoff, BrokerAgent, Company, Load, Expense, Settlement, Driver, Vehicle, Applicant, ApplicantStatusHistory, SignatureRecord, AuditorLink,
+from .models import (TeamMessage, ShiftHandoff, Notification, TaskComment, BrokerAgent, Company, Load, Expense, Settlement, Driver, Vehicle, Applicant, ApplicantStatusHistory, SignatureRecord, AuditorLink,
                      ComplianceDocument, Broker, FuelTransaction, RentalContract, VehicleDocument, VehiclePhoto, CompanyDocument, notify)
 
 
@@ -2185,6 +2185,11 @@ def task_create(request):
     if due:
         t.due_date = due
     t.save()
+    # notify the assignee (in-app + email)
+    if t.assignee and t.assignee != request.user:
+        who = request.user.get_full_name() or request.user.username
+        notify(t.assignee, f"{who} assigned you a task: {t.title}",
+               kind="task_assigned", url="/app/tasks/", company=company)
     ActivityLog.objects.create(company=company, user=request.user, category="task",
                                text=f"Task assigned: {t.title}")
     _messages.success(request, "Task created.")
@@ -2205,6 +2210,11 @@ def task_status(request, pk):
         if new == "done" and not t.completed_at:
             from django.utils import timezone
             t.completed_at = timezone.now()
+            # notify the creator that it's done
+            if t.created_by and t.created_by != request.user:
+                who = request.user.get_full_name() or request.user.username
+                notify(t.created_by, f"{who} completed the task: {t.title}",
+                       kind="task_done", url="/app/tasks/", company=t.company)
         t.save()
     return redirect("tasks_page")
 
@@ -3684,10 +3694,25 @@ def chat_send(request):
     if request.method == "POST" and company:
         body = (request.POST.get("body") or "").strip()
         if body:
+            who = request.user.get_full_name() or request.user.username
             TeamMessage.objects.create(
                 company=company, author=request.user,
-                author_name=request.user.get_full_name() or request.user.username,
+                author_name=who,
                 body=body[:2000])
+            # notify any @mentioned teammates in this company
+            import re as _re2
+            handles = set(h.lower() for h in _re2.findall(r"@([A-Za-z0-9_.\-]+)", body))
+            if handles:
+                mates = _User.objects.filter(is_active=True, profile__companies=company).distinct()
+                for u in mates:
+                    if u == request.user:
+                        continue
+                    names = {u.username.lower()}
+                    if u.first_name:
+                        names.add(u.first_name.lower())
+                    if handles & names:
+                        notify(u, f"{who} mentioned you in team chat: {body[:80]}",
+                               kind="mention", url="", company=company)
             return JsonResponse({"ok": True})
     return JsonResponse({"ok": False})
 
@@ -3729,6 +3754,11 @@ def chat_to_task(request):
             details=request.POST.get("details", "").strip(),
             priority=request.POST.get("priority", "normal"),
             assignee=assignee, created_by=request.user)
+        # notify the assignee (in-app + email)
+        if assignee and assignee != request.user:
+            who0 = request.user.get_full_name() or request.user.username
+            notify(assignee, f"{who0} assigned you a task: {t.title}",
+                   kind="task_assigned", url="/app/tasks/", company=company)
         # also drop a note in chat so the team sees it was actioned
         who = assignee.get_full_name() or assignee.username if assignee else "the team"
         TeamMessage.objects.create(
@@ -3737,3 +3767,74 @@ def chat_to_task(request):
             body=f"✅ Task created for {who}: {t.title}")
         return JsonResponse({"ok": True})
     return JsonResponse({"ok": False, "error": "Could not create task."})
+
+
+# ================= Notifications (in-app bell + email) =================
+def notify(user, text, kind="general", url="", company=None, email=True):
+    """Create an in-app notification for a user, and optionally email them.
+    Safe: never breaks the main action if email fails."""
+    if not user:
+        return
+    try:
+        Notification.objects.create(user=user, company=company, kind=kind,
+                                    text=text[:300], url=url[:200])
+    except Exception:
+        pass
+    if email and getattr(user, "email", ""):
+        try:
+            from django.core.mail import EmailMessage
+            base = getattr(settings, "APP_BASE_URL", "").rstrip("/")
+            link = (base + url) if (base and url) else ""
+            body = text + (f"\n\nOpen: {link}" if link else "")
+            body += "\n\n— Trucking Compliance Services"
+            EmailMessage(subject=text[:120], body=body,
+                         from_email=settings.DEFAULT_FROM_EMAIL,
+                         to=[user.email]).send(fail_silently=True)
+        except Exception:
+            pass
+
+
+@login_required
+def notif_poll(request):
+    """Unread count + recent notifications for the bell."""
+    from django.http import JsonResponse
+    qs = Notification.objects.filter(user=request.user)
+    unread = qs.filter(is_read=False).count()
+    items = [{"id": n.id, "text": n.text, "url": n.url, "kind": n.kind,
+              "read": n.is_read,
+              "when": n.created_at.strftime("%b %d, %I:%M %p")} for n in qs[:20]]
+    return JsonResponse({"ok": True, "unread": unread, "items": items})
+
+
+@login_required
+def notif_read(request):
+    """Mark one or all notifications read."""
+    from django.http import JsonResponse
+    if request.method == "POST":
+        nid = request.POST.get("id")
+        if nid:
+            Notification.objects.filter(pk=nid, user=request.user).update(is_read=True)
+        else:
+            Notification.objects.filter(user=request.user, is_read=False).update(is_read=True)
+    return JsonResponse({"ok": True})
+
+
+@login_required
+def task_respond(request, pk):
+    """Assignee (or anyone on the task's company) posts a response; notifies the
+    task creator + assignee."""
+    cs = _companies(request)
+    t = Task.objects.filter(pk=pk, company__in=cs).first()
+    if request.method == "POST" and t:
+        body = (request.POST.get("body") or "").strip()
+        if body:
+            who = request.user.get_full_name() or request.user.username
+            TaskComment.objects.create(task=t, author=request.user, author_name=who, body=body[:2000])
+            url = "/app/tasks/"
+            # notify the creator and the assignee (whoever isn't the author)
+            for target in {t.created_by, t.assignee}:
+                if target and target != request.user:
+                    notify(target, f"{who} responded on task '{t.title}': {body[:80]}",
+                           kind="task_response", url=url, company=t.company)
+            _messages.success(request, "Response posted.")
+    return redirect(request.META.get("HTTP_REFERER", "/app/tasks/"))

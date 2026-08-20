@@ -593,6 +593,41 @@ class ShiftHandoff(models.Model):
         return f"Handoff note — {self.company.name}"
 
 
+class Notification(models.Model):
+    """An in-app notification for a specific user. Optionally also emailed."""
+    KIND = [("task_assigned", "Task assigned"), ("task_response", "Task response"),
+            ("mention", "Mention"), ("task_done", "Task completed"), ("general", "General")]
+    user = models.ForeignKey("auth.User", on_delete=models.CASCADE, related_name="notifications")
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, null=True, blank=True)
+    kind = models.CharField(max_length=20, choices=KIND, default="general")
+    text = models.CharField(max_length=300)
+    url = models.CharField(max_length=200, blank=True)
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"To {self.user}: {self.text[:40]}"
+
+
+class TaskComment(models.Model):
+    """A response/comment on a task — lets the assignee reply, and notifies the
+    task creator."""
+    task = models.ForeignKey("Task", on_delete=models.CASCADE, related_name="comments")
+    author = models.ForeignKey("auth.User", on_delete=models.SET_NULL, null=True, blank=True)
+    author_name = models.CharField(max_length=120, blank=True)
+    body = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["created_at"]
+
+    def __str__(self):
+        return f"{self.author_name} on {self.task_id}: {self.body[:30]}"
+
+
 class NotificationRule(models.Model):
     """Which events notify you, and how. You control these in the admin."""
     EVENT_CHOICES = [

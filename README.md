@@ -1,33 +1,41 @@
 # Trucking Compliance Services — Operations Portal
 
-Team chat: @mention tagging + turn a message into an assigned task.
+Notification system: in-app bell + email. Assignees can respond to tasks.
 
 ## Deploy
 1. Download this zip, then in Terminal:
    cd ~/Documents/GitHub/trucking-portal && rm -rf operations trucking_ops templates manage.py requirements.txt Procfile README.md && unzip -o ~/Downloads/<THIS-FILE>.zip -d . && echo DONE
 2. GitHub Desktop -> Commit -> Push. Test in a private/incognito window.
 
-## New in the team chat widget
-- @MENTION / TAGGING: type "@" in the chat and a list of your teammates pops up.
-  Pick one to tag them (e.g. "@alice call TQL"). Tagged people see that message
-  highlighted (a gold outline) so they know it's for them. Mentions are shown in
-  gold in the text.
-- TURN A MESSAGE INTO A TASK: click the "Task" button in the chat. It pre-fills
-  the task from what you typed, lets you pick who to assign it to and a priority,
-  and creates a real task on the Tasks page. A short confirmation is posted back
-  in chat so the team sees it was actioned.
+## New: notifications (bell + email)
+- A NOTIFICATION BELL now sits in the top bar (top-right) on every page, with a
+  red unread count. Click it to see recent notifications; "Mark all read" clears
+  them. It refreshes every 20 seconds.
+- People get notified (in-app AND by email) when:
+  * a task is ASSIGNED to them,
+  * someone RESPONDS to their task,
+  * a task they created is marked DONE,
+  * someone @MENTIONS them in team chat.
 
-Reminder: full task management already lives on the Tasks page (sidebar "Tasks")
--- assign, set priority/due date, link to a load/driver/truck, mark done. This
-just makes it quick to create one straight from a chat message.
+## New: respond to tasks
+On the Tasks page, each task now has a "Respond" link. Click it to see the
+conversation and post a response. When you respond, the task's creator (and
+assignee) get notified -- so you can assign a task, the person can reply, and
+you'll know. Great for back-and-forth without leaving the app.
 
-All company-private: you can only tag/assign teammates in your own company.
+## Email note
+Notification emails use your existing company email setup. Make sure each team
+member has an EMAIL set on their account (Team -> Edit) to receive emails; the
+in-app bell works regardless.
+
+SMS/phone text is NOT included yet (that needs a paid Twilio account + business
+registration) -- we can add it later as an upgrade.
 
 ## Includes everything to date
-Chat @mentions + chat-to-task, team username + remove, floating team chat +
-handoff, duplicate rate-con protection, rate-con broker+agent auto-create,
-all-brokers list, brokers + agents, team messages, admin-only delete, vehicle
-page fix, deadhead fix + Google-ready miles, unified load form, vehicle docs
-front, auto miles, vehicle photos, email document, hiring phases 1-6, dashboard
-KPIs, professional 1099, R2 cloud backup, 12-test suite, factoring, company docs,
-company logins, FMCSA lookup.
+Notifications (bell+email) + task responses, chat @mentions + chat-to-task, team
+username + remove, floating team chat + handoff, duplicate rate-con protection,
+rate-con broker+agent auto-create, all-brokers list, brokers + agents, team
+messages, admin-only delete, vehicle page fix, deadhead fix + Google-ready miles,
+unified load form, vehicle docs front, auto miles, vehicle photos, email document,
+hiring phases 1-6, dashboard KPIs, professional 1099, R2 cloud backup, 12-test
+suite, factoring, company docs, company logins, FMCSA lookup.

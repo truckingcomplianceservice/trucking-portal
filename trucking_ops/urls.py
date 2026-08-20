@@ -7,6 +7,9 @@ from django.views.generic import RedirectView
 from operations import views
 
 urlpatterns = [
+    path("app/notifications/poll/", views.notif_poll, name="notif_poll"),
+    path("app/notifications/read/", views.notif_read, name="notif_read"),
+    path("app/tasks/<int:pk>/respond/", views.task_respond, name="task_respond"),
     path("app/chat/poll/", views.chat_poll, name="chat_poll"),
     path("app/chat/send/", views.chat_send, name="chat_send"),
     path("app/chat/handoff/", views.chat_handoff_save, name="chat_handoff_save"),

@@ -33,6 +33,9 @@ CSRF_TRUSTED_ORIGINS = ["https://*.railway.app"]
 if os.environ.get("ALLOWED_HOST"):
     CSRF_TRUSTED_ORIGINS.append("https://" + os.environ["ALLOWED_HOST"])
 
+# Base URL used in notification emails (so links work). Falls back to the host.
+APP_BASE_URL = ("https://" + os.environ["ALLOWED_HOST"]) if os.environ.get("ALLOWED_HOST") else ""
+
 
 # Application definition
 

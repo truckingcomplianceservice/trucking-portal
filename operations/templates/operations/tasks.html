@@ -25,8 +25,16 @@
       <select name="status" onchange="this.form.submit()" style="padding:5px 7px;border:1px solid var(--line);border-radius:7px;font-size:12px">
        {% for code,label in statuses %}<option value="{{ code }}"{% if t.status == code %} selected{% endif %}>{{ label }}</option>{% endfor %}
       </select></form>
+     <a href="#" onclick="document.getElementById('resp{{ t.id }}').style.display=document.getElementById('resp{{ t.id }}').style.display==='table-row'?'none':'table-row';return false;" style="font-size:12px;margin-left:8px;color:var(--blue)">Respond{% if t.comments.count %} ({{ t.comments.count }}){% endif %}</a>
     </td>
-   </tr>{% endfor %}</tbody></table>
+   </tr>
+   <tr id="resp{{ t.id }}" style="display:none"><td colspan="6" style="background:#f7f8fa">
+     {% for cm in t.comments.all %}<div style="padding:6px 4px;border-bottom:1px solid #eef0f4;font-size:13px"><b>{{ cm.author_name }}</b> <span class="sub" style="font-size:11px">{{ cm.created_at|date:"M d, g:i A" }}</span><div style="white-space:pre-wrap">{{ cm.body }}</div></div>{% empty %}<div class="sub" style="padding:4px">No responses yet.</div>{% endfor %}
+     <form method="post" action="/app/tasks/{{ t.id }}/respond/" style="display:flex;gap:8px;margin-top:8px">{% csrf_token %}
+       <input name="body" required placeholder="Write a response…" style="flex:1;padding:8px 10px;border:1px solid var(--line);border-radius:8px">
+       <button class="btn amber" type="submit" style="padding:6px 14px">Send</button>
+     </form>
+   </td></tr>{% endfor %}</tbody></table>
    {% else %}<div class="empty">No tasks here.</div>{% endif %}
   </div>
  </div>
