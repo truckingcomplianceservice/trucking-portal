@@ -1147,6 +1147,7 @@ def app_team(request):
         "roster": roster, "roles": Profile.ROLE_CHOICES,
         "all_companies": _companies_all(request), "my_open": my_open,
         "recent": recent, "can_manage": _is_manager(request.user),
+        "can_delete": _can_delete(request.user),
     })
 
 
@@ -1211,6 +1212,29 @@ def team_toggle_active(request, pk):
             state = "reactivated" if u.is_active else "deactivated"
             ActivityLog.objects.create(category="team", user=request.user,
                 text=f"{state.capitalize()} {u.get_full_name() or u.username}")
+    return redirect("app_team")
+
+
+@require_section("team")
+@login_required
+def team_delete(request, pk):
+    """Permanently remove a team member. Owner/admin only. Cannot remove
+    yourself or the owner (superuser)."""
+    if not _can_delete(request.user):
+        _messages.error(request, "Only an administrator can remove a team member. You can deactivate instead.")
+        return redirect("app_team")
+    if request.method == "POST":
+        u = _get(_User, pk=pk)
+        if u == request.user:
+            _messages.error(request, "You can't remove your own account.")
+        elif u.is_superuser:
+            _messages.error(request, "The owner account can't be removed.")
+        else:
+            name = u.get_full_name() or u.username
+            u.delete()
+            ActivityLog.objects.create(category="team", user=request.user,
+                text=f"Removed team member {name}")
+            _messages.success(request, f"Removed {name}.")
     return redirect("app_team")
 
 

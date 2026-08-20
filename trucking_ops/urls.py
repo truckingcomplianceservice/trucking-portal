@@ -84,6 +84,7 @@ urlpatterns = [
     path("app/team/", views.app_team, name="app_team"),
     path("app/team/add/", views.team_add, name="team_add"),
     path("app/team/<int:pk>/toggle/", views.team_toggle_active, name="team_toggle_active"),
+    path("app/team/<int:pk>/remove/", views.team_delete, name="team_delete"),
     path("app/team/<int:pk>/edit/", views.team_edit, name="team_edit"),
     path("app/team/<int:pk>/send-reset/", views.team_send_reset, name="team_send_reset"),
     path("app/timesheet/", views.app_timesheet, name="app_timesheet"),

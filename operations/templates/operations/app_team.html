@@ -37,14 +37,15 @@
 <table><thead><tr><th>Member</th><th>Role</th><th>Companies</th><th>Status</th><th>On clock</th><th>Today</th>{% if can_manage %}<th></th>{% endif %}</tr></thead><tbody>
 {% for r in roster %}<tr>
  <td><div style="display:flex;align-items:center;gap:10px"><span class="avatar" style="background:#e7eefc;color:#1d54c4">{{ r.initials }}</span>
-   <div><b>{{ r.u.get_full_name|default:r.u.username }}</b><div class="sub">{{ r.u.email|default:r.u.username }}</div></div></div></td>
+   <div><b>{{ r.u.get_full_name|default:r.u.username }}</b><div class="sub">@{{ r.u.username }}{% if r.u.email %} · {{ r.u.email }}{% endif %}</div></div></div></td>
  <td><span class="rolebadge">{{ r.role }}</span></td>
  <td class="sub">{{ r.companies|default:"—" }}</td>
  <td><span class="chip {% if r.u.is_active %}c-green{% else %}c-gray{% endif %}"><span class="d"></span>{% if r.u.is_active %}Active{% else %}Inactive{% endif %}</span></td>
  <td>{% if r.on_clock %}<span class="chip c-green"><span class="d"></span>On</span>{% else %}<span class="sub">—</span>{% endif %}</td>
  <td class="mono">{{ r.today_hours }}h</td>
  {% if can_manage %}<td><a href="/app/team/{{ r.u.id }}/edit/" class="btn ghost" style="padding:5px 10px;font-size:12px">Edit</a> {% if r.u != request.user %}<form method="post" action="/app/team/{{ r.u.id }}/toggle/" style="display:inline">{% csrf_token %}
-   <button class="btn ghost" style="padding:5px 10px;font-size:12px" type="submit">{% if r.u.is_active %}Deactivate{% else %}Reactivate{% endif %}</button></form>{% endif %}</td>{% endif %}
+   <button class="btn ghost" style="padding:5px 10px;font-size:12px" type="submit">{% if r.u.is_active %}Deactivate{% else %}Reactivate{% endif %}</button></form>{% if can_delete and not r.u.is_superuser %} <form method="post" action="/app/team/{{ r.u.id }}/remove/" style="display:inline" onsubmit="return confirm('Permanently remove {{ r.u.get_full_name|default:r.u.username|escapejs }}? This cannot be undone. (Tip: Deactivate instead if they may return.)');">{% csrf_token %}
+   <button class="btn ghost" style="padding:5px 10px;font-size:12px;color:#c0392b" type="submit">Remove</button></form>{% endif %}{% endif %}</td>{% endif %}
 </tr>{% endfor %}</tbody></table>
 </div>
 
