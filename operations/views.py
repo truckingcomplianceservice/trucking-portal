@@ -1759,9 +1759,14 @@ def _ratecon_ai(text):
     try:
         import urllib.request
         prompt = ("Extract fields from this freight rate confirmation. Respond with ONLY a JSON "
-                  "object, no prose, with keys: broker_name, mc_number, reference, origin, "
-                  "destination, pickup_date (YYYY-MM-DD or ''), delivery_date (YYYY-MM-DD or ''), "
-                  "rate (number). Use '' if unknown.\n\n" + text[:6000])
+                  "object, no prose, with keys: broker_name, mc_number, broker_phone, "
+                  "broker_email, broker_address, broker_city, broker_state, "
+                  "agent_name, agent_phone, agent_ext, "
+                  "reference, origin, destination, pickup_date (YYYY-MM-DD or ''), "
+                  "delivery_date (YYYY-MM-DD or ''), rate (number). "
+                  "broker_name is the BROKER/3PL company arranging the load (not the carrier). "
+                  "agent_name is the individual rep/representative who booked it, with their "
+                  "direct phone and extension if shown. Use '' if unknown.\n\n" + text[:6000])
         model = _os.environ.get("ANTHROPIC_MODEL", "claude-haiku-4-5-20251001")
         body = _json.dumps({"model": model, "max_tokens": 400,
                             "messages": [{"role": "user", "content": prompt}]}).encode()
@@ -1811,7 +1816,7 @@ def load_from_ratecon(request):
         data = _ratecon_ai(text) or _ratecon_heuristic(text)
         company = _get(Company, pk=request.POST.get("company"),
                        pk__in=companies.values_list("pk", flat=True))
-        # auto-add / link broker
+        # auto-add / link broker (with contact details) + agent
         broker = None
         mc = str(data.get("mc_number") or "").strip()
         bname = str(data.get("broker_name") or "").strip()
@@ -1820,7 +1825,34 @@ def load_from_ratecon(request):
         if not broker and bname:
             broker = Broker.objects.filter(name__iexact=bname).first()
         if not broker and (mc or bname):
-            broker = Broker.objects.create(name=bname or f"MC {mc}", mc_number=mc)
+            broker = Broker.objects.create(
+                name=bname or f"MC {mc}", mc_number=mc,
+                phone=str(data.get("broker_phone") or "").strip()[:30],
+                email=str(data.get("broker_email") or "").strip()[:254],
+                address_line=str(data.get("broker_address") or "").strip()[:200],
+                city=str(data.get("broker_city") or "").strip()[:80],
+                state=str(data.get("broker_state") or "").strip()[:30])
+        elif broker:
+            # fill in any contact details we now have but the broker was missing
+            changed = False
+            for field, key in [("phone", "broker_phone"), ("email", "broker_email"),
+                               ("address_line", "broker_address"), ("city", "broker_city"),
+                               ("state", "broker_state")]:
+                val = str(data.get(key) or "").strip()
+                if val and not getattr(broker, field):
+                    setattr(broker, field, val[:200]); changed = True
+            if changed:
+                broker.save()
+        # auto-add the agent/rep if the rate con named one
+        broker_agent = None
+        aname = str(data.get("agent_name") or "").strip()
+        if broker and aname:
+            broker_agent = BrokerAgent.objects.filter(broker=broker, name__iexact=aname).first()
+            if not broker_agent:
+                broker_agent = BrokerAgent.objects.create(
+                    broker=broker, name=aname[:120],
+                    phone=str(data.get("agent_phone") or "").strip()[:30],
+                    extension=str(data.get("agent_ext") or "").strip()[:15])
         def rate():
             try: return float(str(data.get("rate") or 0).replace("$", "").replace(",", "") or 0)
             except ValueError: return 0
@@ -1830,7 +1862,7 @@ def load_from_ratecon(request):
         f.seek(0)
         load = Load.objects.create(
             company=company, reference=str(data.get("reference") or "")[:40],
-            customer=bname[:120], broker=broker,
+            customer=bname[:120], broker=broker, broker_agent=broker_agent,
             origin=str(data.get("origin") or "")[:120], destination=str(data.get("destination") or "")[:120],
             pickup_date=date(data.get("pickup_date")), delivery_date=date(data.get("delivery_date")),
             rate=rate(), rate_confirmation=f, status="booked")
