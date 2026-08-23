@@ -9,6 +9,7 @@ from operations import views
 urlpatterns = [
     path("driver/", views.driver_portal, name="driver_portal"),
     path("driver/loads/", views.driver_portal_loads, name="driver_portal_loads"),
+    path("driver/loads/<int:pk>/", views.driver_load_detail, name="driver_load_detail"),
     path("driver/pay/", views.driver_portal_pay, name="driver_portal_pay"),
     path("driver/loads/<int:pk>/upload/", views.driver_load_upload, name="driver_load_upload"),
     path("driver/expense/add/", views.driver_expense_add, name="driver_expense_add"),

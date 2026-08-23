@@ -1,0 +1,82 @@
+{% extends "operations/driver_base.html" %}
+{% load humanize %}
+{% block title %}Load {{ l.reference|default:l.id }}{% endblock %}
+{% block nav_loads %}on{% endblock %}
+{% block content %}
+<div style="margin-bottom:12px"><a href="/driver/loads/" style="color:var(--gold);text-decoration:none">← My loads</a></div>
+
+<div class="card">
+ <div style="display:flex;justify-content:space-between;align-items:start">
+  <div><b style="font-size:17px">{{ l.origin }} → {{ l.destination }}</b>
+   <div style="font-size:13px;color:var(--muted);margin-top:3px">{{ l.pickup_date|date:"M d, Y"|default:"No pickup date" }} · Ref {{ l.reference|default:l.id }}</div>
+  </div>
+  <div style="text-align:right">
+   {% if l.payment_status == 'closed' or l.payment_status == 'reserve_released' %}<span class="pill paid">Paid</span>{% else %}<span class="pill open">{{ l.get_status_display }}</span>{% endif %}
+  </div>
+ </div>
+</div>
+
+<div class="card">
+ <h3>Miles</h3>
+ <div class="kpis" style="grid-template-columns:1fr 1fr 1fr">
+  <div class="kpi"><div class="l">Loaded</div><div class="n">{{ l.miles|intcomma }}</div></div>
+  <div class="kpi"><div class="l">Empty</div><div class="n">{{ l.deadhead_miles|intcomma }}</div></div>
+  <div class="kpi"><div class="l">Total</div><div class="n">{{ l.total_miles|intcomma }}</div></div>
+ </div>
+ {% if l.vehicle %}<div style="font-size:13px;color:var(--muted);margin-top:6px">Truck: Unit {{ l.vehicle.unit_number }}</div>{% endif %}
+ {% if see_rate %}<div style="font-size:15px;margin-top:10px">Rate: <b>${{ l.rate|floatformat:2|intcomma }}</b></div>{% endif %}
+</div>
+
+<div class="card">
+ <h3>Documents</h3>
+
+ {% if l.bill_of_lading %}
+ <div class="docrow" style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)">
+  <div><b>Bill of Lading</b><div style="font-size:12px;color:var(--muted)">BOL</div></div>
+  <div style="display:flex;gap:8px">
+   <a class="btn ghost" style="padding:7px 12px;font-size:13px" href="{{ l.bill_of_lading.url }}" target="_blank">View</a>
+   <a class="btn" style="padding:7px 12px;font-size:13px" href="{{ l.bill_of_lading.url }}" download>Download</a>
+  </div>
+ </div>
+ {% endif %}
+
+ {% if l.proof_of_delivery %}
+ <div class="docrow" style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)">
+  <div><b>Proof of Delivery</b><div style="font-size:12px;color:var(--muted)">POD</div></div>
+  <div style="display:flex;gap:8px">
+   <a class="btn ghost" style="padding:7px 12px;font-size:13px" href="{{ l.proof_of_delivery.url }}" target="_blank">View</a>
+   <a class="btn" style="padding:7px 12px;font-size:13px" href="{{ l.proof_of_delivery.url }}" download>Download</a>
+  </div>
+ </div>
+ {% endif %}
+
+ {% if see_rate and l.rate_confirmation %}
+ <div class="docrow" style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)">
+  <div><b>Rate Confirmation</b><div style="font-size:12px;color:var(--muted)">Rate con</div></div>
+  <div style="display:flex;gap:8px">
+   <a class="btn ghost" style="padding:7px 12px;font-size:13px" href="{{ l.rate_confirmation.url }}" target="_blank">View</a>
+   <a class="btn" style="padding:7px 12px;font-size:13px" href="{{ l.rate_confirmation.url }}" download>Download</a>
+  </div>
+ </div>
+ {% endif %}
+
+ {% if not l.bill_of_lading and not l.proof_of_delivery and not l.rate_confirmation or not l.bill_of_lading and not l.proof_of_delivery and not see_rate %}
+ <div class="empty">No documents available yet.</div>
+ {% endif %}
+
+ <div style="margin-top:14px">
+  <button class="btn block" onclick="document.getElementById('upbox').classList.toggle('open2')">Upload BOL / POD</button>
+  <div id="upbox" class="upbox" style="display:none;margin-top:10px;background:#f7f8fa;border-radius:10px;padding:12px">
+   <form method="post" action="/driver/loads/{{ l.id }}/upload/" enctype="multipart/form-data">{% csrf_token %}
+    <label>Document type</label>
+    <select name="kind"><option value="pod">Proof of Delivery (POD)</option><option value="bol">Bill of Lading (BOL)</option></select>
+    <label>File (photo or PDF)</label><input name="document" type="file" accept="image/*,application/pdf" required>
+    <button class="btn block" type="submit" style="margin-top:10px">Upload</button>
+   </form>
+  </div>
+ </div>
+</div>
+
+<div style="font-size:12px;color:var(--muted);text-align:center;padding:0 10px">To share a document: tap Download, then use your phone's share button to send it by text, email, or WhatsApp.</div>
+<style>.upbox.open2{display:block!important}</style>
+{% endblock %}

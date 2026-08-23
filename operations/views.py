@@ -4515,3 +4515,17 @@ def driver_invite_create(request, pk=None):
     if pk:
         return redirect("app_driver_detail", pk=pk)
     return redirect("app_drivers")
+
+
+@_driver_required
+def driver_load_detail(request, drv, pk):
+    """A driver views one of THEIR loads: miles, stops, and documents.
+    Rate + rate confirmation shown only if the company allows drivers to see rate."""
+    load = Load.objects.filter(pk=pk, driver=drv).select_related("broker", "vehicle").first()
+    if not load:
+        _messages.error(request, "That load isn't assigned to you.")
+        return redirect("driver_portal_loads")
+    see_rate = drv.company.drivers_see_rate
+    return render(request, "operations/driver_load_detail.html", {
+        "drv": drv, "l": load, "see_rate": see_rate, "company": drv.company,
+    })
