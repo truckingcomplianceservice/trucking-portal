@@ -1,0 +1,49 @@
+{% extends "operations/driver_base.html" %}
+{% load humanize %}
+{% block title %}Driver Home{% endblock %}
+{% block nav_home %}on{% endblock %}
+{% block content %}
+<div style="margin-bottom:14px"><b style="font-size:18px">Hi {{ drv.first_name }} 👋</b></div>
+
+<div class="kpis">
+ <div class="kpi"><div class="l">My loads</div><div class="n">{{ load_count }}</div></div>
+ <div class="kpi"><div class="l">Unpaid</div><div class="n" style="color:var(--red)">${{ unpaid|floatformat:0|intcomma }}</div></div>
+ <div class="kpi"><div class="l">Paid YTD</div><div class="n" style="color:var(--green)">${{ paid_ytd|floatformat:0|intcomma }}</div></div>
+</div>
+
+<div class="card">
+ <h3>Quick actions</h3>
+ <button class="btn block" onclick="document.getElementById('expm').classList.add('open')">+ Add an expense</button>
+ <a class="btn ghost block" href="/driver/loads/">Upload BOL / POD on a load</a>
+</div>
+
+<div class="card">
+ <h3>Active loads</h3>
+ {% if active_loads %}<table><thead><tr><th>Pickup</th><th>Route</th><th>Status</th>{% if see_rate %}<th class="n">Rate</th>{% endif %}</tr></thead><tbody>
+ {% for l in active_loads %}<tr>
+  <td>{{ l.pickup_date|date:"M d"|default:"—" }}</td>
+  <td>{{ l.origin }} → {{ l.destination }}</td>
+  <td><span class="pill open">{{ l.get_status_display }}</span></td>
+  {% if see_rate %}<td class="n">${{ l.rate|floatformat:0|intcomma }}</td>{% endif %}
+ </tr>{% endfor %}
+ </tbody></table>
+ {% else %}<div class="empty">No active loads right now.</div>{% endif %}
+</div>
+
+<div class="modal-bg" id="expm">
+ <div class="modal"><h3 style="margin-top:0">Add an expense</h3>
+  <form method="post" action="/driver/expense/add/" enctype="multipart/form-data">{% csrf_token %}
+   <label>Category</label>
+   <select name="category"><option>Fuel</option><option>Tolls</option><option>Repair</option><option>Scale</option><option>Parking</option><option>Supplies</option><option>Other</option></select>
+   <label>Amount ($)</label><input name="amount" type="number" step="0.01" required>
+   <label>Vendor / where</label><input name="vendor">
+   <label>Date</label><input name="date" type="date">
+   <label>Receipt photo (optional)</label><input name="receipt" type="file" accept="image/*,application/pdf">
+   <label style="display:flex;align-items:center;gap:8px;margin-top:12px"><input type="checkbox" name="out_of_pocket" checked style="width:auto"> I paid this out of my own pocket (reimburse me)</label>
+   <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">
+    <button type="button" class="btn ghost" onclick="document.getElementById('expm').classList.remove('open')">Cancel</button>
+    <button type="submit" class="btn">Submit</button></div>
+  </form>
+ </div>
+</div>
+{% endblock %}

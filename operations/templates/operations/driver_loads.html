@@ -1,0 +1,39 @@
+{% extends "operations/driver_base.html" %}
+{% load humanize %}
+{% block title %}My Loads{% endblock %}
+{% block nav_loads %}on{% endblock %}
+{% block content %}
+<div class="card">
+ <h3>My load history ({{ loads|length }})</h3>
+ {% if loads %}
+ {% for l in loads %}
+ <div style="border-bottom:1px solid var(--line);padding:12px 0">
+  <div style="display:flex;justify-content:space-between;align-items:start">
+   <div>
+    <b>{{ l.origin }} → {{ l.destination }}</b>
+    <div style="font-size:12px;color:var(--muted);margin-top:2px">{{ l.pickup_date|date:"M d, Y"|default:"No date" }} · Ref {{ l.reference|default:l.id }}</div>
+   </div>
+   <div style="text-align:right">
+    {% if l.payment_status == 'closed' or l.payment_status == 'reserve_released' %}<span class="pill paid">Paid</span>{% else %}<span class="pill open">{{ l.get_status_display }}</span>{% endif %}
+    {% if see_rate %}<div style="font-weight:700;margin-top:4px">${{ l.rate|floatformat:0|intcomma }}</div>{% endif %}
+   </div>
+  </div>
+  <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
+   {% if l.bill_of_lading %}<span class="pill paid">BOL ✓</span>{% endif %}
+   {% if l.proof_of_delivery %}<span class="pill paid">POD ✓</span>{% endif %}
+   <button class="btn ghost" style="padding:5px 12px;font-size:12px" onclick="document.getElementById('up{{ l.id }}').classList.toggle('open2')">Upload BOL / POD</button>
+  </div>
+  <div id="up{{ l.id }}" class="upbox" style="display:none;margin-top:10px;background:#f7f8fa;border-radius:10px;padding:12px">
+   <form method="post" action="/driver/loads/{{ l.id }}/upload/" enctype="multipart/form-data">{% csrf_token %}
+    <label>Document type</label>
+    <select name="kind"><option value="pod">Proof of Delivery (POD)</option><option value="bol">Bill of Lading (BOL)</option></select>
+    <label>File (photo or PDF)</label><input name="document" type="file" accept="image/*,application/pdf" required>
+    <button class="btn block" type="submit" style="margin-top:10px">Upload</button>
+   </form>
+  </div>
+ </div>
+ {% endfor %}
+ {% else %}<div class="empty">No loads assigned to you yet.</div>{% endif %}
+</div>
+<style>.upbox.open2{display:block!important}</style>
+{% endblock %}

@@ -60,6 +60,8 @@ class Company(models.Model):
     active = models.BooleanField(default=True)
     apply_token = models.CharField(max_length=32, blank=True, db_index=True,
         help_text="Used to build this company's public driver-application link.")
+    drivers_see_rate = models.BooleanField("Drivers can see load rate ($)", default=False,
+        help_text="If on, drivers see the dollar rate on their loads in the driver portal.")
     slug = models.SlugField(max_length=60, blank=True, db_index=True,
         help_text="Used in this company's portal link, e.g. /c/roundway")
 

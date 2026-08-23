@@ -269,6 +269,9 @@ def _expiring_items(companies):
 
 @login_required
 def dashboard(request):
+    # Drivers get their own portal, not the company dashboard
+    if Driver.objects.filter(user=request.user).exists() and not request.user.is_staff:
+        return redirect("driver_portal")
     companies = _scoped_companies(request)
     today = _dt.date.today()
     ytd_start = _dt.date(today.year, 1, 1)
@@ -4280,3 +4283,117 @@ def broker_agent_remove(request, pk, agent_pk):
         agent.delete()
         _messages.success(request, "Agent removed.")
     return redirect("broker_detail", pk=pk)
+
+
+# ================= DRIVER PORTAL (drivers see only their own data) =================
+def _current_driver(request):
+    """Return the Driver linked to the logged-in user, or None."""
+    return Driver.objects.filter(user=request.user).select_related("company").first()
+
+
+def _driver_required(view):
+    """Decorator: only a logged-in driver (with a linked Driver record) may enter."""
+    from functools import wraps
+    @wraps(view)
+    @login_required
+    def wrapper(request, *args, **kwargs):
+        drv = _current_driver(request)
+        if not drv:
+            _messages.error(request, "This area is for drivers.")
+            return redirect("dashboard")
+        return view(request, drv, *args, **kwargs)
+    return wrapper
+
+
+@_driver_required
+def driver_portal(request, drv):
+    """Driver home: their loads summary, pay summary, quick actions."""
+    loads = Load.objects.filter(driver=drv).select_related("broker", "vehicle").order_by("-pickup_date", "-id")
+    active = loads.exclude(status__in=["delivered", "invoiced", "paid"])[:10]
+    recent = loads[:10]
+    setts = Settlement.objects.filter(driver=drv).order_by("-period_end")
+    unpaid = sum(s.net_pay for s in setts if not s.paid)
+    paid_ytd = sum(s.net_pay for s in setts if s.paid and s.paid_date and s.paid_date.year == _dt.date.today().year)
+    see_rate = drv.company.drivers_see_rate
+    unread = Notification.objects.filter(user=request.user, is_read=False).count()
+    return render(request, "operations/driver_portal.html", {
+        "drv": drv, "active_loads": active, "recent_loads": recent,
+        "load_count": loads.count(), "unpaid": unpaid, "paid_ytd": paid_ytd,
+        "see_rate": see_rate, "unread": unread, "company": drv.company,
+    })
+
+
+@_driver_required
+def driver_portal_loads(request, drv):
+    """Full load history for the driver."""
+    loads = Load.objects.filter(driver=drv).select_related("broker", "vehicle").order_by("-pickup_date", "-id")
+    return render(request, "operations/driver_loads.html", {
+        "drv": drv, "loads": loads, "see_rate": drv.company.drivers_see_rate,
+        "company": drv.company,
+    })
+
+
+@_driver_required
+def driver_portal_pay(request, drv):
+    """Driver sees their own settlements (pay)."""
+    setts = Settlement.objects.filter(driver=drv).order_by("-period_end")
+    return render(request, "operations/driver_portal_pay.html", {
+        "drv": drv, "setts": setts, "company": drv.company,
+    })
+
+
+@_driver_required
+def driver_load_upload(request, drv, pk):
+    """Driver uploads BOL or POD to one of THEIR loads."""
+    load = Load.objects.filter(pk=pk, driver=drv).first()
+    if not load:
+        _messages.error(request, "That load isn't assigned to you.")
+        return redirect("driver_portal_loads")
+    if request.method == "POST":
+        kind = request.POST.get("kind")
+        f = request.FILES.get("document")
+        if f and kind == "bol":
+            load.bill_of_lading = f
+            load.save()
+            _messages.success(request, "Bill of Lading uploaded. Thank you!")
+        elif f and kind == "pod":
+            load.proof_of_delivery = f
+            load.save()
+            _messages.success(request, "Proof of Delivery uploaded. Thank you!")
+            # notify managers
+            for m in _User.objects.filter(is_active=True, profile__companies=drv.company,
+                                          profile__role__in=["admin", "manager", "dispatcher"]).distinct():
+                notify(m, f"{drv} uploaded POD for load {load.reference or load.id}.",
+                       kind="general", url="/app/loads/", company=drv.company)
+        else:
+            _messages.error(request, "Please choose a file.")
+    return redirect("driver_portal_loads")
+
+
+@_driver_required
+def driver_expense_add(request, drv):
+    """Driver logs an expense they paid (out of pocket by default)."""
+    if request.method == "POST":
+        amount = _num(request.POST.get("amount", "0"))
+        if amount > 0:
+            exp = Expense.objects.create(
+                company=drv.company, driver=drv,
+                category=request.POST.get("category", "Other").strip()[:60] or "Other",
+                amount=round(amount, 2),
+                vendor=request.POST.get("vendor", "").strip()[:120],
+                date=_parse_date(request.POST.get("date", "")) or _dt.date.today(),
+                notes=request.POST.get("notes", "").strip(),
+                out_of_pocket=(request.POST.get("out_of_pocket") == "on"))
+            f = request.FILES.get("receipt")
+            if f:
+                exp.receipt = f
+                exp.save()
+            # notify managers
+            for m in _User.objects.filter(is_active=True, profile__companies=drv.company,
+                                          profile__role__in=["admin", "manager"]).distinct():
+                notify(m, f"{drv} added an expense: {exp.category} ${exp.amount}.",
+                       kind="general", url="/app/accounting/", company=drv.company)
+            _messages.success(request, "Expense submitted. Thank you!")
+        else:
+            _messages.error(request, "Please enter an amount.")
+    return redirect("driver_portal")

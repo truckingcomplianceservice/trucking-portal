@@ -1,0 +1,18 @@
+{% extends "operations/driver_base.html" %}
+{% load humanize %}
+{% block title %}My Pay{% endblock %}
+{% block nav_pay %}on{% endblock %}
+{% block content %}
+<div class="card">
+ <h3>My settlements</h3>
+ {% if setts %}<table><thead><tr><th>Period</th><th>Status</th><th class="n">Net pay</th></tr></thead><tbody>
+ {% for s in setts %}<tr>
+  <td>{{ s.period_start|date:"M d" }} – {{ s.period_end|date:"M d, Y" }}</td>
+  <td>{% if s.paid %}<span class="pill paid">Paid{% if s.paid_date %} {{ s.paid_date|date:"M d" }}{% endif %}</span>{% else %}<span class="pill unpaid">Unpaid</span>{% endif %}</td>
+  <td class="n"><b>${{ s.net_pay|floatformat:2|intcomma }}</b></td>
+ </tr>{% endfor %}
+ </tbody></table>
+ {% else %}<div class="empty">No settlements yet.</div>{% endif %}
+</div>
+<div style="font-size:12px;color:var(--muted);text-align:center;padding:0 10px">Questions about your pay? Contact your dispatcher or manager.</div>
+{% endblock %}
