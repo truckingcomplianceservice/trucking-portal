@@ -1,7 +1,21 @@
 <!DOCTYPE html>
 <html lang="en"><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>{% block title %}Driver Portal{% endblock %}</title>
+<link rel="manifest" href="/driver-manifest.webmanifest">
+<meta name="theme-color" content="#1e2d45">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="TCS Driver">
+<link rel="apple-touch-icon" href="/static/icon-192.png">
+<link rel="icon" href="/static/icon-192.png">
+<script>
+ if ("serviceWorker" in navigator) {
+   window.addEventListener("load", function(){
+     navigator.serviceWorker.register("/driver-sw.js", {scope: "/driver/"}).catch(function(){});
+   });
+ }
+</script>
 <style>
  :root{--navy:#1e2d45;--gold:#b39a6d;--line:#e2e6ee;--muted:#6b7385;--green:#137a51;--red:#c0392b;--bg:#f4f6f9}
  *{box-sizing:border-box}
@@ -48,6 +62,26 @@
  <a href="/admin/logout/" style="color:#fff;text-decoration:none;font-size:13px;margin-left:10px">Log out</a>
 </div>
 <div class="wrap">
+<div id="installHint" style="display:none;background:#fff7e6;border:1px solid #f0c040;border-radius:12px;padding:12px 14px;margin-bottom:12px;font-size:13px">
+ <b>📲 Install this app</b>
+ <div id="installIOS" style="display:none;margin-top:4px">Tap the <b>Share</b> button below, then <b>"Add to Home Screen"</b> — you'll get an app icon to tap next time.</div>
+ <div id="installAndroid" style="display:none;margin-top:6px"><button class="btn" style="padding:6px 14px;font-size:13px" onclick="doInstall()">Add to home screen</button></div>
+ <a href="#" onclick="document.getElementById('installHint').style.display='none';localStorage&&localStorage.setItem('hideInstall','1');return false;" style="color:var(--muted);font-size:12px;display:inline-block;margin-top:6px">Dismiss</a>
+</div>
+<script>
+ var deferredPrompt=null;
+ function isStandalone(){return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone===true;}
+ window.addEventListener('beforeinstallprompt', function(e){e.preventDefault();deferredPrompt=e;
+   if(!isStandalone() && !(window.localStorage&&localStorage.getItem('hideInstall'))){
+     document.getElementById('installHint').style.display='block';
+     document.getElementById('installAndroid').style.display='block';}});
+ function doInstall(){if(deferredPrompt){deferredPrompt.prompt();deferredPrompt=null;document.getElementById('installHint').style.display='none';}}
+ // iOS: no beforeinstallprompt — show manual hint
+ (function(){var ua=window.navigator.userAgent.toLowerCase();var isIOS=/iphone|ipad|ipod/.test(ua);
+   if(isIOS && !isStandalone() && !(window.localStorage&&localStorage.getItem('hideInstall'))){
+     document.getElementById('installHint').style.display='block';
+     document.getElementById('installIOS').style.display='block';}})();
+</script>
 {% if messages %}{% for m in messages %}<div class="msg {% if m.tags == 'error' %}err{% endif %}">{{ m }}</div>{% endfor %}{% endif %}
 <div class="nav">
  <a href="/driver/" class="{% block nav_home %}{% endblock %}">Home</a>

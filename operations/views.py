@@ -4529,3 +4529,31 @@ def driver_load_detail(request, drv, pk):
     return render(request, "operations/driver_load_detail.html", {
         "drv": drv, "l": load, "see_rate": see_rate, "company": drv.company,
     })
+
+
+# ================= PWA: service worker + manifest at root scope =================
+def driver_sw(request):
+    """Serve the service worker from root so it can control /driver/ scope."""
+    from django.http import HttpResponse
+    import os
+    path = os.path.join(settings.BASE_DIR, "operations", "static", "driver-sw.js")
+    try:
+        with open(path) as f:
+            js = f.read()
+    except Exception:
+        js = "/* sw unavailable */"
+    resp = HttpResponse(js, content_type="application/javascript")
+    resp["Service-Worker-Allowed"] = "/"
+    return resp
+
+
+def driver_manifest(request):
+    from django.http import HttpResponse
+    import os
+    path = os.path.join(settings.BASE_DIR, "operations", "static", "manifest.webmanifest")
+    try:
+        with open(path) as f:
+            data = f.read()
+    except Exception:
+        data = "{}"
+    return HttpResponse(data, content_type="application/manifest+json")

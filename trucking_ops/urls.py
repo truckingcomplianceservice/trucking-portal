@@ -7,6 +7,8 @@ from django.views.generic import RedirectView
 from operations import views
 
 urlpatterns = [
+    path("driver-sw.js", views.driver_sw, name="driver_sw"),
+    path("driver-manifest.webmanifest", views.driver_manifest, name="driver_manifest"),
     path("driver/", views.driver_portal, name="driver_portal"),
     path("driver/loads/", views.driver_portal_loads, name="driver_portal_loads"),
     path("driver/loads/<int:pk>/", views.driver_load_detail, name="driver_load_detail"),
