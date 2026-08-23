@@ -2763,10 +2763,40 @@ def _truck_detail_data(request, pk):
         if rs:
             rent_total = active_contract.estimated_cost(rs, re_, miles_in_range)
     net = float(revenue) - float(fuel_total) - float(maint_total) - float(exp_total) - float(rent_total)
+    # --- Driver wages attributed to THIS truck (same logic as per-truck P&L) ---
+    from .models import Settlement
+    from django.db.models import Q as _Qw
+    wages_total = 0.0
+    sett_q = Settlement.objects.filter(company=v.company)
+    if start:
+        sett_q = sett_q.filter(period_end__gte=start)
+    if end:
+        sett_q = sett_q.filter(period_start__lte=end)
+    for st in sett_q.select_related("driver"):
+        net_pay = float(st.net_pay or 0)
+        if net_pay <= 0 or not st.driver_id:
+            continue
+        dloads = Load.objects.filter(driver_id=st.driver_id, vehicle__isnull=False).filter(
+            _Qw(pickup_date__gte=st.period_start, pickup_date__lte=st.period_end) |
+            _Qw(pickup_date__isnull=True, delivery_date__gte=st.period_start,
+                delivery_date__lte=st.period_end))
+        per_truck_rev = {}
+        for ld in dloads:
+            per_truck_rev[ld.vehicle_id] = per_truck_rev.get(ld.vehicle_id, 0.0) + float(ld.rate or 0)
+        if v.id not in per_truck_rev:
+            continue
+        total_rev_all = sum(per_truck_rev.values())
+        if total_rev_all > 0:
+            wages_total += net_pay * (per_truck_rev[v.id] / total_rev_all)
+        else:
+            wages_total += net_pay / len(per_truck_rev)
+    wages_total = round(wages_total, 2)
+    net = net - wages_total
     return {
         "v": v, "company": v.company, "loads": loads, "fuel": fuel, "maint": maint, "exp": exp,
         "revenue": revenue, "fuel_total": fuel_total, "maint_total": maint_total,
         "exp_total": exp_total, "rent_total": rent_total, "active_contract": active_contract,
+        "wages_total": wages_total,
         "net": net,
         "start": request.GET.get("start", ""), "end": request.GET.get("end", ""),
         "loads_count": loads.count(), "fuel_gal": fuel.aggregate(s=Sum("gallons"))["s"] or 0,
