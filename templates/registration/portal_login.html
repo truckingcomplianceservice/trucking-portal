@@ -23,7 +23,7 @@
   <div class="sub">{% if company %}Carrier portal{% else %}Operations portal{% endif %}</div>
  </div>
  {% if error %}<div class="err">{{ error }}</div>{% endif %}
- <form method="post">{% csrf_token %}
+ <form method="post">{% csrf_token %}{% if request.GET.next %}<input type="hidden" name="next" value="{{ request.GET.next }}">{% endif %}
   <label>Username</label><input name="username" autofocus autocapitalize="none">
   <label>Password</label><input name="password" type="password">
   <button type="submit">Sign in</button>

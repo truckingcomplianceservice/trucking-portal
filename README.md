@@ -1,46 +1,44 @@
 # Trucking Compliance Services — Operations Portal
 
-Driver invite links: two ways for drivers to self-register for the portal.
+FIX: drivers can now actually log in. Use the right login page.
 
 ## Deploy
 1. Download this zip, then in Terminal:
    cd ~/Documents/GitHub/trucking-portal && rm -rf operations trucking_ops templates manage.py requirements.txt Procfile README.md && unzip -o ~/Downloads/<THIS-FILE>.zip -d . && echo DONE
 2. GitHub Desktop -> Commit -> Push. Test in a private/incognito window.
 
-## New: Driver invite links (both options you asked for)
+## IMPORTANT: which login page to use
+Drivers must log in at:   https://app.pure99inc.com/login/
+NOT at the admin page (/admin/login/).
 
-OPTION A -- Link tied to an EXISTING driver:
-  Drivers -> click a driver -> "Driver portal login" card ->
-  "Create invite link for this driver". Send the link; they set their own
-  password; you approve; it links to THAT driver record.
+WHY: the /admin/ login only allows office "staff" users. Drivers are intentionally
+NOT staff (so they can't reach admin/office pages) -- so the admin login correctly
+refused them. That's why your driver couldn't get in even with the right password.
 
-OPTION B -- General driver link (they fill in their own details):
-  Drivers page -> "Invite driver by link" button. Send the link; the person
-  fills in their name + password; you approve; a NEW driver record is created
-  and linked automatically.
+This build fixes it two ways:
+- The app's main login is now /login/ (which accepts drivers AND office users).
+- When a driver logs in there, they're sent straight to their driver portal.
+- Office/admin users still land on the dashboard as before.
+- You can still use /admin/ for the back-office admin (staff only).
 
-WHERE TO FIND / APPROVE:
-- Open invite links show on the Drivers page ("Open driver invite links").
-- When a driver signs up, they appear under "Drivers awaiting approval" on the
-  Drivers page with Approve / Reject buttons. They cannot log in until approved.
+So tell your drivers to go to app.pure99inc.com/login/ (or just app.pure99inc.com
+-- anything that needs login now points to the driver-friendly page).
 
-You now have BOTH ways to onboard a driver:
-- Instant: the "Create driver login" button (you set username + password).
-- Self-serve: invite links (they set their own password, you approve).
-
-SECURITY: same as team invites -- long unguessable token, expires in 7 days,
-account inactive until you approve, driver is not staff and sees only their own
-data.
+## Quick test
+1. Create a driver login (Drivers -> driver -> Create driver login), or use one you
+   made.
+2. Open an incognito window -> go to https://app.pure99inc.com/login/
+3. Log in as the driver -> you should land in the driver portal (/driver/).
 
 ## Includes everything to date
-Driver invite links, create-driver-login button, driver portal, IFTA print,
-broker detail page, driver wages detail, wages on single-truck report, per-truck
-driver-wage attribution, team invite + approval, per-truck P&L expense fix,
-improved rate-con broker auto-add, vehicle cost % breakdown, vehicle-expense fix,
-IFTA worksheet, company switcher fix, deadhead fix + auto-fill, chat + task files,
-notifications (bell+email) + task responses, chat @mentions + chat-to-task, team
-username + remove, floating team chat + handoff, duplicate rate-con protection,
-rate-con broker+agent auto-create, all-brokers list, brokers + agents, admin-only
-delete, vehicle page fix, unified load form, vehicle docs front, auto miles,
-vehicle photos, email document, hiring phases 1-6, dashboard KPIs, 1099, R2 cloud
-backup, 12-test suite, factoring, company docs, company logins, FMCSA lookup.
+Driver login fix, driver invite links, create-driver-login button, driver portal,
+IFTA print, broker detail page, driver wages detail, wages on single-truck report,
+per-truck driver-wage attribution, team invite + approval, per-truck P&L expense
+fix, improved rate-con broker auto-add, vehicle cost % breakdown, vehicle-expense
+fix, IFTA worksheet, company switcher fix, deadhead fix + auto-fill, chat + task
+files, notifications (bell+email) + task responses, chat @mentions + chat-to-task,
+team username + remove, floating team chat + handoff, duplicate rate-con
+protection, rate-con broker+agent auto-create, all-brokers list, brokers + agents,
+admin-only delete, vehicle page fix, unified load form, vehicle docs front, auto
+miles, vehicle photos, email document, hiring phases 1-6, dashboard KPIs, 1099, R2
+cloud backup, 12-test suite, factoring, company docs, company logins, FMCSA lookup.

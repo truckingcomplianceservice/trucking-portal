@@ -2243,6 +2243,13 @@ def portal_login(request, slug=None):
                     (hasattr(user, "profile") and user.profile.companies.filter(pk=company.pk).exists())
                 if allowed:
                     request.session["active_company"] = str(company.pk)
+            # honor ?next= if it's a safe local path
+            nxt = request.GET.get("next") or request.POST.get("next") or ""
+            if nxt.startswith("/") and not nxt.startswith("//"):
+                return redirect(nxt)
+            # drivers go to their portal, everyone else to dashboard
+            if Driver.objects.filter(user=user).exists() and not user.is_staff:
+                return redirect("driver_portal")
             return redirect("dashboard")
         error = "Wrong username or password."
     return render(request, "registration/portal_login.html",

@@ -189,5 +189,5 @@ else:
 DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "notifications@pure99inc.com")
 
 # Send login-required redirects (and the 404->home bounce) to the real login page.
-LOGIN_URL = "/admin/login/"
+LOGIN_URL = "/login/"
 LOGIN_REDIRECT_URL = "/dashboard/"
