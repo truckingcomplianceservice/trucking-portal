@@ -2767,12 +2767,13 @@ def _truck_detail_data(request, pk):
     from .models import Settlement
     from django.db.models import Q as _Qw
     wages_total = 0.0
+    wage_rows = []
     sett_q = Settlement.objects.filter(company=v.company)
     if start:
         sett_q = sett_q.filter(period_end__gte=start)
     if end:
         sett_q = sett_q.filter(period_start__lte=end)
-    for st in sett_q.select_related("driver"):
+    for st in sett_q.select_related("driver").order_by("-period_end"):
         net_pay = float(st.net_pay or 0)
         if net_pay <= 0 or not st.driver_id:
             continue
@@ -2781,22 +2782,38 @@ def _truck_detail_data(request, pk):
             _Qw(pickup_date__isnull=True, delivery_date__gte=st.period_start,
                 delivery_date__lte=st.period_end))
         per_truck_rev = {}
+        truck_loads = {}
         for ld in dloads:
             per_truck_rev[ld.vehicle_id] = per_truck_rev.get(ld.vehicle_id, 0.0) + float(ld.rate or 0)
+            truck_loads.setdefault(ld.vehicle_id, []).append(ld)
         if v.id not in per_truck_rev:
             continue
         total_rev_all = sum(per_truck_rev.values())
         if total_rev_all > 0:
-            wages_total += net_pay * (per_truck_rev[v.id] / total_rev_all)
+            share = net_pay * (per_truck_rev[v.id] / total_rev_all)
         else:
-            wages_total += net_pay / len(per_truck_rev)
+            share = net_pay / len(per_truck_rev)
+        wages_total += share
+        # detail row for this settlement's contribution to THIS truck
+        wage_rows.append({
+            "driver": st.driver,
+            "period_start": st.period_start,
+            "period_end": st.period_end,
+            "paid": st.paid,
+            "paid_date": st.paid_date,
+            "full_net": net_pay,
+            "attributed": round(share, 2),
+            "this_truck_loads": len(truck_loads.get(v.id, [])),
+            "total_trucks": len(per_truck_rev),
+            "settlement_id": st.id,
+        })
     wages_total = round(wages_total, 2)
     net = net - wages_total
     return {
         "v": v, "company": v.company, "loads": loads, "fuel": fuel, "maint": maint, "exp": exp,
         "revenue": revenue, "fuel_total": fuel_total, "maint_total": maint_total,
         "exp_total": exp_total, "rent_total": rent_total, "active_contract": active_contract,
-        "wages_total": wages_total,
+        "wages_total": wages_total, "wage_rows": wage_rows,
         "net": net,
         "start": request.GET.get("start", ""), "end": request.GET.get("end", ""),
         "loads_count": loads.count(), "fuel_gal": fuel.aggregate(s=Sum("gallons"))["s"] or 0,

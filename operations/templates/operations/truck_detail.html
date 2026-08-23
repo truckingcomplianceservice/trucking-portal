@@ -52,4 +52,18 @@
 {% for e in exp %}<tr><td>{{ e.date }}</td><td>{{ e.category }}</td><td class="sub">{{ e.vendor|default:"—" }}</td><td class="n">${{ e.amount|floatformat:2|intcomma }}</td></tr>{% endfor %}
 </tbody><tfoot><tr><td colspan="3" style="text-align:right"><b>Total other</b></td><td class="n"><b>${{ exp_total|floatformat:2|intcomma }}</b></td></tr></tfoot></table>
 {% else %}<div class="empty">No other expenses for this truck in range.</div>{% endif %}</div>
+
+<div class="card" style="margin-top:14px"><div class="card-h"><h3>Driver wages detail</h3><span class="sub">Wages attributed to this truck from driver settlements</span></div>
+{% if wage_rows %}<table><thead><tr><th>Driver</th><th>Pay period</th><th>Status</th><th class="n">Loads on this truck</th><th class="n">Full settlement</th><th class="n">To this truck</th></tr></thead><tbody>
+{% for w in wage_rows %}<tr>
+ <td>{{ w.driver }}</td>
+ <td class="sub">{{ w.period_start|date:"M d" }} – {{ w.period_end|date:"M d, Y" }}</td>
+ <td>{% if w.paid %}<span style="color:#137a51">Paid{% if w.paid_date %} {{ w.paid_date|date:"M d" }}{% endif %}</span>{% else %}<span style="color:#b0281a">Unpaid</span>{% endif %}</td>
+ <td class="n">{{ w.this_truck_loads }}</td>
+ <td class="n">${{ w.full_net|floatformat:2|intcomma }}{% if w.total_trucks > 1 %} <span class="sub" style="font-size:11px">(split {{ w.total_trucks }} trucks)</span>{% endif %}</td>
+ <td class="n"><b>${{ w.attributed|floatformat:2|intcomma }}</b></td>
+</tr>{% endfor %}
+</tbody><tfoot><tr><td colspan="5" style="text-align:right"><b>Total driver wages (this truck)</b></td><td class="n"><b>${{ wages_total|floatformat:2|intcomma }}</b></td></tr></tfoot></table>
+<div class="sub" style="padding:8px 4px;font-size:12px">When a driver ran more than one truck during a pay period, their pay is split across those trucks by each truck's share of the load revenue. "To this truck" is the portion charged here.</div>
+{% else %}<div class="empty">No driver wages attributed to this truck in range. This happens when there are no paid settlements whose driver ran loads on this truck (with matching pickup dates) in the period.</div>{% endif %}</div>
 {% endblock %}
