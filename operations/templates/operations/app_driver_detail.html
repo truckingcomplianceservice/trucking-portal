@@ -26,4 +26,27 @@
    <div style="margin-top:16px"><a class="btn navy" href="/admin/operations/compliancedocument/add/">+ Add compliance document</a></div>
   </div>
  </div>
-</div>{% endblock %}
+</div>
+
+<div class="card" style="margin-top:14px"><div class="card-h"><h3>Driver portal login</h3></div>
+ <div style="padding:4px 18px 18px">
+ {% if has_login %}
+  <p style="font-size:14px">✅ This driver has a portal login: <b>{{ login_username }}</b></p>
+  <p class="sub" style="font-size:13px">They log in at your site and land in the driver portal, where they see their loads, upload BOL/POD, add expenses, and view their pay.</p>
+  {% if can_delete %}<form method="post" action="/app/drivers/{{ d.id }}/remove-login/" onsubmit="return confirm('Remove this driver\'s login? They will no longer be able to log in.')">{% csrf_token %}<button class="btn ghost" style="padding:6px 12px;font-size:13px">Remove login</button></form>{% endif %}
+ {% else %}
+  <p class="sub" style="font-size:13px">This driver has no login yet. Create one so they can use the driver portal from their phone (see their loads, upload POD/BOL, add expenses, view pay).</p>
+  {% if can_manage %}
+  <form method="post" action="/app/drivers/{{ d.id }}/create-login/" style="max-width:360px">{% csrf_token %}
+   <label class="sub">Username</label>
+   <input name="username" placeholder="e.g. {{ d.first_name|lower }}.driver" required style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;margin-bottom:8px">
+   <label class="sub">Password (min 8 characters)</label>
+   <input name="password" type="text" placeholder="give them this password" required minlength="8" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;margin-bottom:10px">
+   <button class="btn amber" type="submit">Create driver login</button>
+  </form>
+  <p class="sub" style="font-size:12px;margin-top:8px">Tip: use a simple password and share it with the driver securely. They can't see anyone else's data — only their own.</p>
+  {% else %}<p class="sub">Ask a manager to create a login for this driver.</p>{% endif %}
+ {% endif %}
+ </div>
+</div>
+{% endblock %}

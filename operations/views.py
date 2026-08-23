@@ -476,7 +476,11 @@ def app_driver_detail(request, pk):
                   {"d": d, "cdl": _exp_chip(d.cdl_expiry), "med": _exp_chip(d.medical_expiry),
                    "thread_notes": d.team_notes.select_related("author"),
                    "note_company_id": d.company_id, "note_field": "driver",
-                   "note_obj_id": d.id, "note_next": f"/app/drivers/{d.id}/"})
+                   "note_obj_id": d.id, "note_next": f"/app/drivers/{d.id}/",
+                   "can_manage": _is_manager(request.user),
+                   "can_delete": _can_delete(request.user),
+                   "has_login": bool(d.user),
+                   "login_username": d.user.username if d.user else ""})
 
 
 def _service_chip(v):
@@ -4397,3 +4401,57 @@ def driver_expense_add(request, drv):
         else:
             _messages.error(request, "Please enter an amount.")
     return redirect("driver_portal")
+
+
+@login_required
+def driver_create_login(request, pk):
+    """One-click: create a login for a driver and link it, so they can use the
+    driver portal. Managers/admins only."""
+    if not _is_manager(request.user):
+        _messages.error(request, "Only managers or admins can create driver logins.")
+        return redirect("app_driver_detail", pk=pk)
+    d = _get(Driver, pk=pk, company__in=_companies_all(request))
+    if d.user:
+        _messages.info(request, f"{d} already has a login ({d.user.username}).")
+        return redirect("app_driver_detail", pk=pk)
+    if request.method == "POST":
+        username = (request.POST.get("username") or "").strip()
+        pw = (request.POST.get("password") or "").strip()
+        if not username or len(pw) < 8:
+            _messages.error(request, "Need a username and a password of at least 8 characters.")
+            return redirect("app_driver_detail", pk=pk)
+        if _User.objects.filter(username__iexact=username).exists():
+            _messages.error(request, "That username is taken — pick another.")
+            return redirect("app_driver_detail", pk=pk)
+        u = _User.objects.create_user(username=username, password=pw,
+                                      first_name=d.first_name, last_name=d.last_name,
+                                      email=getattr(d, "email", "") or "")
+        u.is_staff = False  # drivers are NOT staff; they only get the driver portal
+        u.save()
+        prof, _ = Profile.objects.get_or_create(user=u)
+        prof.role = "driver"
+        prof.save()
+        prof.companies.add(d.company)
+        d.user = u
+        d.save()
+        _messages.success(request,
+            f"Login created for {d}. Username: {username}. They can log in at "
+            f"your site and will land in the driver portal. Share the password with them securely.")
+    return redirect("app_driver_detail", pk=pk)
+
+
+@login_required
+def driver_remove_login(request, pk):
+    """Unlink/disable a driver's login."""
+    if not _can_delete(request.user):
+        _messages.error(request, "Only admins can remove driver logins.")
+        return redirect("app_driver_detail", pk=pk)
+    d = _get(Driver, pk=pk, company__in=_companies_all(request))
+    if d.user and request.method == "POST":
+        u = d.user
+        d.user = None
+        d.save()
+        u.is_active = False
+        u.save()
+        _messages.success(request, "Driver login removed (disabled).")
+    return redirect("app_driver_detail", pk=pk)
