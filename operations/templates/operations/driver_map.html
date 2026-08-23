@@ -1,0 +1,56 @@
+{% extends "operations/app_base.html" %}
+{% block title %}Driver Map — Fleetline{% endblock %}
+{% block page_title %}Live driver map{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<div class="card" style="padding:0;overflow:hidden">
+ <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid var(--line)">
+  <b>Drivers sharing location</b>
+  <span class="sub" id="mapStatus">Loading…</span>
+ </div>
+ <div id="map" style="height:520px;width:100%"></div>
+</div>
+<div class="card" style="margin-top:14px">
+ <div class="card-h"><h3>Driver list</h3></div>
+ <table><thead><tr><th>Driver</th><th>Company</th><th>Last update</th><th>Status</th></tr></thead>
+  <tbody id="driverRows"><tr><td colspan="4" class="sub">Loading…</td></tr></tbody>
+ </table>
+</div>
+<div class="sub" style="margin-top:8px;font-size:12px">Locations come from the driver app while it's open (with the driver's permission). "Stale" means we haven't heard from that phone in over 15 minutes. For 24/7 tracking, ELD integration is the reliable route.</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+ var map = L.map('map').setView([39.5, -98.35], 4); // US center
+ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+   maxZoom: 19, attribution: '© OpenStreetMap'
+ }).addTo(map);
+ var markers = {};
+ function esc(t){var d=document.createElement('div');d.textContent=t;return d.innerHTML;}
+ function refresh(){
+   fetch('/app/driver-map/data/').then(function(r){return r.json();}).then(function(j){
+     if(!j.ok) return;
+     var rows='', bounds=[], seen={};
+     if(!j.drivers.length){
+       document.getElementById('mapStatus').textContent='No drivers sharing location yet.';
+       document.getElementById('driverRows').innerHTML='<tr><td colspan="4" class="sub">No drivers are sharing location. Turn on tracking in Company settings, and have drivers open the app.</td></tr>';
+       return;
+     }
+     document.getElementById('mapStatus').textContent=j.drivers.length+' driver(s)';
+     j.drivers.forEach(function(d, i){
+       var key=d.driver+i;
+       seen[key]=true;
+       var color=d.fresh?'#137a51':'#c0392b';
+       if(markers[key]){markers[key].setLatLng([d.lat,d.lng]);}
+       else{markers[key]=L.circleMarker([d.lat,d.lng],{radius:9,color:'#fff',weight:2,fillColor:color,fillOpacity:1}).addTo(map);}
+       markers[key].bindPopup('<b>'+esc(d.driver)+'</b><br>'+esc(d.company)+'<br>'+esc(d.when)+' ('+d.minutes_ago+' min ago)');
+       bounds.push([d.lat,d.lng]);
+       rows+='<tr><td><b>'+esc(d.driver)+'</b></td><td class="sub">'+esc(d.company)+'</td><td class="sub">'+esc(d.when)+' ('+d.minutes_ago+' min ago)</td><td>'+(d.fresh?'<span style="color:#137a51">● Live</span>':'<span style="color:#c0392b">● Stale</span>')+'</td></tr>';
+     });
+     document.getElementById('driverRows').innerHTML=rows;
+     if(bounds.length && !window._fitted){map.fitBounds(bounds,{padding:[40,40],maxZoom:11});window._fitted=true;}
+   });
+ }
+ refresh();
+ setInterval(refresh, 20000); // refresh every 20s
+</script>
+{% endblock %}

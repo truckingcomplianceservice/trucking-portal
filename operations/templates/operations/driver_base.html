@@ -61,6 +61,7 @@
  <a class="bell" href="#" onclick="alert('You have {{ unread|default:0 }} unread notification(s). Full notifications coming soon.');return false;">🔔{% if unread %}<span class="cnt">{{ unread }}</span>{% endif %}</a>
  <a href="/admin/logout/" style="color:#fff;text-decoration:none;font-size:13px;margin-left:10px">Log out</a>
 </div>
+<div id="locBar" style="display:none;background:#0d3b2e;color:#8ef0c0;font-size:12px;padding:6px 16px;text-align:center">📍 Location sharing is ON while this app is open (your company tracks driver location).</div>
 <div class="wrap">
 <div id="installHint" style="display:none;background:#fff7e6;border:1px solid #f0c040;border-radius:12px;padding:12px 14px;margin-bottom:12px;font-size:13px">
  <b>📲 Install this app</b>
@@ -90,4 +91,24 @@
 </div>
 {% block content %}{% endblock %}
 </div>
+<script>
+(function(){
+ var TRACK = {% if track %}true{% else %}false{% endif %};
+ if(!TRACK || !("geolocation" in navigator)) return;
+ document.getElementById('locBar').style.display='block';
+ var csrf = "{{ csrf_token }}";
+ function sendLoc(pos){
+   var c=pos.coords;
+   var fd=new FormData();
+   fd.append('lat', c.latitude); fd.append('lng', c.longitude);
+   fd.append('accuracy', c.accuracy!=null?c.accuracy:'');
+   fd.append('speed', c.speed!=null?c.speed:'');
+   fd.append('csrfmiddlewaretoken', csrf);
+   fetch('/driver/location/', {method:'POST', body:fd}).catch(function(){});
+ }
+ function ping(){ navigator.geolocation.getCurrentPosition(sendLoc, function(){}, {enableHighAccuracy:true, timeout:10000, maximumAge:30000}); }
+ ping();                 // send once on load
+ setInterval(ping, 60000); // then every 60s while app is open
+})();
+</script>
 </body></html>

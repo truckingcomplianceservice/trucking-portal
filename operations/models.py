@@ -60,6 +60,8 @@ class Company(models.Model):
     active = models.BooleanField(default=True)
     apply_token = models.CharField(max_length=32, blank=True, db_index=True,
         help_text="Used to build this company's public driver-application link.")
+    track_drivers = models.BooleanField("Track driver location (phone GPS)", default=False,
+        help_text="If on, driver apps share location while open, shown on your live map.")
     drivers_see_rate = models.BooleanField("Drivers can see load rate ($)", default=False,
         help_text="If on, drivers see the dollar rate on their loads in the driver portal.")
     slug = models.SlugField(max_length=60, blank=True, db_index=True,
@@ -691,6 +693,21 @@ class TeamInvite(models.Model):
 
     def __str__(self):
         return f"Invite to {self.company.name} ({self.get_status_display()})"
+
+
+class DriverLocation(models.Model):
+    """Latest known GPS location for a driver, sent from the driver app (with the
+    driver's permission) while the app is open. Not 24/7 background tracking."""
+    driver = models.OneToOneField("Driver", on_delete=models.CASCADE, related_name="location")
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name="driver_locations")
+    latitude = models.FloatField()
+    longitude = models.FloatField()
+    accuracy = models.FloatField(null=True, blank=True, help_text="Accuracy in meters, if known.")
+    speed = models.FloatField(null=True, blank=True, help_text="Speed in m/s, if known.")
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.driver} @ {self.latitude:.4f},{self.longitude:.4f}"
 
 
 class NotificationRule(models.Model):

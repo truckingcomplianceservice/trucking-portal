@@ -6,7 +6,8 @@ from django.db.models import Sum, Q
 from django.shortcuts import render, get_object_or_404, redirect
 from django.views.static import serve
 from django.conf import settings
-from .models import (TeamMessage, ShiftHandoff, Notification, TaskComment, IftaStateEntry, TeamInvite, BrokerAgent, Company, Load, Expense, Settlement, Driver, Vehicle, Applicant, ApplicantStatusHistory, SignatureRecord, AuditorLink,
+from .models import (DriverLocation,
+    TeamMessage, ShiftHandoff, Notification, TaskComment, IftaStateEntry, TeamInvite, BrokerAgent, Company, Load, Expense, Settlement, Driver, Vehicle, Applicant, ApplicantStatusHistory, SignatureRecord, AuditorLink,
                      ComplianceDocument, Broker, FuelTransaction, RentalContract, VehicleDocument, VehiclePhoto, CompanyDocument, notify)
 
 
@@ -4355,6 +4356,7 @@ def driver_portal(request, drv):
         "drv": drv, "active_loads": active, "recent_loads": recent,
         "load_count": loads.count(), "unpaid": unpaid, "paid_ytd": paid_ytd,
         "see_rate": see_rate, "unread": unread, "company": drv.company,
+        "track": drv.company.track_drivers,
     })
 
 
@@ -4364,7 +4366,7 @@ def driver_portal_loads(request, drv):
     loads = Load.objects.filter(driver=drv).select_related("broker", "vehicle").order_by("-pickup_date", "-id")
     return render(request, "operations/driver_loads.html", {
         "drv": drv, "loads": loads, "see_rate": drv.company.drivers_see_rate,
-        "company": drv.company,
+        "company": drv.company, "track": drv.company.track_drivers,
     })
 
 
@@ -4373,7 +4375,7 @@ def driver_portal_pay(request, drv):
     """Driver sees their own settlements (pay)."""
     setts = Settlement.objects.filter(driver=drv).order_by("-period_end")
     return render(request, "operations/driver_portal_pay.html", {
-        "drv": drv, "setts": setts, "company": drv.company,
+        "drv": drv, "setts": setts, "company": drv.company, "track": drv.company.track_drivers,
     })
 
 
@@ -4528,6 +4530,7 @@ def driver_load_detail(request, drv, pk):
     see_rate = drv.company.drivers_see_rate
     return render(request, "operations/driver_load_detail.html", {
         "drv": drv, "l": load, "see_rate": see_rate, "company": drv.company,
+        "track": drv.company.track_drivers,
     })
 
 
@@ -4557,3 +4560,64 @@ def driver_manifest(request):
     except Exception:
         data = "{}"
     return HttpResponse(data, content_type="application/manifest+json")
+
+
+# ================= Driver location tracking =================
+@_driver_required
+def driver_location_post(request, drv):
+    """Driver app posts its GPS location (only saved if company tracking is on)."""
+    from django.http import JsonResponse
+    if not drv.company.track_drivers:
+        return JsonResponse({"ok": False, "tracking": False})
+    if request.method == "POST":
+        try:
+            lat = float(request.POST.get("lat"))
+            lng = float(request.POST.get("lng"))
+        except (TypeError, ValueError):
+            return JsonResponse({"ok": False, "error": "bad coords"})
+        acc = request.POST.get("accuracy")
+        spd = request.POST.get("speed")
+        DriverLocation.objects.update_or_create(
+            driver=drv,
+            defaults={"company": drv.company, "latitude": lat, "longitude": lng,
+                      "accuracy": float(acc) if acc not in (None, "", "null") else None,
+                      "speed": float(spd) if spd not in (None, "", "null") else None})
+        return JsonResponse({"ok": True})
+    return JsonResponse({"ok": False})
+
+
+@login_required
+def driver_map(request):
+    """Live map of driver locations for office users (managers/dispatchers)."""
+    allowed = _is_manager(request.user) or (hasattr(request.user, "profile")
+              and request.user.profile.role in ["dispatcher", "safety"])
+    if not allowed:
+        _messages.error(request, "You don't have access to the driver map.")
+        return redirect("dashboard")
+    return render(request, "operations/driver_map.html", {})
+
+
+@login_required
+def driver_map_data(request):
+    """JSON of latest driver locations for the map, scoped to visible companies."""
+    from django.http import JsonResponse
+    from django.utils import timezone
+    allowed = _is_manager(request.user) or (hasattr(request.user, "profile")
+              and request.user.profile.role in ["dispatcher", "safety"])
+    if not allowed:
+        return JsonResponse({"ok": False}, status=403)
+    cs = _companies(request)
+    now = timezone.now()
+    items = []
+    for loc in DriverLocation.objects.filter(company__in=cs).select_related("driver", "company"):
+        mins = (now - loc.updated_at).total_seconds() / 60.0
+        items.append({
+            "driver": str(loc.driver),
+            "company": loc.company.name,
+            "lat": loc.latitude, "lng": loc.longitude,
+            "accuracy": loc.accuracy,
+            "minutes_ago": round(mins),
+            "fresh": mins <= 15,
+            "when": loc.updated_at.strftime("%b %d, %I:%M %p"),
+        })
+    return JsonResponse({"ok": True, "drivers": items})
