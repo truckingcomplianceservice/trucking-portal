@@ -4207,3 +4207,76 @@ def team_invite_approve(request, pk):
             inv.save()
             _messages.success(request, "Invite revoked.")
     return redirect("app_team")
+
+
+# ================= Broker detail (agents + load history) =================
+@login_required
+def broker_detail(request, pk):
+    """Full detail for one broker: contact info, agents (add/remove), and every
+    load done with them, filterable by date."""
+    cs = _companies(request)
+    broker = get_object_or_404(Broker, pk=pk)
+    start = _parse_date(request.GET.get("start", ""))
+    end = _parse_date(request.GET.get("end", ""))
+    # loads with this broker, scoped to companies the user can see
+    loads = (Load.objects.filter(broker=broker, company__in=cs)
+             .select_related("driver", "vehicle", "broker_agent", "company")
+             .order_by("-pickup_date", "-id"))
+    if start:
+        loads = loads.filter(Q(pickup_date__gte=start) |
+                             Q(pickup_date__isnull=True, delivery_date__gte=start))
+    if end:
+        loads = loads.filter(Q(pickup_date__lte=end) |
+                             Q(pickup_date__isnull=True, delivery_date__lte=end))
+    total_rev = loads.aggregate(s=Sum("rate"))["s"] or 0
+    load_count = loads.count()
+    paid_rev = loads.filter(payment_status__in=["reserve_released", "closed"]).aggregate(s=Sum("rate"))["s"] or 0
+    # agents with their own load counts
+    agents = []
+    for a in broker.agents.all():
+        a_loads = loads.filter(broker_agent=a)
+        agents.append({"a": a, "loads": a_loads.count(),
+                       "rev": a_loads.aggregate(s=Sum("rate"))["s"] or 0})
+    return render(request, "operations/broker_detail.html", {
+        "broker": broker, "loads": loads, "load_count": load_count,
+        "total_rev": total_rev, "paid_rev": paid_rev, "agents": agents,
+        "start": request.GET.get("start", ""), "end": request.GET.get("end", ""),
+        "can_manage": _is_manager(request.user),
+        "can_delete": _can_delete(request.user),
+    })
+
+
+@login_required
+def broker_agent_add(request, pk):
+    """Add an agent to a broker."""
+    if not _is_manager(request.user):
+        _messages.error(request, "Only managers or admins can add agents.")
+        return redirect("broker_detail", pk=pk)
+    broker = get_object_or_404(Broker, pk=pk)
+    if request.method == "POST":
+        name = (request.POST.get("name") or "").strip()
+        if name:
+            BrokerAgent.objects.create(
+                broker=broker, name=name[:120],
+                phone=request.POST.get("phone", "").strip()[:30],
+                extension=request.POST.get("extension", "").strip()[:15],
+                email=request.POST.get("email", "").strip()[:254],
+                notes=request.POST.get("notes", "").strip()[:200])
+            _messages.success(request, f"Agent {name} added.")
+        else:
+            _messages.error(request, "Agent needs a name.")
+    return redirect("broker_detail", pk=pk)
+
+
+@login_required
+def broker_agent_remove(request, pk, agent_pk):
+    """Remove an agent from a broker (loads keep their record, agent link clears)."""
+    if not _can_delete(request.user):
+        _messages.error(request, "Only admins can remove agents.")
+        return redirect("broker_detail", pk=pk)
+    broker = get_object_or_404(Broker, pk=pk)
+    agent = BrokerAgent.objects.filter(pk=agent_pk, broker=broker).first()
+    if agent and request.method == "POST":
+        agent.delete()
+        _messages.success(request, "Agent removed.")
+    return redirect("broker_detail", pk=pk)
