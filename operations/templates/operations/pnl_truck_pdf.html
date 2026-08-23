@@ -10,8 +10,8 @@
 <h2>Per-truck profit &amp; loss{% if start or end %} ({{ start|default:"start" }} to {{ end|default:"today" }}){% endif %}</h2>
 {% for g in groups %}
 <h2 style="font-size:12px">{{ g.company.name }}</h2>
-<table><thead><tr><th>Truck</th><th class="n">Loads</th><th class="n">Revenue</th><th class="n">Fuel</th><th class="n">Maintenance</th><th class="n">Expenses</th><th class="n">Net</th></tr></thead><tbody>
-{% for t in g.trucks %}<tr><td>Unit {{ t.v.unit_number }}</td><td class="n">{{ t.loads }}</td><td class="n">${{ t.rev|floatformat:2 }}</td><td class="n">${{ t.fuel|floatformat:2 }}</td><td class="n">${{ t.maint|floatformat:2 }}</td><td class="n">${{ t.expenses|floatformat:2 }}</td><td class="n">${{ t.net|floatformat:2 }}</td></tr>{% endfor %}
+<table><thead><tr><th>Truck</th><th class="n">Loads</th><th class="n">Revenue</th><th class="n">Fuel</th><th class="n">Maintenance</th><th class="n">Expenses</th><th class="n">Wages</th><th class="n">Net</th></tr></thead><tbody>
+{% for t in g.trucks %}<tr><td>Unit {{ t.v.unit_number }}</td><td class="n">{{ t.loads }}</td><td class="n">${{ t.rev|floatformat:2 }}</td><td class="n">${{ t.fuel|floatformat:2 }}</td><td class="n">${{ t.maint|floatformat:2 }}</td><td class="n">${{ t.expenses|floatformat:2 }}</td><td class="n">${{ t.wages|floatformat:2 }}</td><td class="n">${{ t.net|floatformat:2 }}</td></tr>{% endfor %}
 </tbody></table>
 {% endfor %}
 <table><tbody>
@@ -19,7 +19,8 @@
 <tr><td>Total fuel</td><td class="n">${{ gt.fuel|floatformat:2 }}</td></tr>
 <tr><td>Total maintenance</td><td class="n">${{ gt.maint|floatformat:2 }}</td></tr>
 <tr><td>Total expenses</td><td class="n">${{ gt.expenses|floatformat:2 }}</td></tr>
-<tr><td><b>Net (revenue &minus; fuel &minus; maintenance &minus; expenses)</b></td><td class="n"><b>${{ gt.net|floatformat:2 }}</b></td></tr>
+<tr><td>Total driver wages</td><td class="n">${{ gt.wages|floatformat:2 }}</td></tr>
+<tr><td><b>Net (revenue &minus; fuel &minus; maintenance &minus; expenses &minus; wages)</b></td><td class="n"><b>${{ gt.net|floatformat:2 }}</b></td></tr>
 </tbody></table>
 <p style="font-size:9px;color:#777">Net includes fuel, maintenance, and expenses (from Accounting) tied to each truck. It excludes driver pay and company overhead unless logged as truck expenses.</p>
 </body></html>

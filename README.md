@@ -1,43 +1,40 @@
 # Trucking Compliance Services — Operations Portal
 
-Invite team members by link -> they self-register -> you approve them.
+Per-truck P&L now includes driver wages, attributed to each truck.
 
 ## Deploy
 1. Download this zip, then in Terminal:
    cd ~/Documents/GitHub/trucking-portal && rm -rf operations trucking_ops templates manage.py requirements.txt Procfile README.md && unzip -o ~/Downloads/<THIS-FILE>.zip -d . && echo DONE
 2. GitHub Desktop -> Commit -> Push. Test in a private/incognito window.
 
-## New: invite by link + self sign-up + approval
-On the Team page (managers/admins only), there's now a "Invite by link" button.
+## What this fixes
+When you paid driver wages (a settlement), it was NOT being counted against any
+specific truck in the per-truck P&L. So a truck's net looked too high.
 
-HOW IT WORKS:
-1. Click "Invite by link", pick the ROLE for the new person (and optionally their
-   email), and create the invite. You get a secure link (expires in 7 days).
-2. Send that link to the person (text, email, WhatsApp -- however you like).
-3. They open it, fill in their name + username + EMAIL, and SET THEIR OWN PASSWORD.
-   They can't pick "admin" -- only the role you assigned.
-4. They land in an "awaiting approval" state -- they CANNOT log in yet.
-5. You (and your managers) get a notification. On the Team page you'll see
-   "Awaiting your approval" with Approve / Reject buttons.
-6. When you Approve, their account activates and they can log in -- seeing only
-   what their role allows, for your company only.
+Now the per-truck P&L has a "Driver wages" column, and net =
+   revenue - fuel - maintenance - expenses - driver wages
 
-SECURITY (built in):
-- The link uses a long, unguessable token and expires in 7 days.
-- New accounts are created INACTIVE and cannot log in until you approve them.
-- Only managers/admins can create invites or approve; only admins can invite
-  another admin.
-- The person is tied to YOUR company only -- full data isolation preserved.
+HOW WAGES ARE ATTRIBUTED TO A TRUCK (since a driver can drive any truck):
+- For each driver settlement, the app looks at the loads that driver ran during
+  that pay period and which truck each load was on.
+- The wages are split across those trucks BY LOAD REVENUE. Example: a driver paid
+  $1,000 who ran $6,000 of loads on Truck A and $2,000 on Truck B gets $750
+  charged to A and $250 to B.
+- If the driver ran loads on only one truck that period, all their wages go to
+  that truck.
+- If a settlement has no matching truck-loads in its period, those wages can't be
+  tied to a truck and are left out of the per-truck view (they're still in the
+  driver's settlement and company P&L).
 
-Roles already control what each member can see/do (admin, manager, dispatcher,
-compliance, safety, accountant, billing, driver) -- this just lets people join
-themselves and set their own password, with your approval.
+IMPORTANT: for wages to land on the right truck, your loads must have BOTH the
+driver AND the truck set, and the load's pickup date must fall in the driver's
+settlement period. The more complete your load data, the more accurate this is.
 
 ## Includes everything to date
-Invite-by-link + self-signup + approval, per-truck P&L expense fix, improved
-rate-con broker auto-add, vehicle cost % breakdown, vehicle-expense fix, IFTA
-worksheet, company switcher fix, deadhead nearby-city fix + auto-fill, chat +
-task files, notifications (bell+email) + task responses, chat @mentions +
+Per-truck driver-wage attribution, team invite + approval, per-truck P&L expense
+fix, improved rate-con broker auto-add, vehicle cost % breakdown, vehicle-expense
+fix, IFTA worksheet, company switcher fix, deadhead nearby-city fix + auto-fill,
+chat + task files, notifications (bell+email) + task responses, chat @mentions +
 chat-to-task, team username + remove, floating team chat + handoff, duplicate
 rate-con protection, rate-con broker+agent auto-create, all-brokers list, brokers
 + agents, admin-only delete, vehicle page fix, unified load form, vehicle docs

@@ -2110,12 +2110,51 @@ def team_send_reset(request, pk):
 
 # ================= Per-truck profit / loss report =================
 def _per_truck_data(request):
-    from .models import MaintenanceRecord
+    from .models import MaintenanceRecord, Settlement
     cs = _companies(request)
     start = _parse_date(request.GET.get("start", ""))
     end = _parse_date(request.GET.get("end", ""))
     groups = []
-    gt = {"rev": 0, "fuel": 0, "maint": 0, "expenses": 0, "net": 0, "loads": 0}
+    gt = {"rev": 0, "fuel": 0, "maint": 0, "expenses": 0, "wages": 0, "net": 0, "loads": 0}
+
+    # --- Attribute driver wages to trucks, by the loads each driver ran ---
+    # wages_by_truck[vehicle_id] = total wages attributed to that truck
+    wages_by_truck = {}
+    unattributed_wages = 0.0
+    sett_q = Settlement.objects.filter(company__in=cs)
+    if start:
+        sett_q = sett_q.filter(period_end__gte=start)
+    if end:
+        sett_q = sett_q.filter(period_start__lte=end)
+    for st in sett_q.select_related("driver"):
+        net = float(st.net_pay or 0)
+        if net <= 0 or not st.driver_id:
+            continue
+        # loads this driver ran during the settlement period, that have a truck
+        dloads = Load.objects.filter(driver_id=st.driver_id, vehicle__isnull=False)
+        # match loads to the pay period using pickup (fallback delivery) date
+        from django.db.models import Q as _Q
+        dloads = dloads.filter(
+            _Q(pickup_date__gte=st.period_start, pickup_date__lte=st.period_end) |
+            _Q(pickup_date__isnull=True, delivery_date__gte=st.period_start,
+               delivery_date__lte=st.period_end))
+        # sum revenue per truck for this driver in the period
+        per_truck_rev = {}
+        for ld in dloads:
+            per_truck_rev[ld.vehicle_id] = per_truck_rev.get(ld.vehicle_id, 0.0) + float(ld.rate or 0)
+        total_rev = sum(per_truck_rev.values())
+        if not per_truck_rev:
+            unattributed_wages += net
+            continue
+        if total_rev > 0:
+            for vid, r in per_truck_rev.items():
+                wages_by_truck[vid] = wages_by_truck.get(vid, 0.0) + net * (r / total_rev)
+        else:
+            # no revenue info — split evenly across the trucks they touched
+            share = net / len(per_truck_rev)
+            for vid in per_truck_rev:
+                wages_by_truck[vid] = wages_by_truck.get(vid, 0.0) + share
+
     for c in cs.order_by("name"):
         trucks = []
         for v in Vehicle.objects.filter(company=c).order_by("unit_number"):
@@ -2139,12 +2178,14 @@ def _per_truck_data(request):
             fuel = fq.aggregate(s=Sum("amount"))["s"] or 0
             maint = sum((r.parts_cost or 0) + (r.labor_cost or 0) for r in mq)
             expenses = eq.aggregate(s=Sum("amount"))["s"] or 0
+            wages = round(wages_by_truck.get(v.id, 0.0), 2)
             loads = lq.count()
-            net = rev - fuel - maint - expenses
+            net = float(rev) - float(fuel) - float(maint) - float(expenses) - wages
             trucks.append({"v": v, "rev": rev, "fuel": fuel, "maint": maint,
-                           "expenses": expenses, "net": net, "loads": loads})
-            gt["rev"] += rev; gt["fuel"] += fuel; gt["maint"] += maint
-            gt["expenses"] += expenses; gt["net"] += net; gt["loads"] += loads
+                           "expenses": expenses, "wages": wages, "net": net, "loads": loads})
+            gt["rev"] += float(rev); gt["fuel"] += float(fuel); gt["maint"] += float(maint)
+            gt["expenses"] += float(expenses); gt["wages"] += wages
+            gt["net"] += net; gt["loads"] += loads
         if trucks:
             groups.append({"company": c, "trucks": trucks})
     # letterhead company (only when a single company is in scope)
