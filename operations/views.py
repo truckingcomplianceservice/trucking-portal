@@ -465,7 +465,15 @@ def app_drivers(request):
     rows = [{"o": d, "cdl": _exp_chip(d.cdl_expiry), "med": _exp_chip(d.medical_expiry),
              "dqf": _dqf_overall(d),
              "initials": (d.first_name[:1] + d.last_name[:1]).upper()} for d in drivers]
-    return render(request, "operations/app_drivers.html", {"rows": rows})
+    # open + pending driver invites
+    pend = (TeamInvite.objects.filter(company__in=cs, role="driver", status="submitted")
+            .select_related("user"))
+    base = getattr(settings, "APP_BASE_URL", "").rstrip("/")
+    open_links = [{"inv": i, "link": (base or "") + f"/join/{i.token}/"}
+                  for i in TeamInvite.objects.filter(company__in=cs, role="driver", status="pending")]
+    return render(request, "operations/app_drivers.html", {
+        "rows": rows, "can_manage": _is_manager(request.user),
+        "pending_drivers": pend, "open_driver_links": open_links})
 
 
 @require_section("drivers")
@@ -4166,7 +4174,8 @@ def team_join(request, token):
                                         first_name=first[:150], last_name=last[:150],
                                         email=email[:254])
         user.is_active = False   # cannot log in until approved
-        user.is_staff = True     # needs staff to use the app admin-backed pages
+        # drivers are NOT staff (portal only); office roles are staff
+        user.is_staff = (inv.role != "driver")
         user.save()
         prof, _ = Profile.objects.get_or_create(user=user)
         prof.role = inv.role
@@ -4176,11 +4185,13 @@ def team_join(request, token):
         inv.status = "submitted"
         inv.save()
         # notify managers/admins of this company to approve
+        where = "Drivers" if inv.role == "driver" else "Team"
+        url = "/app/drivers/" if inv.role == "driver" else "/app/team/"
         mgrs = _User.objects.filter(is_active=True, profile__companies=inv.company,
                                    profile__role__in=["admin", "manager"]).distinct()
         for m in mgrs:
-            notify(m, f"{first} {last} signed up to join {inv.company.name} — approve them in Team.",
-                   kind="general", url="/app/team/", company=inv.company)
+            notify(m, f"{first} {last} signed up to join {inv.company.name} — approve them in {where}.",
+                   kind="general", url=url, company=inv.company)
         return render(request, "operations/join.html", {"done": True, "company": inv.company})
     return render(request, "operations/join.html", {"inv": inv, "company": inv.company})
 
@@ -4203,6 +4214,19 @@ def team_invite_approve(request, pk):
             inv.approved_by = request.user
             inv.approved_at = timezone.now()
             inv.save()
+            # If this is a DRIVER invite, create or link the Driver record
+            if inv.role == "driver":
+                drv = inv.driver
+                if drv is None:
+                    # general driver link -> create a new driver record from their info
+                    drv = Driver.objects.create(
+                        company=inv.company,
+                        first_name=inv.user.first_name or inv.user.username,
+                        last_name=inv.user.last_name or "",
+                        status="active")
+                if not drv.user:
+                    drv.user = inv.user
+                    drv.save()
             notify(inv.user, f"You've been approved to join {inv.company.name}. You can now log in.",
                    kind="general", url="/dashboard/", company=inv.company)
             _messages.success(request, f"{inv.user.get_full_name() or inv.user.username} approved and can now log in.")
@@ -4455,3 +4479,32 @@ def driver_remove_login(request, pk):
         u.save()
         _messages.success(request, "Driver login removed (disabled).")
     return redirect("app_driver_detail", pk=pk)
+
+
+# ================= Driver invite links (self-signup) =================
+@login_required
+def driver_invite_create(request, pk=None):
+    """Create a driver invite link. If pk is given, tie it to that driver record;
+    otherwise it's a general driver link (driver record created on approval)."""
+    if not _is_manager(request.user):
+        _messages.error(request, "Only managers or admins can invite drivers.")
+        return redirect("app_drivers")
+    cs = _companies(request)
+    company = cs.first()
+    driver = None
+    if pk:
+        driver = _get(Driver, pk=pk, company__in=_companies_all(request))
+        company = driver.company
+        if driver.user:
+            _messages.info(request, f"{driver} already has a login.")
+            return redirect("app_driver_detail", pk=pk)
+    inv = TeamInvite.objects.create(
+        company=company, role="driver", driver=driver,
+        invited_email=request.POST.get("email", "").strip()[:254],
+        invited_by=request.user)
+    base = getattr(settings, "APP_BASE_URL", "").rstrip("/")
+    link = (base or "") + f"/join/{inv.token}/"
+    _messages.success(request, f"Driver invite link created (expires in 7 days): {link}")
+    if pk:
+        return redirect("app_driver_detail", pk=pk)
+    return redirect("app_drivers")

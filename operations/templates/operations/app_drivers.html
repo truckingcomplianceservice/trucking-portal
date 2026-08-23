@@ -2,7 +2,33 @@
 {% block title %}Drivers — Fleetline{% endblock %}
 {% block page_title %}Drivers{% endblock %}
 {% block content %}
-<div class="toolbar"><div class="spacer"></div><a class="btn amber" href="/admin/operations/driver/add/">+ Add driver</a></div>
+<div class="toolbar"><div class="spacer"></div>{% if can_manage %}<form method="post" action="/app/drivers/invite/" style="display:inline">{% csrf_token %}<button class="btn ghost" type="submit">🔗 Invite driver by link</button></form> {% endif %}<a class="btn amber" href="/admin/operations/driver/add/">+ Add driver</a></div>
+
+{% if pending_drivers %}
+<div class="card" style="margin-bottom:14px;border-left:4px solid #f0c040">
+ <div class="card-h"><h3>Drivers awaiting approval ({{ pending_drivers|length }})</h3></div>
+ <table><thead><tr><th>Name</th><th>Username</th><th>Email</th><th></th></tr></thead><tbody>
+ {% for i in pending_drivers %}<tr>
+  <td><b>{{ i.user.get_full_name|default:i.user.username }}</b></td>
+  <td class="sub">{{ i.user.username }}</td>
+  <td class="sub">{{ i.user.email|default:"—" }}</td>
+  <td>
+   <form method="post" action="/app/team/invite/{{ i.id }}/approve/" style="display:inline">{% csrf_token %}<input type="hidden" name="action" value="approve"><button class="btn amber" style="padding:5px 12px;font-size:12px">Approve</button></form>
+   <form method="post" action="/app/team/invite/{{ i.id }}/approve/" style="display:inline">{% csrf_token %}<input type="hidden" name="action" value="revoke"><button class="btn ghost" style="padding:5px 10px;font-size:12px">Reject</button></form>
+  </td>
+ </tr>{% endfor %}
+ </tbody></table>
+</div>
+{% endif %}
+
+{% if open_driver_links %}
+<div class="card" style="margin-bottom:14px">
+ <div class="card-h"><h3>Open driver invite links</h3><span class="sub">Share these — they expire in 7 days</span></div>
+ <table><tbody>
+ {% for row in open_driver_links %}<tr><td><input readonly value="{{ row.link }}" onclick="this.select()" style="width:100%;padding:5px 8px;border:1px solid var(--line);border-radius:6px;font-size:12px"></td></tr>{% endfor %}
+ </tbody></table>
+</div>
+{% endif %}
 <div class="card"><div class="card-h"><h3>Drivers</h3></div>
 {% if rows %}<table><thead><tr><th>Driver</th><th>Type / tax</th><th>CDL</th><th>Medical card</th><th>DQF file</th><th>Status</th></tr></thead><tbody>
 {% for r in rows %}<tr onclick="location.href='/app/drivers/{{ r.o.id }}/'">

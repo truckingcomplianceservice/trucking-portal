@@ -45,6 +45,12 @@
    <button class="btn amber" type="submit">Create driver login</button>
   </form>
   <p class="sub" style="font-size:12px;margin-top:8px">Tip: use a simple password and share it with the driver securely. They can't see anyone else's data — only their own.</p>
+  <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--line)">
+   <p class="sub" style="font-size:13px;margin-top:0">Or send them a link to set their own password:</p>
+   <form method="post" action="/app/drivers/{{ d.id }}/invite/">{% csrf_token %}
+    <button class="btn ghost" type="submit" style="padding:6px 12px;font-size:13px">🔗 Create invite link for this driver</button>
+   </form>
+  </div>
   {% else %}<p class="sub">Ask a manager to create a login for this driver.</p>{% endif %}
  {% endif %}
  </div>

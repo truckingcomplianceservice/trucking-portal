@@ -667,6 +667,9 @@ class TeamInvite(models.Model):
                                    related_name="sent_invites")
     user = models.OneToOneField(User, on_delete=models.SET_NULL, null=True, blank=True,
                                 related_name="invite")
+    driver = models.ForeignKey("Driver", on_delete=models.SET_NULL, null=True, blank=True,
+                               related_name="invites",
+                               help_text="If set, this invite links to an existing driver record.")
     status = models.CharField(max_length=12, choices=STATUS, default="pending")
     created_at = models.DateTimeField(auto_now_add=True)
     expires_at = models.DateTimeField()
