@@ -1,41 +1,37 @@
 # Trucking Compliance Services — Operations Portal
 
-Driver app upgrade: Navigate buttons, pickup/delivery status, BOL scanner.
+Office/admin is now an installable app + proper phone layout.
 
 ## Deploy
 1. Download this zip, then in Terminal:
    cd ~/Documents/GitHub/trucking-portal && rm -rf operations trucking_ops templates manage.py requirements.txt Procfile README.md && unzip -o ~/Downloads/<THIS-FILE>.zip -d . && echo DONE
 2. GitHub Desktop -> Commit -> Push. Test in a private/incognito window.
 
-## New in the driver app (open any load)
+## New: install the OFFICE app on your phone (you + dispatchers)
+Just like the driver app, but for the office side (dashboard, dispatch, loads,
+drivers, brokers, reports, everything). You get an app icon and full screen.
 
-1) NAVIGATE BUTTONS (pickup + delivery)
-   Each load shows a Pickup card and a Delivery card, each with a "Navigate"
-   button. Tapping it opens the phone's map with the address loaded. On the phone,
-   the driver can choose Google Maps, Trucker Path, or ANY truck navigator they
-   have installed -- so they get real truck routes. (We hand off to their nav; we
-   don't replace it.)
+ANDROID (Chrome): go to app.pure99inc.com/dashboard/ and log in -> Chrome menu ->
+"Install app" / "Add to Home screen".
+IPHONE (Safari): go to app.pure99inc.com/dashboard/ and log in -> Share button ->
+"Add to Home Screen".
 
-2) STOP STATUS (this is your real-time data)
-   Buttons: Arrived at pickup, Loaded, Arrived at delivery, Delivered. When the
-   driver taps one, the app records the milestone WITH the time and their location
-   at that moment, notifies you + dispatchers instantly, and moves the load's
-   status forward (Loaded -> In transit, Delivered -> Delivered). A status history
-   with timestamps + coordinates shows on the load. This gives brokers real answers
-   ("picked up at 9:14am, delivered at 3:02pm") without needing 24/7 tracking.
+The office app icon is GOLD with "TCS OFFICE" (the driver app icon is navy "TCS")
+so you can tell them apart if you install both.
 
-3) DOCUMENT SCANNER
-   "Take photo with camera" opens the phone camera to snap the BOL/POD directly.
-   There's also an "attach saved file / PDF" option. Uploaded docs appear on the
-   load for you and the driver, and you're notified on POD.
+## New: better phone layout
+On a phone, the side menu now slides away so pages use the FULL width. Tap the
+☰ menu button (top-left) to slide the menu in; tap a link or the dark area to
+close it. Wide tables now scroll sideways instead of squishing. Everything you can
+do on a laptop, you can now do from your phone comfortably.
 
-## Honest note on navigation
-We do NOT build turn-by-turn truck navigation (that's what Trucker Path / Google
-Maps do, with licensed map data + truck routing). The Navigate button launches
-whichever of those the driver prefers -- the reliable, standard approach.
+## Note
+This is the SAME login as always -- admins/dispatchers log in and get the office
+app; drivers get the driver app automatically. Same accounts, same data.
 
 ## Includes everything to date
-Driver nav + stop status + scanner, dismissible location notice, driver map
+Office PWA + mobile layout, phone tap-to-call/text + phone login + SMS-ready,
+driver nav + stop status + scanner, dismissible location notice, driver map
 coordinates, driver location tracking + live map, driver PWA app, driver load
 detail, driver login fix, driver invite links, create-driver-login button, driver
 portal, IFTA print, broker detail page, driver wages detail, wages on single-truck

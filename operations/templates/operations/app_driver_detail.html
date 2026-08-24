@@ -1,4 +1,5 @@
 {% extends "operations/app_base.html" %}
+{% load fl_extras %}
 {% block title %}{{ d.first_name }} {{ d.last_name }} — Fleetline{% include "operations/_notes_thread.html" %}
 {% endblock %}
 {% block page_title %}{{ d.first_name }} {{ d.last_name }}{% endblock %}
@@ -10,7 +11,7 @@
  <div class="card"><div class="card-h"><h3>Driver</h3><a href="/app/drivers/{{ d.id }}/dqf/">DQF file</a> &nbsp; <a href="/admin/operations/driver/{{ d.id }}/change/">Edit</a></div>
   <div style="padding:6px 18px 14px">
    <div class="field"><span class="k">Company</span><span class="v">{{ d.company.name }}</span></div>
-   <div class="field"><span class="k">Phone</span><span class="v">{{ d.phone|default:"—" }}</span></div>
+   <div class="field"><span class="k">Phone</span><span class="v">{{ d.phone|call_text }}</span></div>
    <div class="field"><span class="k">Email</span><span class="v">{{ d.email|default:"—" }}</span></div>
    <div class="field"><span class="k">Type</span><span class="v">{{ d.get_driver_type_display }}</span></div>
    <div class="field"><span class="k">Tax status</span><span class="v">{{ d.get_tax_status_display }}</span></div>

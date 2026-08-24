@@ -8,6 +8,8 @@ from operations import views
 
 urlpatterns = [
     path("driver-sw.js", views.driver_sw, name="driver_sw"),
+    path("office-sw.js", views.office_sw, name="office_sw"),
+    path("office-manifest.webmanifest", views.office_manifest, name="office_manifest"),
     path("driver-manifest.webmanifest", views.driver_manifest, name="driver_manifest"),
     path("driver/", views.driver_portal, name="driver_portal"),
     path("driver/location/", views.driver_location_post, name="driver_location_post"),

@@ -1,6 +1,20 @@
 {% load static %}
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>{% block title %}Fleetline{% endblock %}</title>
+<link rel="manifest" href="/office-manifest.webmanifest">
+<meta name="theme-color" content="#1e2d45">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="TCS Office">
+<link rel="apple-touch-icon" href="/static/icon-office-192.png">
+<link rel="icon" href="/static/icon-office-192.png">
+<script>
+ if ("serviceWorker" in navigator) {
+   window.addEventListener("load", function(){
+     navigator.serviceWorker.register("/office-sw.js", {scope: "/"}).catch(function(){});
+   });
+ }
+</script>
 <style>
  :root{--navy:#1e2d45;--navy2:#2a3a55;--amber:#b39a6d;--ink:#161c2b;--muted:#727c93;--line:#e6e9f0;--bg:#f5f6f9;--green:#1f9d6b;--red:#d8443c;--warn:#b9791a;--blue:#2e6be6;--card:#fff}
  *{box-sizing:border-box;margin:0;padding:0}
@@ -21,6 +35,21 @@
 .fl-nav a.active{background:linear-gradient(90deg,#34455f,#2a3a55);color:#fff}
 .fl-nav a.active svg{color:#b39a6d;opacity:1}
 @media(max-width:900px){.fl-side{width:60px}.fl-label,.fl-wm{display:none}.fl-brand{justify-content:center}}
+ /* Phone: hide sidebar off-screen, slide in via hamburger, content full width */
+ @media(max-width:600px){
+   body{padding-left:0}
+   .fl-side{width:230px;left:-240px;transition:left .25s ease;box-shadow:2px 0 18px rgba(0,0,0,.25)}
+   .fl-side .fl-label{display:inline}
+   .fl-side.open{left:0}
+   .fl-menu-btn{display:inline-flex!important}
+   .fl-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:1900;display:none}
+   .fl-backdrop.open{display:block}
+   .fl-content{padding:14px 14px}
+   .fl-topbar{padding:10px 14px}
+   table{display:block;overflow-x:auto;white-space:nowrap}
+   .kpis{grid-template-columns:repeat(2,1fr)}
+ }
+ .fl-menu-btn{display:none;align-items:center;justify-content:center;width:38px;height:38px;border:1px solid var(--line);border-radius:9px;background:#fff;cursor:pointer;flex-shrink:0}
 
  .fl-topbar{background:#fff;border-bottom:1px solid var(--line);padding:12px 26px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:50}
  .fl-title{font-size:16px}
@@ -106,7 +135,9 @@
       {% if 'team' in nav_allowed %}<a href="/app/team/" data-match="/app/team"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="9" cy="8" r="3.5"/><path d="M3 20a6 6 0 0 1 12 0M17 11l2 2 4-4"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg><span class="fl-label">Team</span></a>{% endif %}
     </nav>
   </aside>
+ <div class="fl-backdrop" id="flBackdrop" onclick="flCloseMenu()"></div>
  <div class="fl-topbar">
+   <button class="fl-menu-btn" onclick="flToggleMenu()" aria-label="Menu"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#1e2d45" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg></button>
    <h2 class="fl-title">{% block page_title %}{% endblock %}</h2>
    <div class="fl-top-right">
      <form method="get" class="fl-cosel"><select name="company" onchange="this.form.submit()">
@@ -129,6 +160,14 @@
    </div>
  </div>
  <div class="fl-content">{% block content %}{% endblock %}</div>
+<script>
+ function flToggleMenu(){var s=document.querySelector('.fl-side');var b=document.getElementById('flBackdrop');if(s){s.classList.toggle('open');}if(b){b.classList.toggle('open');}}
+ function flCloseMenu(){var s=document.querySelector('.fl-side');var b=document.getElementById('flBackdrop');if(s){s.classList.remove('open');}if(b){b.classList.remove('open');}}
+ // close menu when a nav link is tapped (phone)
+ document.addEventListener('DOMContentLoaded',function(){
+   document.querySelectorAll('.fl-side a').forEach(function(a){a.addEventListener('click',function(){if(window.innerWidth<=600)flCloseMenu();});});
+ });
+</script>
  <script>(function(){var p=location.pathname,best=null,bl=-1;document.querySelectorAll('.fl-nav a').forEach(function(a){var m=a.getAttribute('data-match');if(m&&p.indexOf(m)===0&&m.length>bl){best=a;bl=m.length;}});if(best)best.classList.add('active');})();</script>
  {% block extra_js %}{% endblock %}
 

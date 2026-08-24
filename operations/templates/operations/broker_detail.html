@@ -1,5 +1,6 @@
 {% extends "operations/app_base.html" %}
 {% load humanize %}
+{% load fl_extras %}
 {% block title %}{{ broker.name }} — Broker{% endblock %}
 {% block page_title %}{{ broker.name }}{% endblock %}
 {% block content %}
@@ -11,7 +12,7 @@
  <div class="card"><div class="card-h"><h3>Broker details</h3><a href="/admin/operations/broker/{{ broker.id }}/change/" style="font-size:13px">Edit</a></div>
   <div style="padding:4px 18px 16px">
    <div class="row" style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line)"><span class="sub">MC number</span><span>{{ broker.mc_number|default:"—" }}</span></div>
-   <div class="row" style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line)"><span class="sub">Phone</span><span>{{ broker.phone|default:"—" }}</span></div>
+   <div class="row" style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line)"><span class="sub">Phone</span><span>{{ broker.phone|call_text }}</span></div>
    <div class="row" style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line)"><span class="sub">Email</span><span>{{ broker.email|default:"—" }}</span></div>
    <div class="row" style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line)"><span class="sub">Address</span><span style="text-align:right">{{ broker.address_line|default:"—" }}{% if broker.city %}<br>{{ broker.city }}, {{ broker.state }} {{ broker.zip_code }}{% endif %}</span></div>
    {% if broker.notes %}<div style="padding:8px 0"><span class="sub">Notes</span><div>{{ broker.notes }}</div></div>{% endif %}
@@ -31,7 +32,7 @@
  {% if agents %}<table><thead><tr><th>Name</th><th>Phone</th><th>Email</th><th class="n">Loads</th><th class="n">Revenue</th>{% if can_manage %}<th></th>{% endif %}</tr></thead><tbody>
  {% for row in agents %}<tr>
   <td><b>{{ row.a.name }}</b>{% if row.a.notes %}<div class="sub" style="font-size:11px">{{ row.a.notes }}</div>{% endif %}</td>
-  <td class="sub">{{ row.a.phone|default:"—" }}{% if row.a.extension %} x{{ row.a.extension }}{% endif %}</td>
+  <td class="sub">{{ row.a.phone|call_text }}{% if row.a.extension %} x{{ row.a.extension }}{% endif %}</td>
   <td class="sub">{{ row.a.email|default:"—" }}</td>
   <td class="n">{{ row.loads }}</td>
   <td class="n">${{ row.rev|floatformat:0|intcomma }}</td>

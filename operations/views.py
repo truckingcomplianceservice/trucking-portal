@@ -2233,9 +2233,22 @@ def portal_login(request, slug=None):
     company = Company.objects.filter(slug=slug).first() if slug else None
     error = ""
     if request.method == "POST":
-        user = authenticate(request,
-                            username=request.POST.get("username", "").strip(),
-                            password=request.POST.get("password", ""))
+        login_id = request.POST.get("username", "").strip()
+        pw = request.POST.get("password", "")
+        user = authenticate(request, username=login_id, password=pw)
+        # If username didn't match, try treating it as a phone number (drivers)
+        if user is None and login_id:
+            import re as _re2
+            digits = _re2.sub(r"[^0-9]", "", login_id)
+            if len(digits) >= 7:
+                # match a driver whose phone digits end with the entered digits
+                for cand in Driver.objects.exclude(user__isnull=True).exclude(phone="").select_related("user"):
+                    cand_digits = _re2.sub(r"[^0-9]", "", cand.phone or "")
+                    if cand_digits and (cand_digits.endswith(digits) or digits.endswith(cand_digits)):
+                        u2 = authenticate(request, username=cand.user.username, password=pw)
+                        if u2 is not None:
+                            user = u2
+                            break
         if user is not None and user.is_active:
             _login(request, user)
             # land the user inside this company if they're allowed to see it
@@ -3350,6 +3363,14 @@ def app_load_new(request):
                 if request.FILES.get(field):
                     setattr(load, field, request.FILES[field])
             load.save()
+            # notify the assigned driver (in-app + email + SMS if enabled)
+            if load.driver and load.driver.user:
+                where = f"{load.origin} → {load.destination}"
+                when = load.pickup_date.strftime("%b %d") if load.pickup_date else "soon"
+                notify(load.driver.user,
+                       f"New load assigned: {where}, pickup {when}. Ref {load.reference}.",
+                       kind="general", url=f"/driver/loads/{load.id}/",
+                       company=load.company, sms=True)
             _messages.success(request, "Load added.")
             return redirect("app_loads")
         except Exception as e:
@@ -3967,7 +3988,7 @@ def chat_to_task(request):
 
 
 # ================= Notifications (in-app bell + email) =================
-def notify(user, text, kind="general", url="", company=None, email=True):
+def notify(user, text, kind="general", url="", company=None, email=True, sms=False):
     """Create an in-app notification for a user, and optionally email them.
     Safe: never breaks the main action if email fails."""
     if not user:
@@ -3987,6 +4008,14 @@ def notify(user, text, kind="general", url="", company=None, email=True):
             EmailMessage(subject=text[:120], body=body,
                          from_email=settings.DEFAULT_FROM_EMAIL,
                          to=[user.email]).send(fail_silently=True)
+        except Exception:
+            pass
+    if sms:
+        try:
+            from .sms import send_sms
+            drv = Driver.objects.filter(user=user).exclude(phone="").first()
+            if drv and drv.phone:
+                send_sms(drv.phone, text[:300])
         except Exception:
             pass
 
@@ -4661,3 +4690,27 @@ def driver_load_status(request, drv, pk):
                kind="general", url="/app/loads/", company=drv.company)
     return JsonResponse({"ok": True, "label": label,
                          "when": ev.created_at.strftime("%b %d, %I:%M %p")})
+
+
+def office_sw(request):
+    from django.http import HttpResponse
+    import os
+    path = os.path.join(settings.BASE_DIR, "operations", "static", "office-sw.js")
+    try:
+        with open(path) as f: js = f.read()
+    except Exception:
+        js = "/* sw unavailable */"
+    resp = HttpResponse(js, content_type="application/javascript")
+    resp["Service-Worker-Allowed"] = "/"
+    return resp
+
+
+def office_manifest(request):
+    from django.http import HttpResponse
+    import os
+    path = os.path.join(settings.BASE_DIR, "operations", "static", "manifest-office.webmanifest")
+    try:
+        with open(path) as f: data = f.read()
+    except Exception:
+        data = "{}"
+    return HttpResponse(data, content_type="application/manifest+json")
