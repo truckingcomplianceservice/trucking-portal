@@ -6,7 +6,7 @@ from django.db.models import Sum, Q
 from django.shortcuts import render, get_object_or_404, redirect
 from django.views.static import serve
 from django.conf import settings
-from .models import (DriverLocation,
+from .models import (DriverLocation, LoadStatusEvent,
     TeamMessage, ShiftHandoff, Notification, TaskComment, IftaStateEntry, TeamInvite, BrokerAgent, Company, Load, Expense, Settlement, Driver, Vehicle, Applicant, ApplicantStatusHistory, SignatureRecord, AuditorLink,
                      ComplianceDocument, Broker, FuelTransaction, RentalContract, VehicleDocument, VehiclePhoto, CompanyDocument, notify)
 
@@ -4528,9 +4528,12 @@ def driver_load_detail(request, drv, pk):
         _messages.error(request, "That load isn't assigned to you.")
         return redirect("driver_portal_loads")
     see_rate = drv.company.drivers_see_rate
+    events = load.status_events.all()[:10]
+    done_kinds = list(load.status_events.values_list("kind", flat=True))
     return render(request, "operations/driver_load_detail.html", {
         "drv": drv, "l": load, "see_rate": see_rate, "company": drv.company,
         "track": drv.company.track_drivers,
+        "events": events, "done_kinds": done_kinds,
     })
 
 
@@ -4623,3 +4626,38 @@ def driver_map_data(request):
             "gmaps": f"https://www.google.com/maps?q={loc.latitude},{loc.longitude}",
         })
     return JsonResponse({"ok": True, "drivers": items})
+
+
+@_driver_required
+def driver_load_status(request, drv, pk):
+    """Driver reports a milestone on their load (arrived/loaded/delivered), with
+    the moment's location. Sends managers a real-time update and updates the load."""
+    from django.http import JsonResponse
+    load = Load.objects.filter(pk=pk, driver=drv).first()
+    if not load:
+        return JsonResponse({"ok": False, "error": "not your load"}, status=403)
+    if request.method != "POST":
+        return JsonResponse({"ok": False}, status=405)
+    kind = request.POST.get("kind")
+    valid = dict(LoadStatusEvent.KIND_CHOICES)
+    if kind not in valid:
+        return JsonResponse({"ok": False, "error": "bad kind"}, status=400)
+    lat = request.POST.get("lat"); lng = request.POST.get("lng")
+    ev = LoadStatusEvent.objects.create(
+        load=load, driver=drv, kind=kind,
+        latitude=float(lat) if lat not in (None, "", "null") else None,
+        longitude=float(lng) if lng not in (None, "", "null") else None,
+        note=request.POST.get("note", "").strip()[:200])
+    # move the load's overall status forward sensibly
+    if kind == "loaded" and load.status in ("booked", "dispatched"):
+        load.status = "in_transit"; load.save(update_fields=["status"])
+    elif kind == "delivered":
+        load.status = "delivered"; load.save(update_fields=["status"])
+    # notify managers/dispatchers in real time
+    label = valid[kind]
+    for m in _User.objects.filter(is_active=True, profile__companies=drv.company,
+                                  profile__role__in=["admin", "manager", "dispatcher"]).distinct():
+        notify(m, f"{drv}: {label} — load {load.reference or load.id}.",
+               kind="general", url="/app/loads/", company=drv.company)
+    return JsonResponse({"ok": True, "label": label,
+                         "when": ev.created_at.strftime("%b %d, %I:%M %p")})

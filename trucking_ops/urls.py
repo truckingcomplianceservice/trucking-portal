@@ -17,6 +17,7 @@ urlpatterns = [
     path("driver/loads/<int:pk>/", views.driver_load_detail, name="driver_load_detail"),
     path("driver/pay/", views.driver_portal_pay, name="driver_portal_pay"),
     path("driver/loads/<int:pk>/upload/", views.driver_load_upload, name="driver_load_upload"),
+    path("driver/loads/<int:pk>/status/", views.driver_load_status, name="driver_load_status"),
     path("driver/expense/add/", views.driver_expense_add, name="driver_expense_add"),
     path("join/<str:token>/", views.team_join, name="team_join"),
     path("app/team/invite/", views.team_invite_create, name="team_invite_create"),

@@ -695,6 +695,30 @@ class TeamInvite(models.Model):
         return f"Invite to {self.company.name} ({self.get_status_display()})"
 
 
+class LoadStatusEvent(models.Model):
+    """A driver-reported milestone on a load (arrived/loaded/delivered), with the
+    time and the driver's location at that moment. This is the real-time data feed."""
+    KIND_CHOICES = [
+        ("arrived_pickup", "Arrived at pickup"),
+        ("loaded", "Loaded / picked up"),
+        ("arrived_delivery", "Arrived at delivery"),
+        ("delivered", "Delivered"),
+    ]
+    load = models.ForeignKey("Load", on_delete=models.CASCADE, related_name="status_events")
+    driver = models.ForeignKey("Driver", on_delete=models.SET_NULL, null=True, blank=True)
+    kind = models.CharField(max_length=20, choices=KIND_CHOICES)
+    latitude = models.FloatField(null=True, blank=True)
+    longitude = models.FloatField(null=True, blank=True)
+    note = models.CharField(max_length=200, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.load} — {self.get_kind_display()}"
+
+
 class DriverLocation(models.Model):
     """Latest known GPS location for a driver, sent from the driver app (with the
     driver's permission) while the app is open. Not 24/7 background tracking."""

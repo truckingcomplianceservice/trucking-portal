@@ -8,7 +8,7 @@
 <div class="card">
  <div style="display:flex;justify-content:space-between;align-items:start">
   <div><b style="font-size:17px">{{ l.origin }} → {{ l.destination }}</b>
-   <div style="font-size:13px;color:var(--muted);margin-top:3px">{{ l.pickup_date|date:"M d, Y"|default:"No pickup date" }} · Ref {{ l.reference|default:l.id }}</div>
+   <div style="font-size:13px;color:var(--muted);margin-top:3px">Ref {{ l.reference|default:l.id }}</div>
   </div>
   <div style="text-align:right">
    {% if l.payment_status == 'closed' or l.payment_status == 'reserve_released' %}<span class="pill paid">Paid</span>{% else %}<span class="pill open">{{ l.get_status_display }}</span>{% endif %}
@@ -16,6 +16,35 @@
  </div>
 </div>
 
+<!-- PICKUP -->
+<div class="card">
+ <h3>📦 Pickup</h3>
+ <div style="font-size:15px;font-weight:600">{{ l.origin }}</div>
+ {% if l.pickup_date %}<div style="font-size:13px;color:var(--muted);margin-top:2px">Date: {{ l.pickup_date|date:"M d, Y" }}</div>{% endif %}
+ <a class="btn block" style="margin-top:10px" href="https://www.google.com/maps/dir/?api=1&destination={{ l.origin|urlencode }}&travelmode=driving" target="_blank">🧭 Navigate to pickup</a>
+ <div style="display:flex;gap:8px;margin-top:8px">
+  <button class="btn ghost" style="flex:1" onclick="sendStatus('arrived_pickup', this)" {% if 'arrived_pickup' in done_kinds %}disabled{% endif %}>{% if 'arrived_pickup' in done_kinds %}✓ Arrived{% else %}Arrived at pickup{% endif %}</button>
+  <button class="btn" style="flex:1" onclick="sendStatus('loaded', this)" {% if 'loaded' in done_kinds %}disabled{% endif %}>{% if 'loaded' in done_kinds %}✓ Loaded{% else %}Loaded{% endif %}</button>
+ </div>
+</div>
+
+<!-- DELIVERY -->
+<div class="card">
+ <h3>🏁 Delivery</h3>
+ <div style="font-size:15px;font-weight:600">{{ l.destination }}</div>
+ {% if l.delivery_date %}<div style="font-size:13px;color:var(--muted);margin-top:2px">Date: {{ l.delivery_date|date:"M d, Y" }}</div>{% endif %}
+ <a class="btn block" style="margin-top:10px" href="https://www.google.com/maps/dir/?api=1&destination={{ l.destination|urlencode }}&travelmode=driving" target="_blank">🧭 Navigate to delivery</a>
+ <div style="display:flex;gap:8px;margin-top:8px">
+  <button class="btn ghost" style="flex:1" onclick="sendStatus('arrived_delivery', this)" {% if 'arrived_delivery' in done_kinds %}disabled{% endif %}>{% if 'arrived_delivery' in done_kinds %}✓ Arrived{% else %}Arrived at delivery{% endif %}</button>
+  <button class="btn" style="flex:1" onclick="sendStatus('delivered', this)" {% if 'delivered' in done_kinds %}disabled{% endif %}>{% if 'delivered' in done_kinds %}✓ Delivered{% else %}Delivered{% endif %}</button>
+ </div>
+</div>
+
+{% if l.stops %}
+<div class="card"><h3>All stops</h3><div style="white-space:pre-line;font-size:14px">{{ l.stops }}</div></div>
+{% endif %}
+
+<!-- MILES + RATE -->
 <div class="card">
  <h3>Miles</h3>
  <div class="kpis" style="grid-template-columns:1fr 1fr 1fr">
@@ -27,56 +56,77 @@
  {% if see_rate %}<div style="font-size:15px;margin-top:10px">Rate: <b>${{ l.rate|floatformat:2|intcomma }}</b></div>{% endif %}
 </div>
 
+<!-- DOCUMENTS + SCANNER -->
 <div class="card">
  <h3>Documents</h3>
-
  {% if l.bill_of_lading %}
- <div class="docrow" style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)">
+ <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)">
   <div><b>Bill of Lading</b><div style="font-size:12px;color:var(--muted)">BOL</div></div>
-  <div style="display:flex;gap:8px">
-   <a class="btn ghost" style="padding:7px 12px;font-size:13px" href="{{ l.bill_of_lading.url }}" target="_blank">View</a>
-   <a class="btn" style="padding:7px 12px;font-size:13px" href="{{ l.bill_of_lading.url }}" download>Download</a>
-  </div>
- </div>
- {% endif %}
-
+  <div style="display:flex;gap:8px"><a class="btn ghost" style="padding:7px 12px;font-size:13px" href="{{ l.bill_of_lading.url }}" target="_blank">View</a><a class="btn" style="padding:7px 12px;font-size:13px" href="{{ l.bill_of_lading.url }}" download>Download</a></div>
+ </div>{% endif %}
  {% if l.proof_of_delivery %}
- <div class="docrow" style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)">
+ <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)">
   <div><b>Proof of Delivery</b><div style="font-size:12px;color:var(--muted)">POD</div></div>
-  <div style="display:flex;gap:8px">
-   <a class="btn ghost" style="padding:7px 12px;font-size:13px" href="{{ l.proof_of_delivery.url }}" target="_blank">View</a>
-   <a class="btn" style="padding:7px 12px;font-size:13px" href="{{ l.proof_of_delivery.url }}" download>Download</a>
-  </div>
- </div>
- {% endif %}
-
+  <div style="display:flex;gap:8px"><a class="btn ghost" style="padding:7px 12px;font-size:13px" href="{{ l.proof_of_delivery.url }}" target="_blank">View</a><a class="btn" style="padding:7px 12px;font-size:13px" href="{{ l.proof_of_delivery.url }}" download>Download</a></div>
+ </div>{% endif %}
  {% if see_rate and l.rate_confirmation %}
- <div class="docrow" style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)">
+ <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)">
   <div><b>Rate Confirmation</b><div style="font-size:12px;color:var(--muted)">Rate con</div></div>
-  <div style="display:flex;gap:8px">
-   <a class="btn ghost" style="padding:7px 12px;font-size:13px" href="{{ l.rate_confirmation.url }}" target="_blank">View</a>
-   <a class="btn" style="padding:7px 12px;font-size:13px" href="{{ l.rate_confirmation.url }}" download>Download</a>
-  </div>
- </div>
- {% endif %}
+  <div style="display:flex;gap:8px"><a class="btn ghost" style="padding:7px 12px;font-size:13px" href="{{ l.rate_confirmation.url }}" target="_blank">View</a><a class="btn" style="padding:7px 12px;font-size:13px" href="{{ l.rate_confirmation.url }}" download>Download</a></div>
+ </div>{% endif %}
 
- {% if not l.bill_of_lading and not l.proof_of_delivery and not l.rate_confirmation or not l.bill_of_lading and not l.proof_of_delivery and not see_rate %}
- <div class="empty">No documents available yet.</div>
- {% endif %}
-
+ <!-- SCANNER: camera capture -->
  <div style="margin-top:14px">
-  <button class="btn block" onclick="document.getElementById('upbox').classList.toggle('open2')">Upload BOL / POD</button>
-  <div id="upbox" class="upbox" style="display:none;margin-top:10px;background:#f7f8fa;border-radius:10px;padding:12px">
-   <form method="post" action="/driver/loads/{{ l.id }}/upload/" enctype="multipart/form-data">{% csrf_token %}
-    <label>Document type</label>
-    <select name="kind"><option value="pod">Proof of Delivery (POD)</option><option value="bol">Bill of Lading (BOL)</option></select>
-    <label>File (photo or PDF)</label><input name="document" type="file" accept="image/*,application/pdf" required>
-    <button class="btn block" type="submit" style="margin-top:10px">Upload</button>
-   </form>
-  </div>
+  <b style="font-size:14px">Scan / upload a document</b>
+  <form method="post" action="/driver/loads/{{ l.id }}/upload/" enctype="multipart/form-data" style="margin-top:8px">{% csrf_token %}
+   <label>Type</label>
+   <select name="kind"><option value="pod">Proof of Delivery (POD)</option><option value="bol">Bill of Lading (BOL)</option></select>
+   <label style="margin-top:8px">📷 Take photo with camera</label>
+   <input name="document" type="file" accept="image/*" capture="environment" required>
+   <div style="font-size:11px;color:var(--muted);margin-top:4px">Tip: hold steady over the paper in good light. To attach a saved file/PDF instead, use the button below.</div>
+   <button class="btn block" type="submit" style="margin-top:10px">Upload document</button>
+  </form>
+  <form method="post" action="/driver/loads/{{ l.id }}/upload/" enctype="multipart/form-data" style="margin-top:8px">{% csrf_token %}
+   <input type="hidden" name="kind" value="pod">
+   <label class="sub" style="font-size:12px">Or attach a saved file / PDF:</label>
+   <input name="document" type="file" accept="image/*,application/pdf" required>
+   <button class="btn ghost block" type="submit" style="margin-top:8px">Upload saved file</button>
+  </form>
  </div>
 </div>
 
-<div style="font-size:12px;color:var(--muted);text-align:center;padding:0 10px">To share a document: tap Download, then use your phone's share button to send it by text, email, or WhatsApp.</div>
-<style>.upbox.open2{display:block!important}</style>
+<!-- STATUS HISTORY -->
+{% if events %}
+<div class="card">
+ <h3>Status history</h3>
+ {% for e in events %}
+ <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--line)">
+  <div><b>{{ e.get_kind_display }}</b>{% if e.latitude %}<div style="font-size:11px;color:var(--muted)">📍 {{ e.latitude|floatformat:4 }}, {{ e.longitude|floatformat:4 }}</div>{% endif %}</div>
+  <div class="sub" style="font-size:12px">{{ e.created_at|date:"M d, g:i A" }}</div>
+ </div>
+ {% endfor %}
+</div>
+{% endif %}
+
+<div style="font-size:12px;color:var(--muted);text-align:center;padding:0 10px">The Navigate buttons open your phone's map app — you can pick Google Maps, Trucker Path, or any truck navigator you have installed.</div>
+
+<script>
+function sendStatus(kind, btn){
+ btn.disabled=true; var old=btn.textContent; btn.textContent='Sending…';
+ function post(lat,lng){
+  var fd=new FormData();
+  fd.append('kind',kind); fd.append('lat',lat==null?'':lat); fd.append('lng',lng==null?'':lng);
+  fd.append('csrfmiddlewaretoken','{{ csrf_token }}');
+  fetch('/driver/loads/{{ l.id }}/status/',{method:'POST',body:fd})
+   .then(function(r){return r.json();})
+   .then(function(j){ if(j.ok){ btn.textContent='✓ '+j.label; } else { btn.textContent=old; btn.disabled=false; alert('Could not send. Try again.'); } })
+   .catch(function(){ btn.textContent=old; btn.disabled=false; alert('Could not send. Try again.'); });
+ }
+ if("geolocation" in navigator){
+  navigator.geolocation.getCurrentPosition(
+   function(p){post(p.coords.latitude,p.coords.longitude);},
+   function(){post(null,null);}, {timeout:8000, maximumAge:30000});
+ } else { post(null,null); }
+}
+</script>
 {% endblock %}
