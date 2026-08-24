@@ -61,7 +61,7 @@
  <a class="bell" href="#" onclick="alert('You have {{ unread|default:0 }} unread notification(s). Full notifications coming soon.');return false;">🔔{% if unread %}<span class="cnt">{{ unread }}</span>{% endif %}</a>
  <a href="/admin/logout/" style="color:#fff;text-decoration:none;font-size:13px;margin-left:10px">Log out</a>
 </div>
-<div id="locBar" style="display:none;background:#0d3b2e;color:#8ef0c0;font-size:12px;padding:6px 16px;text-align:center">📍 Location sharing is ON while this app is open (your company tracks driver location).</div>
+<div id="locBar" style="display:none;background:#0d3b2e;color:#8ef0c0;font-size:12px;padding:8px 16px;text-align:center">📍 Location sharing is on while this app is open. <a href="#" id="locOk" style="color:#fff;text-decoration:underline;margin-left:6px">Got it</a></div>
 <div class="wrap">
 <div id="installHint" style="display:none;background:#fff7e6;border:1px solid #f0c040;border-radius:12px;padding:12px 14px;margin-bottom:12px;font-size:13px">
  <b>📲 Install this app</b>
@@ -95,7 +95,19 @@
 (function(){
  var TRACK = {% if track %}true{% else %}false{% endif %};
  if(!TRACK || !("geolocation" in navigator)) return;
- document.getElementById('locBar').style.display='block';
+ // Show the "location is on" notice only until the driver acknowledges it once.
+ var bar = document.getElementById('locBar');
+ var seen = false;
+ try { seen = (window.localStorage && localStorage.getItem('locBarSeen') === '1'); } catch(e){}
+ if(bar && !seen){
+   bar.style.display='block';
+   var ok = document.getElementById('locOk');
+   if(ok){ ok.addEventListener('click', function(ev){
+     ev.preventDefault();
+     bar.style.display='none';
+     try { window.localStorage && localStorage.setItem('locBarSeen','1'); } catch(e){}
+   }); }
+ }
  var csrf = "{{ csrf_token }}";
  function sendLoc(pos){
    var c=pos.coords;

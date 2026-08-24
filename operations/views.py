@@ -4619,5 +4619,7 @@ def driver_map_data(request):
             "minutes_ago": round(mins),
             "fresh": mins <= 15,
             "when": loc.updated_at.strftime("%b %d, %I:%M %p"),
+            "coords": f"{loc.latitude:.5f}, {loc.longitude:.5f}",
+            "gmaps": f"https://www.google.com/maps?q={loc.latitude},{loc.longitude}",
         })
     return JsonResponse({"ok": True, "drivers": items})

@@ -12,8 +12,8 @@
 </div>
 <div class="card" style="margin-top:14px">
  <div class="card-h"><h3>Driver list</h3></div>
- <table><thead><tr><th>Driver</th><th>Company</th><th>Last update</th><th>Status</th></tr></thead>
-  <tbody id="driverRows"><tr><td colspan="4" class="sub">Loading…</td></tr></tbody>
+ <table><thead><tr><th>Driver</th><th>Company</th><th>Location</th><th>Last update</th><th>Status</th></tr></thead>
+  <tbody id="driverRows"><tr><td colspan="5" class="sub">Loading…</td></tr></tbody>
  </table>
 </div>
 <div class="sub" style="margin-top:8px;font-size:12px">Locations come from the driver app while it's open (with the driver's permission). "Stale" means we haven't heard from that phone in over 15 minutes. For 24/7 tracking, ELD integration is the reliable route.</div>
@@ -42,9 +42,29 @@
        var color=d.fresh?'#137a51':'#c0392b';
        if(markers[key]){markers[key].setLatLng([d.lat,d.lng]);}
        else{markers[key]=L.circleMarker([d.lat,d.lng],{radius:9,color:'#fff',weight:2,fillColor:color,fillOpacity:1}).addTo(map);}
-       markers[key].bindPopup('<b>'+esc(d.driver)+'</b><br>'+esc(d.company)+'<br>'+esc(d.when)+' ('+d.minutes_ago+' min ago)');
+       var popup='<b>'+esc(d.driver)+'</b><br>'+esc(d.company)+'<br>'+esc(d.when)+' ('+d.minutes_ago+' min ago)'
+         +'<br>📍 '+esc(d.coords)
+         +'<br><span id="pl'+i+'" style="color:#666">locating…</span>'
+         +'<br><a href="'+d.gmaps+'" target="_blank">Open in Google Maps →</a>';
+       markers[key].bindPopup(popup);
        bounds.push([d.lat,d.lng]);
-       rows+='<tr><td><b>'+esc(d.driver)+'</b></td><td class="sub">'+esc(d.company)+'</td><td class="sub">'+esc(d.when)+' ('+d.minutes_ago+' min ago)</td><td>'+(d.fresh?'<span style="color:#137a51">● Live</span>':'<span style="color:#c0392b">● Stale</span>')+'</td></tr>';
+       rows+='<tr><td><b>'+esc(d.driver)+'</b></td><td class="sub">'+esc(d.company)+'</td>'
+         +'<td class="sub">'+esc(d.coords)+'<br><span id="rpl'+i+'" style="color:#888">locating…</span></td>'
+         +'<td class="sub">'+esc(d.when)+' ('+d.minutes_ago+' min)</td>'
+         +'<td>'+(d.fresh?'<span style="color:#137a51">● Live</span>':'<span style="color:#c0392b">● Stale</span>')
+         +'<br><a href="'+d.gmaps+'" target="_blank" style="font-size:12px">Map →</a></td></tr>';
+       // reverse geocode to a readable place (free Nominatim)
+       (function(idx, lat, lng){
+         fetch('https://nominatim.openstreetmap.org/reverse?format=json&lat='+lat+'&lon='+lng+'&zoom=12')
+          .then(function(r){return r.json();}).then(function(g){
+            var name = g.display_name || '';
+            // shorten to city/state area
+            var a = g.address||{};
+            var short = [a.city||a.town||a.village||a.county, a.state].filter(Boolean).join(', ') || name;
+            var el=document.getElementById('pl'+idx); if(el) el.textContent='📌 '+short;
+            var el2=document.getElementById('rpl'+idx); if(el2) el2.textContent=short;
+          }).catch(function(){});
+       })(i, d.lat, d.lng);
      });
      document.getElementById('driverRows').innerHTML=rows;
      if(bounds.length && !window._fitted){map.fitBounds(bounds,{padding:[40,40],maxZoom:11});window._fitted=true;}
