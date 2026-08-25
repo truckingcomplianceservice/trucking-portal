@@ -583,7 +583,10 @@ def app_vehicle_detail(request, pk):
                    "total_month": total_month, "monthly": monthly, "today": today.isoformat(),
                    "docs": docs, "doc_types": VehicleDocument.DOC_TYPES,
                    "photos": list(v.photos.all()), "vehicle_expenses": vehicle_expenses,
-                   "cost_breakdown": cost_breakdown, "cost_grand_total": round(grand_total, 2)})
+                   "cost_breakdown": cost_breakdown, "cost_grand_total": round(grand_total, 2),
+                   "replaces": v.replaces,
+                   "replaced_by": v.replaced_by_set.first(),
+                   "can_manage": _is_manager(request.user)})
 
 
 @login_required
@@ -4714,3 +4717,39 @@ def office_manifest(request):
     except Exception:
         data = "{}"
     return HttpResponse(data, content_type="application/manifest+json")
+
+
+@login_required
+def vehicle_replace(request, pk):
+    """Rental swap: retire the broken/returned truck and create its replacement
+    (new VIN, same unit number by default), keeping BOTH full histories separate."""
+    if not _is_manager(request.user):
+        _messages.error(request, "Only managers or admins can replace a vehicle.")
+        return redirect("app_vehicle_detail", pk=pk)
+    old = _get(Vehicle, pk=pk, company__in=_companies_all(request))
+    if request.method == "POST":
+        today = _dt.date.today()
+        ret_date = _parse_date(request.POST.get("return_date", "")) or today
+        # retire the old truck (keep all its history untouched)
+        old.status = "retired"
+        old.out_of_service_date = ret_date
+        old.save()
+        # create the replacement as its own record (own VIN = own history)
+        new = Vehicle.objects.create(
+            company=old.company,
+            unit_number=(request.POST.get("unit_number") or old.unit_number).strip()[:30],
+            make=request.POST.get("make", "").strip()[:50] or old.make,
+            model=request.POST.get("model", "").strip()[:50] or old.model,
+            year=old.year,
+            vin=request.POST.get("vin", "").strip()[:30],
+            plate=request.POST.get("plate", "").strip()[:20],
+            ownership=old.ownership,           # still rented
+            status="active",
+            replaces=old,
+            in_service_date=_parse_date(request.POST.get("start_date", "")) or ret_date,
+        )
+        _messages.success(request,
+            f"Unit {old.unit_number} (old VIN) retired on {ret_date}. "
+            f"Replacement created with new VIN — both histories are kept separately.")
+        return redirect("app_vehicle_detail", pk=new.id)
+    return render(request, "operations/vehicle_replace.html", {"old": old})

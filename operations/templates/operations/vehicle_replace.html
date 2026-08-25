@@ -1,0 +1,50 @@
+{% extends "operations/app_base.html" %}
+{% block title %}Replace Unit {{ old.unit_number }} — Fleetline{% endblock %}
+{% block page_title %}Replace Unit {{ old.unit_number }}{% endblock %}
+{% block content %}
+<div style="margin-bottom:12px"><a href="/app/vehicles/{{ old.id }}/" style="color:var(--blue)">← Back to Unit {{ old.unit_number }}</a></div>
+
+<div class="card" style="max-width:640px">
+ <div class="card-h"><h3>Rental swap — replace this truck</h3></div>
+ <div style="padding:14px 18px">
+  <div style="background:#f7f8fa;border-radius:10px;padding:12px 14px;margin-bottom:16px;font-size:13px;color:var(--muted)">
+   This retires the current truck <b>Unit {{ old.unit_number }}</b>{% if old.vin %} (VIN {{ old.vin }}){% endif %}
+   and creates a <b>new record</b> for the replacement truck. Both keep their own
+   loads, expenses, and documents — nothing is mixed or lost. The old truck's
+   history stays exactly as it is; the new VIN starts fresh.
+  </div>
+
+  <form method="post">{% csrf_token %}
+   <h4 style="margin:6px 0 10px;font-size:14px">Old truck (being returned)</h4>
+   <label class="sub">Return / out-of-service date</label>
+   <input type="date" name="return_date" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;margin-bottom:16px">
+
+   <h4 style="margin:6px 0 10px;font-size:14px">New replacement truck</h4>
+   <div style="display:flex;gap:10px;flex-wrap:wrap">
+    <div style="flex:1;min-width:140px"><label class="sub">Unit number</label>
+     <input name="unit_number" value="{{ old.unit_number }}" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px">
+     <div class="sub" style="font-size:11px;margin-top:3px">Keep the same unit # or give it a new one.</div>
+    </div>
+    <div style="flex:1;min-width:140px"><label class="sub">New VIN</label>
+     <input name="vin" placeholder="the new truck's VIN" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px">
+    </div>
+   </div>
+   <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px">
+    <div style="flex:1;min-width:120px"><label class="sub">Plate</label>
+     <input name="plate" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px"></div>
+    <div style="flex:1;min-width:120px"><label class="sub">Make</label>
+     <input name="make" value="{{ old.make }}" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px"></div>
+    <div style="flex:1;min-width:120px"><label class="sub">Model</label>
+     <input name="model" value="{{ old.model }}" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px"></div>
+   </div>
+   <div style="margin-top:12px"><label class="sub">New truck in-service date</label>
+    <input type="date" name="start_date" style="width:100%;max-width:220px;padding:9px 11px;border:1px solid var(--line);border-radius:8px"></div>
+
+   <div style="margin-top:18px;display:flex;gap:10px">
+    <a href="/app/vehicles/{{ old.id }}/" class="btn ghost">Cancel</a>
+    <button type="submit" class="btn amber">Retire old & create replacement</button>
+   </div>
+  </form>
+ </div>
+</div>
+{% endblock %}

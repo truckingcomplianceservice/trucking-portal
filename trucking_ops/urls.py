@@ -84,6 +84,7 @@ urlpatterns = [
     path("reports/maintenance/", views.fleet_maintenance, name="fleet_maintenance"),
     path("reports/maintenance/pdf/", views.fleet_maintenance_pdf, name="fleet_maintenance_pdf"),
     path("app/vehicles/<int:pk>/", views.app_vehicle_detail, name="app_vehicle_detail"),
+    path("app/vehicles/<int:pk>/replace/", views.vehicle_replace, name="vehicle_replace"),
     path("app/vehicles/<int:pk>/doc/", views.vehicle_doc_upload, name="vehicle_doc_upload"),
     path("app/vehicles/<int:pk>/photo/", views.vehicle_photo_upload, name="vehicle_photo_upload"),
     path("app/vehicles/<int:pk>/photo/<int:photo_id>/delete/", views.vehicle_photo_delete, name="vehicle_photo_delete"),

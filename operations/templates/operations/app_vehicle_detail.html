@@ -3,6 +3,20 @@
 {% block page_title %}Unit {{ v.unit_number }}{% endblock %}
 {% block content %}
 <a href="/app/vehicles/" class="sub" style="color:var(--blue)">&larr; All vehicles</a>
+
+{% if replaces or replaced_by or v.status == 'retired' %}
+<div class="card" style="margin-top:14px;border-left:4px solid var(--amber)">
+ <div style="padding:12px 16px;font-size:13px">
+  {% if v.status == 'retired' %}<div style="margin-bottom:6px"><span class="chip c-gray">Retired / returned{% if v.out_of_service_date %} on {{ v.out_of_service_date }}{% endif %}</span></div>{% endif %}
+  {% if replaces %}🔁 This truck <b>replaced</b> <a href="/app/vehicles/{{ replaces.id }}/">Unit {{ replaces.unit_number }}{% if replaces.vin %} (VIN …{{ replaces.vin|slice:"-6:" }}){% endif %}</a>{% if v.in_service_date %}, in service since {{ v.in_service_date }}{% endif %}.{% endif %}
+  {% if replaced_by %}{% if replaces %}<br>{% endif %}➡️ This truck was <b>replaced by</b> <a href="/app/vehicles/{{ replaced_by.id }}/">Unit {{ replaced_by.unit_number }}{% if replaced_by.vin %} (VIN …{{ replaced_by.vin|slice:"-6:" }}){% endif %}</a>. Its history below stays as-is.{% endif %}
+ </div>
+</div>
+{% endif %}
+
+{% if can_manage and v.status != 'retired' %}
+<div style="margin-top:14px"><a href="/app/vehicles/{{ v.id }}/replace/" class="btn ghost">🔁 Replace this truck (rental swap)</a></div>
+{% endif %}
 <div class="card" style="margin-top:14px"><div class="card-h"><h3>Photos{% if photos %} ({{ photos|length }}){% endif %}</h3></div>
  <div style="padding:14px 16px">
   {% if photos %}<div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px">

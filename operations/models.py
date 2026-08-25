@@ -180,7 +180,7 @@ class Driver(models.Model):
 
 
 class Vehicle(models.Model):
-    STATUS_CHOICES = [("active", "Active"), ("shop", "In shop"), ("inactive", "Inactive")]
+    STATUS_CHOICES = [("active", "Active"), ("shop", "In shop"), ("inactive", "Inactive"), ("retired", "Retired / returned")]
 
     company = models.ForeignKey(Company, on_delete=models.PROTECT, related_name="vehicles")
     unit_number = models.CharField(max_length=30)
@@ -201,6 +201,13 @@ class Vehicle(models.Model):
     OWNERSHIP_CHOICES = [("owned", "Owned"), ("leased", "Leased"), ("rented", "Rented")]
     ownership = models.CharField(max_length=8, choices=OWNERSHIP_CHOICES, default="owned")
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default="active")
+    replaces = models.ForeignKey("self", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="replaced_by_set",
+        help_text="If this truck replaced a broken-down/returned unit, link it here.")
+    in_service_date = models.DateField("In service (start) date", null=True, blank=True,
+        help_text="When this physical truck started running for you.")
+    out_of_service_date = models.DateField("Out of service (returned) date", null=True, blank=True,
+        help_text="When this truck was returned / retired.")
 
     class Meta:
         ordering = ["unit_number"]
