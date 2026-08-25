@@ -3,21 +3,55 @@
 {% block page_title %}Unit {{ v.unit_number }}{% endblock %}
 {% block content %}
 <a href="/app/vehicles/" class="sub" style="color:var(--blue)">&larr; All vehicles</a>
-<div class="card" style="margin-top:14px"><div class="card-h"><h3>Photos</h3></div>
+<div class="card" style="margin-top:14px"><div class="card-h"><h3>Photos{% if photos %} ({{ photos|length }}){% endif %}</h3></div>
  <div style="padding:14px 16px">
   {% if photos %}<div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px">
    {% for p in photos %}<div style="width:150px">
-    <a href="{{ p.image.url }}" target="_blank"><img src="{{ p.image.url }}" style="width:150px;height:110px;object-fit:cover;border-radius:8px;border:1px solid var(--line)"></a>
+    <img src="{{ p.image.url }}" onclick="galOpen({{ forloop.counter0 }})" style="width:150px;height:110px;object-fit:cover;border-radius:8px;border:1px solid var(--line);cursor:pointer">
     <div class="sub" style="font-size:11px;margin-top:3px">{{ p.caption|default:"" }}</div>
     <form method="post" action="/app/vehicles/{{ v.id }}/photo/{{ p.id }}/delete/" onsubmit="return confirm('Remove this photo?');">{% csrf_token %}<button class="btn ghost" style="padding:2px 7px;font-size:11px;color:#c0392b" type="submit">Delete</button></form>
    </div>{% endfor %}
-  </div>{% else %}<div class="sub" style="margin-bottom:10px">No photos yet. Add pictures of the truck, trailer, plates, or damage.</div>{% endif %}
+  </div>
+  <div class="sub" style="font-size:12px;margin-bottom:10px">Tip: tap any photo to view it full-size and flip through them all.</div>
+  {% else %}<div class="sub" style="margin-bottom:10px">No photos yet. Add pictures of the truck, trailer, plates, or damage.</div>{% endif %}
   <form method="post" action="/app/vehicles/{{ v.id }}/photo/" enctype="multipart/form-data" style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">{% csrf_token %}
    <div><label class="sub">Photo</label><input type="file" name="image" accept="image/*" required style="padding:6px 8px;border:1px solid var(--line);border-radius:8px"></div>
    <div style="flex:1;min-width:160px"><label class="sub">Caption (optional)</label><input name="caption" placeholder="e.g. Front view, damage on left door" style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px"></div>
    <button class="btn amber" type="submit">Add photo</button>
   </form>
  </div>
+
+{% if photos %}
+<!-- Photo lightbox gallery -->
+<div id="gal" style="display:none;position:fixed;inset:0;background:rgba(10,14,22,.94);z-index:5000;align-items:center;justify-content:center;flex-direction:column">
+ <div style="position:absolute;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:center;padding:14px 18px;color:#fff">
+  <span id="galCount" style="font-size:14px"></span>
+  <button onclick="galClose()" style="background:none;border:none;color:#fff;font-size:30px;cursor:pointer;line-height:1">×</button>
+ </div>
+ <img id="galImg" src="" style="max-width:92vw;max-height:74vh;object-fit:contain;border-radius:8px">
+ <div id="galCap" style="color:#e6e9f0;font-size:14px;margin-top:12px;text-align:center;padding:0 20px;max-width:92vw"></div>
+ <button onclick="galPrev(event)" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,.15);border:none;color:#fff;font-size:30px;width:52px;height:64px;border-radius:10px;cursor:pointer">‹</button>
+ <button onclick="galNext(event)" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,.15);border:none;color:#fff;font-size:30px;width:52px;height:64px;border-radius:10px;cursor:pointer">›</button>
+</div>
+<script>
+ var galPics = [
+  {% for p in photos %}{src:"{{ p.image.url }}", cap:"{{ p.caption|escapejs }}"}{% if not forloop.last %},{% endif %}
+  {% endfor %}
+ ];
+ var galI = 0;
+ function galShow(){var p=galPics[galI];document.getElementById('galImg').src=p.src;document.getElementById('galCap').textContent=p.cap||'';document.getElementById('galCount').textContent=(galI+1)+' / '+galPics.length;}
+ function galOpen(i){galI=i;galShow();document.getElementById('gal').style.display='flex';}
+ function galClose(){document.getElementById('gal').style.display='none';}
+ function galNext(e){if(e)e.stopPropagation();galI=(galI+1)%galPics.length;galShow();}
+ function galPrev(e){if(e)e.stopPropagation();galI=(galI-1+galPics.length)%galPics.length;galShow();}
+ document.addEventListener('keydown',function(e){if(document.getElementById('gal').style.display==='flex'){if(e.key==='ArrowRight')galNext();else if(e.key==='ArrowLeft')galPrev();else if(e.key==='Escape')galClose();}});
+ // swipe on touch
+ (function(){var x0=null;var g=document.getElementById('gal');
+  g.addEventListener('touchstart',function(e){x0=e.touches[0].clientX;});
+  g.addEventListener('touchend',function(e){if(x0===null)return;var dx=e.changedTouches[0].clientX-x0;if(Math.abs(dx)>40){if(dx<0)galNext();else galPrev();}x0=null;});
+ })();
+</script>
+{% endif %}
 </div>
 
 <div class="card" style="margin-top:14px"><div class="card-h"><h3>Documents</h3></div>
