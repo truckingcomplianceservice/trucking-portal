@@ -28,7 +28,7 @@
   <span id="galCount" style="font-size:14px"></span>
   <button onclick="galClose()" style="background:none;border:none;color:#fff;font-size:30px;cursor:pointer;line-height:1">×</button>
  </div>
- <img id="galImg" src="" style="max-width:92vw;max-height:74vh;object-fit:contain;border-radius:8px">
+ <img id="galImg" src="" alt="" style="max-width:92vw;max-height:74vh;min-width:200px;min-height:150px;width:auto;height:auto;object-fit:contain;border-radius:8px;background:#1a1f2b">
  <div id="galCap" style="color:#e6e9f0;font-size:14px;margin-top:12px;text-align:center;padding:0 20px;max-width:92vw"></div>
  <button onclick="galPrev(event)" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,.15);border:none;color:#fff;font-size:30px;width:52px;height:64px;border-radius:10px;cursor:pointer">‹</button>
  <button onclick="galNext(event)" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,.15);border:none;color:#fff;font-size:30px;width:52px;height:64px;border-radius:10px;cursor:pointer">›</button>
@@ -39,7 +39,14 @@
   {% endfor %}
  ];
  var galI = 0;
- function galShow(){var p=galPics[galI];document.getElementById('galImg').src=p.src;document.getElementById('galCap').textContent=p.cap||'';document.getElementById('galCount').textContent=(galI+1)+' / '+galPics.length;}
+ function galShow(){
+   var p=galPics[galI];
+   var img=document.getElementById('galImg');
+   img.onerror=function(){document.getElementById('galCap').textContent='(This image could not be loaded)';};
+   img.src=p.src;
+   document.getElementById('galCap').textContent=p.cap||'';
+   document.getElementById('galCount').textContent=(galI+1)+' / '+galPics.length;
+ }
  function galOpen(i){galI=i;galShow();document.getElementById('gal').style.display='flex';}
  function galClose(){document.getElementById('gal').style.display='none';}
  function galNext(e){if(e)e.stopPropagation();galI=(galI+1)%galPics.length;galShow();}

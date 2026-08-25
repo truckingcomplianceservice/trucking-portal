@@ -582,7 +582,7 @@ def app_vehicle_detail(request, pk):
                    "records": records, "total_all": total_all, "total_year": total_year,
                    "total_month": total_month, "monthly": monthly, "today": today.isoformat(),
                    "docs": docs, "doc_types": VehicleDocument.DOC_TYPES,
-                   "photos": v.photos.all(), "vehicle_expenses": vehicle_expenses,
+                   "photos": list(v.photos.all()), "vehicle_expenses": vehicle_expenses,
                    "cost_breakdown": cost_breakdown, "cost_grand_total": round(grand_total, 2)})
 
 
