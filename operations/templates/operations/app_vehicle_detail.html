@@ -35,7 +35,7 @@
 </div>
 <script>
  var galPics = [
-  {% for p in photos %}{src:"{{ p.image.url }}", cap:"{{ p.caption|escapejs }}"}{% if not forloop.last %},{% endif %}
+  {% for p in photos %}{src:"{{ p.image.url|escapejs }}", cap:"{{ p.caption|escapejs }}"}{% if not forloop.last %},{% endif %}
   {% endfor %}
  ];
  var galI = 0;

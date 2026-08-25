@@ -1,31 +1,37 @@
 # Trucking Compliance Services — Operations Portal
 
-REAL FIX: truck photo viewer showing a dot instead of the photo.
+REAL FIX #2: photo viewer "could not be loaded" (signed R2 URL escaping).
 
 ## Deploy
 1. Download this zip, then in Terminal:
    cd ~/Documents/GitHub/trucking-portal && rm -rf operations trucking_ops templates manage.py requirements.txt Procfile README.md && unzip -o ~/Downloads/<THIS-FILE>.zip -d . && echo DONE
 2. GitHub Desktop -> Commit -> Push. Test in a private/incognito window.
 
-## What was wrong (and the fix)
-The photo list was being "used up" by the thumbnail display, so by the time the
-full-size viewer's photo list was built, it was EMPTY. That's why clicking a photo
-showed a tiny dot (it was trying to show a photo that wasn't in the list) with no
-error. Fixed by loading the photo list in a way that both the thumbnails AND the
-viewer can read it. Now clicking a photo shows it full-size and you can flip
-through all of them (arrows, swipe, or keyboard) as intended.
+## What was wrong (the honest, final cause)
+Your photos live in Cloudflare R2 and are served via signed links that contain
+special characters (& and =). In a normal <img> tag those work fine (that's why
+thumbnails showed). But when those links were placed inside the photo viewer's
+JavaScript list, the & was being turned into "&amp;", which corrupted the link --
+so R2 refused it and you saw "could not be loaded".
+
+Fixed by escaping the links correctly for JavaScript (so the & and = survive
+intact). The viewer now loads the real full-size photos.
 
 ## Test after deploying
-Open a truck that has 2+ photos -> tap a photo -> it should show full-size ->
-use ‹ › (or swipe / arrow keys) to move through them -> × or ESC to close.
+Open a truck with 2+ photos -> tap one -> the FULL photo shows (no dot, no error)
+-> flip with ‹ › / swipe / arrow keys -> × or ESC to close.
+
+If for any reason a photo still won't load, the most likely remaining cause would
+be the 1-hour signed-link expiry -- just refresh the page to get fresh links. (In
+normal use you'll always be opening fresh links, so this shouldn't happen.)
 
 ## Includes everything to date
-Photo viewer real fix, truck photo gallery, office PWA + mobile layout, phone
-tap-to-call/text + phone login + SMS-ready, driver nav + stop status + scanner,
-dismissible location notice, driver map coordinates, driver location tracking +
-live map, driver PWA app, driver load detail, driver login fix, driver invite
-links, create-driver-login button, driver portal, IFTA print, broker detail page,
-driver wages detail, wages on single-truck report, per-truck driver-wage
+Photo viewer signed-URL fix, truck photo gallery, office PWA + mobile layout,
+phone tap-to-call/text + phone login + SMS-ready, driver nav + stop status +
+scanner, dismissible location notice, driver map coordinates, driver location
+tracking + live map, driver PWA app, driver load detail, driver login fix, driver
+invite links, create-driver-login button, driver portal, IFTA print, broker detail
+page, driver wages detail, wages on single-truck report, per-truck driver-wage
 attribution, team invite + approval, per-truck P&L expense fix, improved rate-con
 broker auto-add, vehicle cost % breakdown, vehicle-expense fix, IFTA worksheet,
 company switcher fix, deadhead fix + auto-fill, chat + task files, notifications
