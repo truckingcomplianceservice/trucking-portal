@@ -7,9 +7,18 @@
 <a href="/app/drivers/" class="sub" style="color:var(--blue)">&larr; All drivers</a>
 <div class="toolbar"><div class="spacer"></div><a class="btn ghost" href="#" onclick="window.print();return false">Print / Save as PDF</a></div>
 <div class="print-only"><h2 style="margin:0;color:#1e2d45">{{ d.first_name }} {{ d.last_name }} — Driver Report</h2><div class="sub">{{ d.company.name }} · printed for records</div></div>
+
+<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
+ <form method="post" action="/app/pay/new/" style="display:inline">{% csrf_token %}
+  <input type="hidden" name="driver" value="{{ d.id }}">
+  <input type="hidden" name="pay_basis" value="weekly">
+  <button class="btn amber" type="submit">💵 Create wages / settlement</button>
+ </form>
+ <a class="btn ghost" href="/app/pay/?show=all">View all driver pay</a>
+</div>
+
 <div class="grid2" style="margin-top:12px">
- <div class="card"><div class="card-h"><h3>Driver</h3><a href="/app/drivers/{{ d.id }}/dqf/">DQF file</a> &nbsp; <a href="/admin/operations/driver/{{ d.id }}/change/">Edit</a></div>
-  <div style="padding:6px 18px 14px">
+ <div class="card"><div class="card-h"><h3>Driver</h3><a href="/app/drivers/{{ d.id }}/dqf/">DQF file</a> &nbsp; <a href="/admin/operations/driver/{{ d.id }}/change/">Edit</a></div>  <div style="padding:6px 18px 14px">
    <div class="field"><span class="k">Company</span><span class="v">{{ d.company.name }}</span></div>
    <div class="field"><span class="k">Phone</span><span class="v">{{ d.phone|call_text }}</span></div>
    <div class="field"><span class="k">Email</span><span class="v">{{ d.email|default:"—" }}</span></div>

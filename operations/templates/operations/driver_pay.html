@@ -4,6 +4,12 @@
 {% block page_title %}Driver pay &amp; settlements{% endblock %}
 {% block content %}
 {% if messages %}{% for m in messages %}<div style="margin:8px 0;padding:10px 14px;border-radius:8px;font-size:13px;background:{% if m.tags == 'error' %}#fbe7e5;color:#b02b24{% else %}#e4f4ec;color:#137a51{% endif %}">{{ m }}</div>{% endfor %}{% endif %}
+
+<div style="background:#fff;border:1px solid var(--line);border-left:4px solid var(--amber);border-radius:12px;padding:14px 18px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+ <div><b style="font-size:15px">Create a driver's wages</b><div class="sub" style="font-size:13px;margin-top:2px">Pick the driver and the week/day below, then "Create &amp; review" to add loads, reimbursements, and mark paid.</div></div>
+ <a href="#newpay" class="btn amber" style="white-space:nowrap">+ New driver wages ↓</a>
+</div>
+
 <div class="grid2" style="align-items:start">
  <div>
   <div style="display:flex;gap:6px;margin-bottom:12px">
@@ -23,7 +29,7 @@
    {% else %}<div class="empty">No settlements yet. Create one for a driver's week →</div>{% endif %}
   </div>
  </div>
- <div class="card" style="align-self:start"><div class="card-h"><h3>New weekly settlement</h3></div>
+ <div class="card" style="align-self:start" id="newpay"><div class="card-h"><h3>➕ New driver wages / settlement</h3></div>
   <form method="post" action="/app/pay/new/" style="padding:16px 18px">{% csrf_token %}
    <label class="sub">Driver</label><select name="driver" required style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;margin-bottom:8px">{% for d in drivers %}<option value="{{ d.id }}">{{ d }}</option>{% endfor %}</select>
    <label class="sub">Pay type</label>

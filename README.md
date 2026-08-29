@@ -1,49 +1,54 @@
 # Trucking Compliance Services — Operations Portal
 
-Rental swap: replace a broken-down truck, keep BOTH histories.
+Makes creating driver wages easy to find (it was hard to locate before).
 
 ## Deploy
 1. Download this zip, then in Terminal:
    cd ~/Documents/GitHub/trucking-portal && rm -rf operations trucking_ops templates manage.py requirements.txt Procfile README.md && unzip -o ~/Downloads/<THIS-FILE>.zip -d . && echo DONE
 2. GitHub Desktop -> Commit -> Push. Test in a private/incognito window.
 
-## New: rental truck swap (different VIN, same unit)
-Scenario: Unit 1604 (rented) breaks down; the rental company sends a replacement
-truck with a DIFFERENT VIN, and you keep calling it 1604. You want both trucks'
-records kept cleanly.
+## The fix: it wasn't broken, it was hard to find
+Driver wages/settlements worked, but there was no obvious "start here" button.
+Now there are TWO clear ways:
 
-HOW TO DO IT:
-1. Go to the broken truck's page (Unit 1604).
-2. Click "🔁 Replace this truck (rental swap)".
-3. Enter the old truck's RETURN date, then the NEW truck's VIN (and plate/unit# --
-   you can keep the same unit number 1604 or change it), and its in-service date.
-4. Save. The system:
-   - RETIRES the old truck (marks it Retired/returned with the return date) and
-     keeps ALL its loads, expenses, and documents exactly as they are.
-   - CREATES the new truck as its OWN record (own VIN = own clean history), linked
-     to the one it replaced.
+WAY 1 -- from a driver's page (easiest):
+  Drivers -> click the driver -> click "💵 Create wages / settlement" at the top.
+  This instantly creates their settlement and opens it, where you can:
+   - Add loads (pick from their loads, or add a manual load with a rate)
+   - Set gross pay (use loads total, or a % of loads, or type it)
+   - Add EXTRA REIMBURSEMENT to the driver
+   - Subtract deductions
+   - Mark it Paid (with date, method, reference)
 
-WHY THIS WAY (important): each physical truck (VIN) stays its own record, so your
-P&L and history for the old truck and the new truck never get mixed. On each
-truck's page you'll see the link: the new one says "replaced Unit 1604", the old
-one says "replaced by ..." -- so you can follow the chain, but the numbers stay
-clean and separate.
+WAY 2 -- from the sidebar:
+  Sidebar -> "Driver pay" -> big "+ New driver wages" button at the top jumps you
+  to the create form. Pick driver + week (or day, or per-load) -> "Create &
+  review".
 
-Retired trucks stay in the system (not deleted) so their history is always there.
+## Where you add loads & reimbursement (the part you couldn't find)
+Both ways land you on the SETTLEMENT page. On that page:
+- "Add a load..." dropdown = attach existing loads to this settlement.
+- "Add manual load" = type a load # / rate by hand.
+- "Extra reimbursement to driver ($)" field = reimburse tolls, etc.
+- Net pay updates automatically = gross - deductions + reimbursement.
+
+Nothing about the calculations changed -- this update is purely about making the
+buttons easy to find.
 
 ## Includes everything to date
-Rental truck swap, photo viewer signed-URL fix, truck photo gallery, office PWA +
-mobile layout, phone tap-to-call/text + phone login + SMS-ready, driver nav + stop
-status + scanner, dismissible location notice, driver map coordinates, driver
-location tracking + live map, driver PWA app, driver load detail, driver login fix,
-driver invite links, create-driver-login button, driver portal, IFTA print, broker
-detail page, driver wages detail, wages on single-truck report, per-truck
-driver-wage attribution, team invite + approval, per-truck P&L expense fix,
-improved rate-con broker auto-add, vehicle cost % breakdown, vehicle-expense fix,
-IFTA worksheet, company switcher fix, deadhead fix + auto-fill, chat + task files,
-notifications (bell+email) + task responses, chat @mentions + chat-to-task, team
-username + remove, floating team chat + handoff, duplicate rate-con protection,
-rate-con broker+agent auto-create, all-brokers list, brokers + agents, admin-only
-delete, vehicle page fix, unified load form, vehicle docs front, auto miles,
-vehicle photos, email document, hiring phases 1-6, dashboard KPIs, 1099, R2 cloud
-backup, 12-test suite, factoring, company docs, company logins, FMCSA lookup.
+Easy driver-wage creation, rental truck swap, photo viewer signed-URL fix, truck
+photo gallery, office PWA + mobile layout, phone tap-to-call/text + phone login +
+SMS-ready, driver nav + stop status + scanner, dismissible location notice, driver
+map coordinates, driver location tracking + live map, driver PWA app, driver load
+detail, driver login fix, driver invite links, create-driver-login button, driver
+portal, IFTA print, broker detail page, driver wages detail, wages on single-truck
+report, per-truck driver-wage attribution, team invite + approval, per-truck P&L
+expense fix, improved rate-con broker auto-add, vehicle cost % breakdown,
+vehicle-expense fix, IFTA worksheet, company switcher fix, deadhead fix +
+auto-fill, chat + task files, notifications (bell+email) + task responses, chat
+@mentions + chat-to-task, team username + remove, floating team chat + handoff,
+duplicate rate-con protection, rate-con broker+agent auto-create, all-brokers list,
+brokers + agents, admin-only delete, vehicle page fix, unified load form, vehicle
+docs front, auto miles, vehicle photos, email document, hiring phases 1-6,
+dashboard KPIs, 1099, R2 cloud backup, 12-test suite, factoring, company docs,
+company logins, FMCSA lookup.
