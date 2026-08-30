@@ -2655,6 +2655,23 @@ def driver_pay_detail(request, pk):
                 l.settlement = s; l.save(); _messages.success(request, f"Added load {l.reference}.")
             else:
                 _messages.error(request, "That load could not be added.")
+        elif action == "add_item":
+            kind = request.POST.get("item_kind")
+            desc = (request.POST.get("item_desc") or "").strip()
+            amt = _num(request.POST.get("item_amount", "0"))
+            if kind in ("deduction", "reimbursement") and desc and amt > 0:
+                from .models import SettlementLineItem
+                SettlementLineItem.objects.create(settlement=s, kind=kind,
+                                                  description=desc[:200], amount=round(amt, 2))
+                _messages.success(request, f"{kind.title()} added.")
+            else:
+                _messages.error(request, "Enter a description and an amount.")
+            return redirect("driver_pay_detail", pk=pk)
+        elif action == "remove_item":
+            it = s.line_items.filter(pk=request.POST.get("item_id")).first()
+            if it:
+                it.delete(); _messages.success(request, "Line removed.")
+            return redirect("driver_pay_detail", pk=pk)
         elif action == "delete":
             if not _can_delete(request.user):
                 _messages.error(request, "Only an administrator can delete. You can edit instead.")
@@ -2711,6 +2728,8 @@ def driver_pay_detail(request, pk):
     return render(request, "operations/driver_pay_detail.html",
                   {"s": s, "oop": oop, "company": s.company,
                    "settle_loads": settle_loads, "loads_total": loads_total, "addable": addable,
+                   "deduction_items": s.line_items.filter(kind="deduction"),
+                   "reimbursement_items": s.line_items.filter(kind="reimbursement"),
                    **_driver_pay_totals(s.driver)})
 
 
@@ -4773,4 +4792,6 @@ def driver_pay_detail_view(request, drv, pk):
         "drv": drv, "s": s, "loads": loads, "loads_total": loads_total,
         "oop": oop, "see_rate": see_rate, "company": drv.company,
         "track": drv.company.track_drivers,
+        "deduction_items": s.line_items.filter(kind="deduction"),
+        "reimbursement_items": s.line_items.filter(kind="reimbursement"),
     })

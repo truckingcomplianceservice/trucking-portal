@@ -335,8 +335,22 @@ class Settlement(models.Model):
                                       ).aggregate(s=_S("amount"))["s"] or 0
 
     @property
+    def item_deductions(self):
+        """Sum of itemized deduction line items."""
+        from django.db.models import Sum as _S
+        return self.line_items.filter(kind="deduction").aggregate(s=_S("amount"))["s"] or 0
+
+    @property
+    def item_reimbursements(self):
+        """Sum of itemized reimbursement line items."""
+        from django.db.models import Sum as _S
+        return self.line_items.filter(kind="reimbursement").aggregate(s=_S("amount"))["s"] or 0
+
+    @property
     def net_pay(self):
-        return (self.gross_pay or 0) - (self.deductions or 0) + self.reimbursements + (self.extra_reimbursement or 0)
+        return ((self.gross_pay or 0) - (self.deductions or 0) + self.reimbursements
+                + (self.extra_reimbursement or 0)
+                - self.item_deductions + self.item_reimbursements)
 
     class Meta:
         ordering = ["-period_end"]
@@ -724,6 +738,23 @@ class LoadStatusEvent(models.Model):
 
     def __str__(self):
         return f"{self.load} — {self.get_kind_display()}"
+
+
+class SettlementLineItem(models.Model):
+    """An itemized deduction or reimbursement line on a settlement, each with its
+    own description and amount (so pay is fully explained)."""
+    KIND = [("deduction", "Deduction"), ("reimbursement", "Reimbursement")]
+    settlement = models.ForeignKey("Settlement", on_delete=models.CASCADE, related_name="line_items")
+    kind = models.CharField(max_length=14, choices=KIND)
+    description = models.CharField(max_length=200)
+    amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["kind", "id"]
+
+    def __str__(self):
+        return f"{self.get_kind_display()}: {self.description} ${self.amount}"
 
 
 class DriverLocation(models.Model):

@@ -21,6 +21,8 @@
   <tr><td>Deductions</td><td class="n">− ${{ s.deductions|floatformat:2|intcomma }}</td></tr>
   <tr><td>Reimbursements (out-of-pocket)</td><td class="n">+ ${{ s.reimbursements|floatformat:2|intcomma }}</td></tr>
   <tr><td>Extra reimbursement</td><td class="n">+ ${{ s.extra_reimbursement|floatformat:2|intcomma }}</td></tr>
+  {% for it in reimbursement_items %}<tr><td class="sub">↳ {{ it.description }}</td><td class="n" style="color:#137a51">+ ${{ it.amount|floatformat:2|intcomma }}</td></tr>{% endfor %}
+  {% for it in deduction_items %}<tr><td class="sub">↳ {{ it.description }}</td><td class="n" style="color:#c0392b">− ${{ it.amount|floatformat:2|intcomma }}</td></tr>{% endfor %}
   <tr style="border-top:2px solid var(--line)"><td><b>Net pay</b></td><td class="n"><b style="font-size:16px">${{ s.net_pay|floatformat:2|intcomma }}</b></td></tr>
  </table>
  {% if s.paid and s.payment_method %}<div class="sub" style="font-size:12px;margin-top:8px">Paid by {{ s.payment_method }}{% if s.payment_reference %} · ref {{ s.payment_reference }}{% endif %}</div>{% endif %}
