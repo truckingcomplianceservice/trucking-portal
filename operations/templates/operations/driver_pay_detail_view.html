@@ -1,0 +1,60 @@
+{% extends "operations/driver_base.html" %}
+{% load humanize %}
+{% block title %}Settlement detail{% endblock %}
+{% block nav_pay %}on{% endblock %}
+{% block content %}
+<div style="margin-bottom:12px"><a href="/driver/pay/" style="color:var(--gold);text-decoration:none">← My pay</a></div>
+
+<div class="card">
+ <div style="display:flex;justify-content:space-between;align-items:start">
+  <div><b style="font-size:16px">{{ s.period_start|date:"M d" }} – {{ s.period_end|date:"M d, Y" }}</b>
+   <div style="font-size:12px;color:var(--muted);margin-top:2px">{{ s.get_pay_basis_display }} pay</div></div>
+  <div>{% if s.paid %}<span class="pill paid">Paid{% if s.paid_date %} {{ s.paid_date|date:"M d" }}{% endif %}</span>{% else %}<span class="pill unpaid">Unpaid</span>{% endif %}</div>
+ </div>
+</div>
+
+<!-- Pay breakdown -->
+<div class="card">
+ <h3>Pay breakdown</h3>
+ <table>
+  <tr><td>Gross pay</td><td class="n">${{ s.gross_pay|floatformat:2|intcomma }}</td></tr>
+  <tr><td>Deductions</td><td class="n">− ${{ s.deductions|floatformat:2|intcomma }}</td></tr>
+  <tr><td>Reimbursements (out-of-pocket)</td><td class="n">+ ${{ s.reimbursements|floatformat:2|intcomma }}</td></tr>
+  <tr><td>Extra reimbursement</td><td class="n">+ ${{ s.extra_reimbursement|floatformat:2|intcomma }}</td></tr>
+  <tr style="border-top:2px solid var(--line)"><td><b>Net pay</b></td><td class="n"><b style="font-size:16px">${{ s.net_pay|floatformat:2|intcomma }}</b></td></tr>
+ </table>
+ {% if s.paid and s.payment_method %}<div class="sub" style="font-size:12px;margin-top:8px">Paid by {{ s.payment_method }}{% if s.payment_reference %} · ref {{ s.payment_reference }}{% endif %}</div>{% endif %}
+</div>
+
+<!-- Loads covered -->
+<div class="card">
+ <h3>Loads in this pay ({{ loads|length }})</h3>
+ {% if loads %}<table><thead><tr><th>Date</th><th>Route</th>{% if see_rate and not s.hide_load_amounts %}<th class="n">Rate</th>{% endif %}</tr></thead><tbody>
+ {% for l in loads %}<tr>
+  <td class="sub">{{ l.pickup_date|date:"M d"|default:"—" }}</td>
+  <td>{{ l.origin }} → {{ l.destination }}<div class="sub" style="font-size:11px">Ref {{ l.reference|default:l.id }}</div></td>
+  {% if see_rate and not s.hide_load_amounts %}<td class="n">${{ l.rate|floatformat:2|intcomma }}</td>{% endif %}
+ </tr>{% endfor %}
+ </tbody>{% if see_rate and not s.hide_load_amounts %}<tfoot><tr><td style="text-align:right"><b>Loads total</b></td><td class="n"><b>${{ loads_total|floatformat:2|intcomma }}</b></td></tr></tfoot>{% endif %}</table>
+ {% else %}<div class="empty">No loads listed on this settlement.</div>{% endif %}
+</div>
+
+<!-- Reimbursed expenses detail -->
+{% if oop %}
+<div class="card">
+ <h3>Reimbursed expenses</h3>
+ <table><thead><tr><th>Date</th><th>What</th><th class="n">Amount</th></tr></thead><tbody>
+ {% for e in oop %}<tr>
+  <td class="sub">{{ e.date|date:"M d" }}</td>
+  <td>{{ e.category }}{% if e.vendor %}<div class="sub" style="font-size:11px">{{ e.vendor }}</div>{% endif %}</td>
+  <td class="n">${{ e.amount|floatformat:2|intcomma }}</td>
+ </tr>{% endfor %}
+ </tbody></table>
+ <div class="sub" style="font-size:12px;margin-top:6px">These are the out-of-pocket expenses you submitted in this period, added to your pay.</div>
+</div>
+{% endif %}
+
+{% if s.notes %}<div class="card"><h3>Notes</h3><div style="font-size:14px;white-space:pre-line">{{ s.notes }}</div></div>{% endif %}
+
+<div style="font-size:12px;color:var(--muted);text-align:center;padding:0 10px">Questions about your pay? Contact your dispatcher or manager.</div>
+{% endblock %}

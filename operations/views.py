@@ -4753,3 +4753,24 @@ def vehicle_replace(request, pk):
             f"Replacement created with new VIN — both histories are kept separately.")
         return redirect("app_vehicle_detail", pk=new.id)
     return render(request, "operations/vehicle_replace.html", {"old": old})
+
+
+@_driver_required
+def driver_pay_detail_view(request, drv, pk):
+    """Driver sees the full breakdown of ONE of their own settlements:
+    loads covered, gross, deductions, reimbursements, and net pay."""
+    s = Settlement.objects.filter(pk=pk, driver=drv).first()
+    if not s:
+        _messages.error(request, "That settlement isn't yours.")
+        return redirect("driver_portal_pay")
+    loads = s.loads.select_related("broker", "vehicle").order_by("pickup_date")
+    loads_total = loads.aggregate(x=Sum("rate"))["x"] or 0
+    # out-of-pocket expenses in the pay period (what they were reimbursed for)
+    oop = Expense.objects.filter(driver=drv, out_of_pocket=True,
+                                 date__gte=s.period_start, date__lte=s.period_end).order_by("date")
+    see_rate = drv.company.drivers_see_rate
+    return render(request, "operations/driver_pay_detail_view.html", {
+        "drv": drv, "s": s, "loads": loads, "loads_total": loads_total,
+        "oop": oop, "see_rate": see_rate, "company": drv.company,
+        "track": drv.company.track_drivers,
+    })

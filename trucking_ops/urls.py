@@ -18,6 +18,7 @@ urlpatterns = [
     path("driver/loads/", views.driver_portal_loads, name="driver_portal_loads"),
     path("driver/loads/<int:pk>/", views.driver_load_detail, name="driver_load_detail"),
     path("driver/pay/", views.driver_portal_pay, name="driver_portal_pay"),
+    path("driver/pay/<int:pk>/", views.driver_pay_detail_view, name="driver_pay_detail_view"),
     path("driver/loads/<int:pk>/upload/", views.driver_load_upload, name="driver_load_upload"),
     path("driver/loads/<int:pk>/status/", views.driver_load_status, name="driver_load_status"),
     path("driver/expense/add/", views.driver_expense_add, name="driver_expense_add"),

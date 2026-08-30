@@ -6,8 +6,8 @@
 <div class="card">
  <h3>My settlements</h3>
  {% if setts %}<table><thead><tr><th>Period</th><th>Status</th><th class="n">Net pay</th></tr></thead><tbody>
- {% for s in setts %}<tr>
-  <td>{{ s.period_start|date:"M d" }} – {{ s.period_end|date:"M d, Y" }}</td>
+ {% for s in setts %}<tr onclick="location.href='/driver/pay/{{ s.id }}/'" style="cursor:pointer">
+  <td>{{ s.period_start|date:"M d" }} – {{ s.period_end|date:"M d, Y" }}<div class="sub" style="font-size:11px">Tap for detail →</div></td>
   <td>{% if s.paid %}<span class="pill paid">Paid{% if s.paid_date %} {{ s.paid_date|date:"M d" }}{% endif %}</span>{% else %}<span class="pill unpaid">Unpaid</span>{% endif %}</td>
   <td class="n"><b>${{ s.net_pay|floatformat:2|intcomma }}</b></td>
  </tr>{% endfor %}
