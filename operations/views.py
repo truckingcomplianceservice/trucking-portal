@@ -2746,7 +2746,9 @@ def driver_pay_pdf(request, pk):
                        "settle_loads": _sl,
                        "total_loaded": _mi["a"] or 0, "total_deadhead": _mi["b"] or 0,
                        "total_miles": (_mi["a"] or 0) + (_mi["b"] or 0),
-                       "loads_total": _mi["r"] or 0})
+                       "loads_total": _mi["r"] or 0,
+                       "deduction_items": s.line_items.filter(kind="deduction"),
+                       "reimbursement_items": s.line_items.filter(kind="reimbursement")})
     resp = HttpResponse(pdf, content_type="application/pdf")
     resp["Content-Disposition"] = f'attachment; filename="settlement-{s.driver}-{s.period_end}.pdf"'
     return resp
@@ -2770,7 +2772,9 @@ def driver_pay_email(request, pk):
                        "settle_loads": _sl,
                        "total_loaded": _mi["a"] or 0, "total_deadhead": _mi["b"] or 0,
                        "total_miles": (_mi["a"] or 0) + (_mi["b"] or 0),
-                       "loads_total": _mi["r"] or 0})
+                       "loads_total": _mi["r"] or 0,
+                       "deduction_items": s.line_items.filter(kind="deduction"),
+                       "reimbursement_items": s.line_items.filter(kind="reimbursement")})
     try:
         from django.core.mail import EmailMessage
         msg = EmailMessage(

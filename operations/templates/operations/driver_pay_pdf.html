@@ -14,6 +14,8 @@
  <tr><td>Deductions</td><td class="n">- ${{ s.deductions|floatformat:2 }}</td></tr>
  <tr><td>Reimbursements (out-of-pocket expenses)</td><td class="n">+ ${{ s.reimbursements|floatformat:2 }}</td></tr>
  <tr><td>Extra reimbursement</td><td class="n">+ ${{ s.extra_reimbursement|floatformat:2 }}</td></tr>
+ {% for it in reimbursement_items %}<tr><td style="padding-left:18px">+ {{ it.description }}</td><td class="n">+ ${{ it.amount|floatformat:2 }}</td></tr>{% endfor %}
+ {% for it in deduction_items %}<tr><td style="padding-left:18px">- {{ it.description }}</td><td class="n">- ${{ it.amount|floatformat:2 }}</td></tr>{% endfor %}
  <tr><td class="tot">NET PAY</td><td class="n tot">${{ s.net_pay|floatformat:2 }}</td></tr>
 </tbody></table>
 {% if oop %}<h2 style="font-size:13px">Reimbursed out-of-pocket expenses</h2>
