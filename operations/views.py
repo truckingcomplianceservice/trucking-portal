@@ -2614,7 +2614,13 @@ def driver_pay_new(request):
         auto_loads.update(settlement=s)
     # if no gross was typed, suggest it. Percentage drivers get their % of the
     # loads' rates; everyone else gets the full loads total (you can edit either way).
-    if not s.gross_pay:
+    typed_percent = _num(request.POST.get("percent", "0"))
+    if typed_percent > 0:
+        # explicit percentage entered on the form -> gross = % of loads total
+        loads_total = float(s.loads.aggregate(x=Sum("rate"))["x"] or 0)
+        s.gross_pay = round(loads_total * typed_percent / 100, 2)
+        s.save()
+    elif not s.gross_pay:
         loads_total = float(s.loads.aggregate(x=Sum("rate"))["x"] or 0)
         if d.pay_type == "percentage" and d.pay_rate:
             s.gross_pay = round(loads_total * float(d.pay_rate) / 100, 2)

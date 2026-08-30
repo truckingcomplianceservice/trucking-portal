@@ -44,7 +44,10 @@
    </div></div>
    <div id="pb_day" style="display:none"><label class="sub">Day</label><input type="date" name="day_date" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px"></div>
    <div id="pb_note" class="sub" style="display:none;margin:4px 0 8px">You'll add the specific loads/round-trips on the next screen.</div>
-   <label class="sub" style="margin-top:8px;display:block">Gross pay ($) — optional, auto-suggested</label><input name="gross_pay" placeholder="leave blank to auto-fill" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;margin-bottom:8px">
+   <label class="sub" style="margin-top:8px;display:block">Pay percentage (%) — optional</label>
+   <input name="percent" placeholder="e.g. 25 for 25% of loads" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;margin-bottom:8px">
+   <div class="sub" style="margin-bottom:8px;font-size:11px">If you enter a %, gross pay = that % of the loads' total. Leave blank to use the driver's default or the full loads total.</div>
+   <label class="sub" style="margin-top:4px;display:block">Or enter gross pay ($) directly — optional</label><input name="gross_pay" placeholder="leave blank to auto-fill" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;margin-bottom:8px">
    <div class="sub" style="margin-bottom:8px">Out-of-pocket expenses in the period are added automatically.</div>
    <button class="btn amber" type="submit">Create &amp; review</button>
   </form>
