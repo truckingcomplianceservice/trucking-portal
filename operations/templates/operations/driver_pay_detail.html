@@ -58,9 +58,10 @@
     {% if s.hide_load_amounts %}<div class="sub" style="margin-top:8px">Load $ amounts are hidden on this statement. The driver will see routes but not each load's rate.</div>{% endif %}
     {% else %}<div class="sub">No loads attached. Add the ones this pay covers below.</div>{% endif %}
     {% if addable %}<form method="post" style="margin-top:12px;display:flex;gap:8px;align-items:center">{% csrf_token %}<input type="hidden" name="action" value="add_load">
-     <select name="load_id" style="flex:1;padding:8px 10px;border:1px solid var(--line);border-radius:8px"><option value="">+ Add a load…</option>{% for l in addable %}<option value="{{ l.id }}">{{ l.reference }} · {{ l.pickup_date|default:"" }} · {{ l.origin }}→{{ l.destination }} · ${{ l.rate }}</option>{% endfor %}</select>
-     <button class="btn ghost" type="submit">Add</button></form>
-   {% else %}<div class="sub" style="margin-top:12px">No other loads to add. Every load assigned to {{ s.driver.first_name }} that isn't on another settlement is already here. To add more, assign the driver on that load first (Loads → the load → Driver).</div>{% endif %}
+     <select name="load_id" style="flex:1;padding:8px 10px;border:1px solid var(--line);border-radius:8px"><option value="">+ Click to add an existing load…</option>{% for l in addable %}<option value="{{ l.id }}">{{ l.pickup_date|default:"no date" }} · {{ l.reference }} · {{ l.origin }}→{{ l.destination }} · ${{ l.rate }}{% if l.driver and l.driver_id != s.driver_id %} · (was {{ l.driver.first_name }}){% elif not l.driver %} · (unassigned){% endif %}</option>{% endfor %}</select>
+     <button class="btn amber" type="submit">Add</button></form>
+     <div class="sub" style="font-size:11px;margin-top:4px">Shows all loads not already on a settlement. Adding a load here assigns it to {{ s.driver.first_name }} for this pay.</div>
+   {% else %}<div class="sub" style="margin-top:12px">No loads available to add — every load in the system is already on a settlement. Use "Add a load manually" below to add one that isn't in the system yet.</div>{% endif %}
    <details style="margin-top:14px"><summary style="cursor:pointer;font-size:13px;color:var(--blue)">+ Add a load manually (not in the system yet)</summary>
     <form method="post" style="margin-top:10px;border-top:1px solid var(--line);padding-top:12px">{% csrf_token %}<input type="hidden" name="action" value="new_load">
      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
