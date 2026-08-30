@@ -1,6 +1,6 @@
 # Trucking Compliance Services — Operations Portal
 
-Add ANY existing load to a settlement by clicking (not just manual entry).
+Settlement load picker shows ONLY that driver's loads.
 
 ## Deploy
 1. Download this zip, then in Terminal:
@@ -8,24 +8,17 @@ Add ANY existing load to a settlement by clicking (not just manual entry).
 2. GitHub Desktop -> Commit -> Push. Test in a private/incognito window.
 
 ## What changed
-Before, the "Add a load" picker on a settlement only listed loads ALREADY assigned
-to that driver. So if a load wasn't assigned to them, you couldn't click to add it
--- you had to type it manually.
+When you open a driver's settlement, the "Add a load" picker now shows ONLY that
+driver's own loads (that aren't already on a settlement). Other drivers' loads and
+unassigned loads no longer appear -- so you can't add the wrong driver's load by
+mistake. Remove also only affects this settlement's loads.
 
-Now the picker shows ALL loads in the system that aren't already on a settlement:
-- the driver's own loads,
-- loads that were assigned to a different driver (shown as "(was Bob)"),
-- and unassigned loads (shown as "(unassigned)").
-
-Each option shows the date, reference, route, and rate. Click one, hit Add, and:
-- it's attached to this settlement,
-- and assigned to this driver (so the pay lines up),
-- and it shows in "Loads covered" with its pickup date and amount.
-
-You can still "Add a load manually" for a load that isn't in the system at all.
+To pay a driver for a load that's currently under another driver, first change the
+driver on that load (Loads -> the load -> Driver), then it appears in this picker.
+Or use "Add a load manually" for a load not in the system.
 
 ## Includes everything to date
-Click-add existing loads to settlement, settlement PDF itemized fix, itemized
+Driver-only settlement load picker, settlement PDF itemized fix, itemized
 settlement lines, driver settlement detail, settlement layout fix, easy
 driver-wage creation, rental truck swap, photo viewer signed-URL fix, truck photo
 gallery, office PWA + mobile layout, phone tap-to-call/text + phone login +

@@ -2650,16 +2650,13 @@ def driver_pay_detail(request, pk):
             if not lid:
                 _messages.error(request, "Pick a load from the list first.")
                 return redirect("driver_pay_detail", pk=pk)
-            l = Load.objects.filter(pk=lid, company__in=cs, settlement__isnull=True).first()
+            l = Load.objects.filter(pk=lid, company__in=cs, driver=s.driver, settlement__isnull=True).first()
             if l:
                 l.settlement = s
-                # if the load wasn't assigned to this driver, assign it now so pay lines up
-                if l.driver_id != s.driver_id:
-                    l.driver = s.driver
                 l.save()
                 _messages.success(request, f"Added load {l.reference}.")
             else:
-                _messages.error(request, "That load could not be added (it may already be on another settlement).")
+                _messages.error(request, "That load could not be added (it must be this driver's load and not already on another settlement).")
         elif action == "add_item":
             kind = request.POST.get("item_kind")
             desc = (request.POST.get("item_desc") or "").strip()
@@ -2729,12 +2726,11 @@ def driver_pay_detail(request, pk):
     settle_loads = s.loads.select_related("broker", "vehicle").order_by("pickup_date")
     loads_total = settle_loads.aggregate(x=Sum("rate"))["x"] or 0
     # loads for this driver not yet on any settlement (available to add)
-    # Loads you can add to this settlement:
-    #  - primarily this driver's own loads not yet on a settlement
-    #  - PLUS any other company load not on a settlement (so you can attach a load
-    #    that wasn't assigned to this driver, e.g. to pay them for covering it)
-    addable = (Load.objects.filter(company__in=cs, settlement__isnull=True)
-               .select_related("driver", "vehicle")
+    # Loads you can add to this settlement: ONLY this driver's own loads that
+    # aren't already on a settlement. Keeps it clean and avoids adding another
+    # driver's load by mistake.
+    addable = (Load.objects.filter(company__in=cs, driver=s.driver, settlement__isnull=True)
+               .select_related("vehicle")
                .order_by("-pickup_date")[:200])
     return render(request, "operations/driver_pay_detail.html",
                   {"s": s, "oop": oop, "company": s.company,
