@@ -2651,6 +2651,25 @@ def driver_pay_detail(request, pk):
             total = float(s.loads.aggregate(x=Sum("rate"))["x"] or 0)
             s.gross_pay = round(total * pct / 100, 2)
             s.save(); _messages.success(request, f"Gross set to {pct:.0f}% of loads (${s.gross_pay}).")
+        elif action == "use_per_mile":
+            # rate per mile; optionally include deadhead/empty miles
+            rate = _num(request.POST.get("mile_rate", "0"))
+            include_dh = request.POST.get("include_deadhead") == "on"
+            loaded = s.loads.aggregate(x=Sum("miles"))["x"] or 0
+            dh = s.loads.aggregate(x=Sum("deadhead_miles"))["x"] or 0
+            miles = loaded + dh if include_dh else loaded
+            s.gross_pay = round(float(miles) * rate, 2)
+            s.save()
+            _messages.success(request,
+                f"Gross set to {miles:,} miles × ${rate:.2f}"
+                f"{' (incl. empty miles)' if include_dh else ''} = ${s.gross_pay}.")
+        elif action == "use_per_load":
+            # flat amount per load × number of loads on the settlement
+            per = _num(request.POST.get("per_load_amount", "0"))
+            n = s.loads.count()
+            s.gross_pay = round(per * n, 2)
+            s.save()
+            _messages.success(request, f"Gross set to {n} load(s) × ${per:.2f} = ${s.gross_pay}.")
         elif action == "add_load":
             lid = request.POST.get("load_id", "").strip()
             if not lid:
@@ -2731,6 +2750,8 @@ def driver_pay_detail(request, pk):
                                  date__gte=s.period_start, date__lte=s.period_end)
     settle_loads = s.loads.select_related("broker", "vehicle").order_by("pickup_date")
     loads_total = settle_loads.aggregate(x=Sum("rate"))["x"] or 0
+    loaded_miles = settle_loads.aggregate(x=Sum("miles"))["x"] or 0
+    deadhead_miles = settle_loads.aggregate(x=Sum("deadhead_miles"))["x"] or 0
     # loads for this driver not yet on any settlement (available to add)
     # Loads you can add to this settlement: ONLY this driver's own loads that
     # aren't already on a settlement. Keeps it clean and avoids adding another
@@ -2741,6 +2762,10 @@ def driver_pay_detail(request, pk):
     return render(request, "operations/driver_pay_detail.html",
                   {"s": s, "oop": oop, "company": s.company,
                    "settle_loads": settle_loads, "loads_total": loads_total, "addable": addable,
+                   "loaded_miles": loaded_miles, "deadhead_miles": deadhead_miles,
+                   "total_miles_all": loaded_miles + deadhead_miles,
+                   "load_count": settle_loads.count(),
+                   "driver_pay_type": s.driver.pay_type, "driver_pay_rate": s.driver.pay_rate,
                    "deduction_items": s.line_items.filter(kind="deduction"),
                    "reimbursement_items": s.line_items.filter(kind="reimbursement"),
                    **_driver_pay_totals(s.driver)})

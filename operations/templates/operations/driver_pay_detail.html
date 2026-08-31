@@ -90,11 +90,40 @@
    </form></div>
   {% else %}<div class="card"><div style="padding:16px 18px"><form method="post">{% csrf_token %}<input type="hidden" name="action" value="unpay"><button class="btn ghost" type="submit">Undo paid</button></form></div></div>{% endif %}
 
+  <div class="card"><div class="card-h"><h3>💵 Calculate wages</h3></div>
+   <div style="padding:8px 18px 16px">
+    <div class="sub" style="font-size:12px;margin-bottom:10px">Loads: <b>{{ load_count }}</b> · Loads total: <b>${{ loads_total|floatformat:2|intcomma }}</b> · Loaded miles: <b>{{ loaded_miles|intcomma }}</b> · Empty miles: <b>{{ deadhead_miles|intcomma }}</b> · Total miles: <b>{{ total_miles_all|intcomma }}</b></div>
+
+    <!-- Percentage -->
+    <form method="post" style="border-top:1px solid var(--line);padding-top:10px">{% csrf_token %}<input type="hidden" name="action" value="use_percent">
+     <label class="sub">By percentage of loads</label>
+     <div style="display:flex;gap:8px"><input name="percent" placeholder="e.g. 25" value="{% if driver_pay_type == 'percentage' %}{{ driver_pay_rate }}{% endif %}" style="flex:1;padding:9px 11px;border:1px solid var(--line);border-radius:8px"><button class="btn amber" type="submit">Apply %</button></div>
+     <div class="sub" style="font-size:11px;margin-top:3px">Gross = % × loads total (${{ loads_total|floatformat:2|intcomma }}).</div>
+    </form>
+
+    <!-- Per mile -->
+    <form method="post" style="border-top:1px solid var(--line);padding-top:10px;margin-top:10px">{% csrf_token %}<input type="hidden" name="action" value="use_per_mile">
+     <label class="sub">By mile</label>
+     <div style="display:flex;gap:8px"><input name="mile_rate" placeholder="e.g. 0.60" value="{% if driver_pay_type == 'per_mile' %}{{ driver_pay_rate }}{% endif %}" style="flex:1;padding:9px 11px;border:1px solid var(--line);border-radius:8px"><button class="btn amber" type="submit">Apply /mi</button></div>
+     <label style="display:flex;align-items:center;gap:6px;font-size:12px;margin-top:6px"><input type="checkbox" name="include_deadhead" checked style="width:auto"> Include empty / deadhead miles ({{ deadhead_miles|intcomma }} mi)</label>
+     <div class="sub" style="font-size:11px;margin-top:3px">Gross = rate × {{ loaded_miles|intcomma }} loaded{% if deadhead_miles %} (+{{ deadhead_miles|intcomma }} empty if checked){% endif %} miles.</div>
+    </form>
+
+    <!-- Per load -->
+    <form method="post" style="border-top:1px solid var(--line);padding-top:10px;margin-top:10px">{% csrf_token %}<input type="hidden" name="action" value="use_per_load">
+     <label class="sub">Flat amount per load</label>
+     <div style="display:flex;gap:8px"><input name="per_load_amount" placeholder="e.g. 500" style="flex:1;padding:9px 11px;border:1px solid var(--line);border-radius:8px"><button class="btn amber" type="submit">Apply per load</button></div>
+     <div class="sub" style="font-size:11px;margin-top:3px">Gross = amount × {{ load_count }} load(s) on this settlement.</div>
+    </form>
+
+    <!-- Full loads total -->
+    <form method="post" style="border-top:1px solid var(--line);padding-top:10px;margin-top:10px">{% csrf_token %}<input type="hidden" name="action" value="use_loads_total">
+     <button class="btn ghost" type="submit" style="width:100%">Pay full loads total (${{ loads_total|floatformat:2|intcomma }})</button>
+    </form>
+   </div>
+  </div>
+
   <div class="card"><div class="card-h"><h3>Edit amounts</h3></div>
-   <form method="post" style="padding:16px 18px 8px">{% csrf_token %}<input type="hidden" name="action" value="use_percent">
-    <label class="sub">Set gross as % of loads (${{ loads_total|floatformat:2|intcomma }})</label>
-    <div style="display:flex;gap:8px"><input name="percent" placeholder="e.g. 25" style="flex:1;padding:9px 11px;border:1px solid var(--line);border-radius:8px"><button class="btn ghost" type="submit">Apply %</button></div>
-   </form>
    <form method="post" style="padding:0 18px 16px">{% csrf_token %}<input type="hidden" name="action" value="edit">
     <label class="sub">Gross pay ($)</label><input name="gross_pay" value="{{ s.gross_pay }}" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;margin-bottom:8px">
     <label class="sub">Deductions ($)</label><input name="deductions" value="{{ s.deductions }}" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;margin-bottom:8px">
