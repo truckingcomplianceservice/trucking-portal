@@ -57,10 +57,31 @@
     </tr>{% endfor %}</tbody>{% if not s.hide_load_amounts %}<tfoot><tr><td colspan="3" style="text-align:right"><b>Loads total</b></td><td class="n"><b>${{ loads_total|floatformat:2|intcomma }}</b></td><td></td></tr></tfoot>{% endif %}</table>
     {% if s.hide_load_amounts %}<div class="sub" style="margin-top:8px">Load $ amounts are hidden on this statement. The driver will see routes but not each load's rate.</div>{% endif %}
     {% else %}<div class="sub">No loads attached. Add the ones this pay covers below.</div>{% endif %}
-    {% if addable %}<form method="post" style="margin-top:12px;display:flex;gap:8px;align-items:center">{% csrf_token %}<input type="hidden" name="action" value="add_load">
-     <select name="load_id" style="flex:1;padding:8px 10px;border:1px solid var(--line);border-radius:8px"><option value="">+ Click to add {{ s.driver.first_name }}'s load…</option>{% for l in addable %}<option value="{{ l.id }}">{{ l.pickup_date|default:"no date" }} · {{ l.reference }} · {{ l.origin }}→{{ l.destination }} · ${{ l.rate }}</option>{% endfor %}</select>
-     <button class="btn amber" type="submit">Add</button></form>
-     <div class="sub" style="font-size:11px;margin-top:4px">Shows {{ s.driver.first_name }}'s loads that aren't on a settlement yet.</div>
+    {% if addable %}
+     <div style="margin-top:12px">
+      <input type="text" id="loadSearch" onkeyup="filterLoads()" placeholder="🔎 Type a load number to find it fast…" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;margin-bottom:8px">
+      <form method="post" style="display:flex;gap:8px;align-items:center">{% csrf_token %}<input type="hidden" name="action" value="add_load">
+       <select name="load_id" id="loadSelect" size="6" style="flex:1;padding:8px 10px;border:1px solid var(--line);border-radius:8px">{% for l in addable %}<option value="{{ l.id }}" data-search="{{ l.reference|lower }} {{ l.origin|lower }} {{ l.destination|lower }} {{ l.pickup_date|default:'' }}">{{ l.pickup_date|default:"no date" }} · #{{ l.reference }} · {{ l.origin }}→{{ l.destination }} · ${{ l.rate }}</option>{% endfor %}</select>
+       <button class="btn amber" type="submit">Add</button></form>
+      <div class="sub" id="loadCount" style="font-size:11px;margin-top:4px">{{ addable|length }} of {{ s.driver.first_name }}'s load(s) available. Type a load number above to filter.</div>
+     </div>
+     <script>
+      function filterLoads(){
+        var q=document.getElementById('loadSearch').value.toLowerCase().trim();
+        var sel=document.getElementById('loadSelect');
+        var shown=0, total=0;
+        for(var i=0;i<sel.options.length;i++){
+          var o=sel.options[i]; total++;
+          var hay=(o.getAttribute('data-search')||'')+' '+o.text.toLowerCase();
+          var match = q==='' || hay.indexOf(q)>-1;
+          o.style.display = match ? '' : 'none';
+          if(match) shown++;
+        }
+        document.getElementById('loadCount').textContent = shown+' of '+total+' load(s) shown'+(q?' for "'+q+'"':'')+'.';
+        // auto-select the first visible match so Add works right away
+        for(var j=0;j<sel.options.length;j++){ if(sel.options[j].style.display!=='none'){ sel.selectedIndex=j; break; } }
+      }
+     </script>
    {% else %}<div class="sub" style="margin-top:12px">No loads to add — every load assigned to {{ s.driver.first_name }} is already on a settlement. To pay them for another load, assign {{ s.driver.first_name }} on that load first (Loads → the load → Driver), or use "Add a load manually" below.</div>{% endif %}
    <details style="margin-top:14px"><summary style="cursor:pointer;font-size:13px;color:var(--blue)">+ Add a load manually (not in the system yet)</summary>
     <form method="post" style="margin-top:10px;border-top:1px solid var(--line);padding-top:12px">{% csrf_token %}<input type="hidden" name="action" value="new_load">
