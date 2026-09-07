@@ -4837,3 +4837,68 @@ def driver_pay_detail_view(request, drv, pk):
         "deduction_items": s.line_items.filter(kind="deduction"),
         "reimbursement_items": s.line_items.filter(kind="reimbursement"),
     })
+
+
+@login_required
+def invoice_item_add(request, pk):
+    """Add a custom line item to an invoice."""
+    inv = _get(Invoice, pk=pk, company__in=_companies_all(request))
+    if request.method == "POST":
+        desc = (request.POST.get("description") or "").strip()
+        qty = _num(request.POST.get("quantity", "1")) or 1
+        amt = _num(request.POST.get("unit_amount", "0"))
+        if desc and amt:
+            from .models import InvoiceLineItem
+            InvoiceLineItem.objects.create(invoice=inv, description=desc[:200],
+                                           quantity=qty, unit_amount=round(amt, 2))
+            # keep the stored subtotal in sync with line items
+            inv.subtotal = inv.items_subtotal
+            inv.save(update_fields=["subtotal"])
+            _messages.success(request, "Line added.")
+        else:
+            _messages.error(request, "Enter a description and amount.")
+    return redirect("invoice_detail", pk=pk)
+
+
+@login_required
+def invoice_item_remove(request, pk, item_pk):
+    inv = _get(Invoice, pk=pk, company__in=_companies_all(request))
+    it = inv.line_items.filter(pk=item_pk).first()
+    if it and request.method == "POST":
+        it.delete()
+        inv.subtotal = inv.items_subtotal
+        inv.save(update_fields=["subtotal"])
+        _messages.success(request, "Line removed.")
+    return redirect("invoice_detail", pk=pk)
+
+
+@login_required
+def invoice_email(request, pk):
+    """Email the invoice (as a PDF) to the customer."""
+    inv = _get(Invoice, pk=pk, company__in=_companies_all(request))
+    if request.method != "POST":
+        return redirect("invoice_detail", pk=pk)
+    to = (request.POST.get("to_email") or "").strip()
+    if not to and inv.broker and getattr(inv.broker, "email", ""):
+        to = inv.broker.email
+    if not to:
+        _messages.error(request, "No customer email — add one to send.")
+        return redirect("invoice_detail", pk=pk)
+    try:
+        from django.core.mail import EmailMessage
+        pdf = _render_pdf("operations/invoice_print.html", {"inv": inv, "company": inv.company,
+                          "items": inv.line_items.all()})
+        subject = f"Invoice {inv.invoice_number or inv.id} from {inv.company.name}"
+        body = (request.POST.get("message") or
+                f"Please find attached invoice {inv.invoice_number or inv.id} "
+                f"for ${inv.total:,.2f}.\n\nThank you,\n{inv.company.name}")
+        msg = EmailMessage(subject=subject, body=body,
+                           from_email=settings.DEFAULT_FROM_EMAIL, to=[to])
+        msg.attach(f"invoice_{inv.invoice_number or inv.id}.pdf", pdf, "application/pdf")
+        msg.send(fail_silently=False)
+        ActivityLog.objects.create(category="billing", user=request.user, company=inv.company,
+            text=f"Emailed invoice {inv.invoice_number or inv.id} to {to}")
+        _messages.success(request, f"Invoice emailed to {to}.")
+    except Exception as e:
+        _messages.error(request, f"Could not send email: {e}")
+    return redirect("invoice_detail", pk=pk)

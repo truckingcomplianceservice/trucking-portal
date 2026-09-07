@@ -977,8 +977,22 @@ class Invoice(models.Model):
         super().save(*args, **kwargs)
 
     @property
+    def items_subtotal(self):
+        """Sum of line items, if any have been added."""
+        from django.db.models import Sum as _S, F as _F
+        agg = self.line_items.aggregate(s=_S(_F("quantity") * _F("unit_amount")))["s"]
+        return agg or 0
+
+    @property
+    def effective_subtotal(self):
+        """Use line-item total if there are line items; otherwise the typed subtotal."""
+        if self.line_items.exists():
+            return self.items_subtotal
+        return self.subtotal or 0
+
+    @property
     def total(self):
-        return (self.subtotal or 0) - (self.discount or 0) + (self.tax or 0)
+        return (self.effective_subtotal) - (self.discount or 0) + (self.tax or 0)
 
     @property
     def paid(self):
@@ -1007,6 +1021,25 @@ class Invoice(models.Model):
 
     def __str__(self):
         return f"{self.invoice_number} ({self.bill_to})"
+
+
+class InvoiceLineItem(models.Model):
+    """A line on an invoice: description + amount. Multiple lines sum to subtotal."""
+    invoice = models.ForeignKey("Invoice", on_delete=models.CASCADE, related_name="line_items")
+    description = models.CharField(max_length=200)
+    quantity = models.DecimalField(max_digits=10, decimal_places=2, default=1)
+    unit_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["id"]
+
+    @property
+    def line_total(self):
+        return round((self.quantity or 0) * (self.unit_amount or 0), 2)
+
+    def __str__(self):
+        return f"{self.description}: {self.quantity} x ${self.unit_amount}"
 
 
 class Payment(models.Model):

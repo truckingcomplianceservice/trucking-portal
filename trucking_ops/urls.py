@@ -130,6 +130,9 @@ urlpatterns = [
     path("app/billing/<int:pk>/", views.invoice_detail, name="invoice_detail"),
     path("app/billing/<int:pk>/pay/", views.payment_add, name="payment_add"),
     path("app/billing/<int:pk>/print/", views.invoice_print, name="invoice_print"),
+    path("app/billing/<int:pk>/item/add/", views.invoice_item_add, name="invoice_item_add"),
+    path("app/billing/<int:pk>/item/<int:item_pk>/remove/", views.invoice_item_remove, name="invoice_item_remove"),
+    path("app/billing/<int:pk>/email/", views.invoice_email, name="invoice_email"),
 
     # reports
     path("reports/", views.reports_index, name="reports"),

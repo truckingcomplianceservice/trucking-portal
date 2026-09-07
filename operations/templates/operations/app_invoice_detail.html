@@ -10,8 +10,27 @@
 <a href="/app/billing/" class="sub" style="color:var(--blue)">&larr; Billing</a>
 <div class="toolbar" style="margin-top:8px"><div class="spacer"></div>
  <a class="btn ghost" href="/app/billing/{{ inv.id }}/print/" target="_blank">Print / Download PDF</a>
+ <button class="btn navy" onclick="document.getElementById('emailInv').classList.add('open')">✉ Email to customer</button>
  <a class="btn ghost" href="/admin/operations/invoice/{{ inv.id }}/change/">Edit</a>
 </div>
+
+<div class="modal-bg" id="emailInv" style="display:none;position:fixed;inset:0;background:rgba(20,28,43,.5);z-index:40;align-items:center;justify-content:center;padding:16px">
+ <div style="background:#fff;border-radius:14px;padding:20px;max-width:460px;width:100%">
+  <h3 style="margin-top:0">Email invoice to customer</h3>
+  <form method="post" action="/app/billing/{{ inv.id }}/email/">{% csrf_token %}
+   <label class="sub">Customer email</label>
+   <input name="to_email" type="email" value="{{ inv.broker.email|default:'' }}" placeholder="customer@company.com" required style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;margin-bottom:8px">
+   <label class="sub">Message (optional)</label>
+   <textarea name="message" rows="3" placeholder="Leave blank for a default message" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;margin-bottom:10px"></textarea>
+   <div class="sub" style="font-size:12px;margin-bottom:10px">The invoice PDF will be attached automatically.</div>
+   <div style="display:flex;gap:8px;justify-content:flex-end">
+    <button type="button" class="btn ghost" onclick="document.getElementById('emailInv').classList.remove('open')">Cancel</button>
+    <button type="submit" class="btn navy">Send invoice</button>
+   </div>
+  </form>
+ </div>
+</div>
+<style>.modal-bg.open{display:flex!important}</style>
 <div class="grid2">
  <div class="card"><div class="card-h"><h3>Invoice</h3><span class="chip {{ cls }}"><span class="d"></span>{{ inv.status|capfirst }}{% if inv.is_overdue %} · Overdue{% endif %}</span></div>
   <div style="padding:8px 18px 16px">
@@ -21,7 +40,7 @@
    <div class="field"><span class="k">Issued</span><span class="v">{{ inv.issue_date }}</span></div>
    <div class="field"><span class="k">Due</span><span class="v">{{ inv.due_date|default:"—" }}</span></div>
    <div style="margin-top:14px">
-     <div class="tot-row"><span class="sub">Subtotal</span><span>${{ inv.subtotal|floatformat:2|intcomma }}</span></div>
+     <div class="tot-row"><span class="sub">Subtotal</span><span>${{ inv.effective_subtotal|floatformat:2|intcomma }}</span></div>
      <div class="tot-row"><span class="sub">Discount</span><span>−${{ inv.discount|floatformat:2|intcomma }}</span></div>
      <div class="tot-row"><span class="sub">Tax</span><span>${{ inv.tax|floatformat:2|intcomma }}</span></div>
      <div class="tot-row big"><span>Total</span><span>${{ inv.total|floatformat:2|intcomma }}</span></div>
@@ -49,4 +68,27 @@
    </form>
   </div>{% endif %}
  </div>
-</div>{% endblock %}
+</div>
+
+<div class="card" style="margin-top:14px"><div class="card-h"><h3>Line items (custom charges)</h3></div>
+ <div style="padding:8px 18px 16px">
+  {% if inv.line_items.all %}<table><thead><tr><th>Description</th><th class="n">Qty</th><th class="n">Unit</th><th class="n">Amount</th><th></th></tr></thead><tbody>
+  {% for it in inv.line_items.all %}<tr>
+   <td>{{ it.description }}</td>
+   <td class="n">{{ it.quantity|floatformat:"-2" }}</td>
+   <td class="n">${{ it.unit_amount|floatformat:2|intcomma }}</td>
+   <td class="n">${{ it.line_total|floatformat:2|intcomma }}</td>
+   <td class="n"><form method="post" action="/app/billing/{{ inv.id }}/item/{{ it.id }}/remove/" style="display:inline">{% csrf_token %}<button class="btn ghost" style="padding:3px 8px;font-size:11px" type="submit">×</button></form></td>
+  </tr>{% endfor %}
+  </tbody><tfoot><tr><td colspan="3" style="text-align:right"><b>Subtotal</b></td><td class="n"><b>${{ inv.items_subtotal|floatformat:2|intcomma }}</b></td><td></td></tr></tfoot></table>
+  {% else %}<div class="sub" style="margin-bottom:10px">No line items yet. Add custom charges (line haul, detention, lumper, fuel surcharge, etc.) below. When you add lines, they become the invoice subtotal.</div>{% endif %}
+
+  <form method="post" action="/app/billing/{{ inv.id }}/item/add/" style="border-top:1px solid var(--line);padding-top:12px;margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">{% csrf_token %}
+   <div style="flex:2;min-width:160px"><label class="sub">Description</label><input name="description" placeholder="e.g. Line haul Dallas→Miami" required style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px"></div>
+   <div style="width:70px"><label class="sub">Qty</label><input name="quantity" value="1" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px"></div>
+   <div style="width:110px"><label class="sub">Unit $</label><input name="unit_amount" type="number" step="0.01" placeholder="0.00" required style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px"></div>
+   <button class="btn amber" type="submit">+ Add line</button>
+  </form>
+ </div>
+</div>
+{% endblock %}
