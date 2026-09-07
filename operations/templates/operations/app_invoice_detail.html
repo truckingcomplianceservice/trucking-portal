@@ -32,7 +32,8 @@
 </div>
 <style>.modal-bg.open{display:flex!important}</style>
 <div class="grid2">
- <div class="card"><div class="card-h"><h3>Invoice</h3><span class="chip {{ cls }}"><span class="d"></span>{{ inv.status|capfirst }}{% if inv.is_overdue %} · Overdue{% endif %}</span></div>
+ <div class="card"><div class="card-h"><h3>Invoice</h3><span class="chip {{ cls }}"><span class="d"></span>{% if inv.status == 'paid' %}PAID{% elif inv.status == 'partial' %}PARTIALLY PAID{% else %}UNPAID{% endif %}{% if inv.is_overdue %} · Overdue{% endif %}</span></div>
+  <div style="padding:2px 18px 0"><div class="sub" style="font-size:11px">Status is set by recorded payments only — sending or printing an invoice never marks it paid. Record a payment (right) when the customer pays.</div></div>
   <div style="padding:8px 18px 16px">
    <div class="field"><span class="k">Bill to</span><span class="v">{{ inv.bill_to }}</span></div>
    <div class="field"><span class="k">Company</span><span class="v">{{ inv.company.name }}</span></div>
@@ -65,6 +66,11 @@
      <div><label class="sub">Transaction ID</label><input name="transaction_id" style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px"></div>
     </div>
     <button class="btn amber" type="submit" style="margin-top:10px;width:100%">Add payment</button>
+   </form>
+   <form method="post" action="/app/billing/{{ inv.id }}/pay/" style="margin-top:8px">{% csrf_token %}
+    <input type="hidden" name="amount" value="{{ inv.balance|floatformat:2 }}">
+    <input type="hidden" name="method" value="check">
+    <button class="btn ghost" type="submit" style="width:100%" onclick="return confirm('Mark this invoice fully paid (record a payment for the ${{ inv.balance|floatformat:2 }} balance)?')">✓ Mark fully paid (${{ inv.balance|floatformat:2|intcomma }})</button>
    </form>
   </div>{% endif %}
  </div>
