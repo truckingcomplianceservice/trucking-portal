@@ -49,6 +49,7 @@ urlpatterns = [
     path("app/pay/new/", views.driver_pay_new, name="driver_pay_new"),
     path("app/pay/<int:pk>/", views.driver_pay_detail, name="driver_pay_detail"),
     path("app/pay/<int:pk>/pdf/", views.driver_pay_pdf, name="driver_pay_pdf"),
+    path("app/pay/<int:pk>/check/", views.driver_pay_check, name="driver_pay_check"),
     path("app/pay/<int:pk>/email/", views.driver_pay_email, name="driver_pay_email"),
     path("app/performance/note/", views.perf_note_add, name="perf_note_add"),
     path("app/performance/<str:kind>/<int:pk>/", views.performance_detail, name="performance_detail"),

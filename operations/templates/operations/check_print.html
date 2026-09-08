@@ -1,0 +1,45 @@
+{% extends "operations/app_base.html" %}
+{% load humanize %}
+{% block title %}Check — {{ payee }}{% endblock %}
+{% block page_title %}Print check{% endblock %}
+{% block content %}
+<div class="noprint" style="margin-bottom:12px">
+ <a href="/app/pay/{{ s.id }}/" class="sub" style="color:var(--blue)">&larr; Back to settlement</a>
+ <div class="card" style="margin-top:10px;padding:14px 16px">
+  <b>Printing on pre-printed check stock</b>
+  <div class="sub" style="font-size:13px;margin-top:4px">This prints the payee, amount, amount-in-words, date, and memo positioned for a standard business check (check on the TOP third of the page). Load your pre-printed checks and print. Use "Print alignment test" first on plain paper to check positioning; adjust the offsets in Admin → Companies if needed.</div>
+  <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
+   <button class="btn amber" onclick="window.print()">🖨 Print check</button>
+   <a class="btn ghost" href="/app/pay/{{ s.id }}/check/?pdf=1{% if request.GET.no %}&no={{ request.GET.no }}{% endif %}">Download PDF</a>
+   {% if request.GET.assign != '1' %}<a class="btn ghost" href="/app/pay/{{ s.id }}/check/?assign=1">Assign next check # ({{ company.check_next_number }})</a>{% endif %}
+  </div>
+  <div class="sub" style="font-size:12px;margin-top:8px">Check #: <b>{{ check_no }}</b> · Bank: {{ company.check_bank_name|default:"(set bank name in Admin → Companies)" }} · Alignment offset X:{{ ox }} Y:{{ oy }}</div>
+ </div>
+</div>
+
+<div class="check-wrap" style="position:relative;width:8.5in;height:3.5in;border:1px dashed #bbb;margin:0 auto;font-family:Arial,sans-serif;color:#111">
+ <div style="position:absolute;left:{{ ox }}px;top:{{ oy }}px;width:100%;height:100%">
+  <!-- Date (top right) -->
+  <div style="position:absolute;right:0.7in;top:0.35in;font-size:13px">{{ today|date:"m/d/Y" }}</div>
+  <!-- Payee -->
+  <div style="position:absolute;left:0.55in;top:1.05in;font-size:14px">{{ payee }}</div>
+  <!-- Amount box (numeric) -->
+  <div style="position:absolute;right:0.55in;top:1.0in;font-size:15px;font-weight:bold">${{ amount|floatformat:2|intcomma }}</div>
+  <!-- Amount in words -->
+  <div style="position:absolute;left:0.45in;top:1.5in;font-size:13px">{{ amount_words }} DOLLARS</div>
+  <!-- Memo -->
+  <div style="position:absolute;left:0.6in;top:2.55in;font-size:11px">{{ memo }}</div>
+  <!-- Signature -->
+  {% if signature %}<div style="position:absolute;right:0.7in;top:2.5in;font-size:12px;font-style:italic">{{ signature }}</div>{% endif %}
+ </div>
+</div>
+
+<style>
+ @media print {
+   .noprint, .fl-side, .fl-topbar, .fl-menu-btn { display:none !important; }
+   body { padding:0 !important; background:#fff !important; }
+   .fl-content { padding:0 !important; }
+   .check-wrap { border:none !important; margin:0 !important; }
+ }
+</style>
+{% endblock %}

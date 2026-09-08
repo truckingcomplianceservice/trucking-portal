@@ -4923,3 +4923,75 @@ def invoice_email(request, pk):
     except Exception as e:
         _messages.error(request, f"Could not send email: {e}")
     return redirect("invoice_detail", pk=pk)
+
+
+def _amount_to_words(amount):
+    """Convert a dollar amount to check-style words, e.g. 1234.50 ->
+    'One Thousand Two Hundred Thirty-Four and 50/100'."""
+    amount = round(float(amount), 2)
+    dollars = int(amount)
+    cents = int(round((amount - dollars) * 100))
+    ones = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine",
+            "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen",
+            "Seventeen", "Eighteen", "Nineteen"]
+    tens = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"]
+
+    def three(n):
+        out = ""
+        if n >= 100:
+            out += ones[n // 100] + " Hundred "
+            n %= 100
+        if n >= 20:
+            out += tens[n // 10]
+            if n % 10:
+                out += "-" + ones[n % 10]
+            out += " "
+        elif n > 0:
+            out += ones[n] + " "
+        return out
+
+    if dollars == 0:
+        words = "Zero "
+    else:
+        words = ""
+        for unit, name in [(1000000000, "Billion"), (1000000, "Million"), (1000, "Thousand"), (1, "")]:
+            if dollars >= unit:
+                words += three(dollars // unit) + (name + " " if name else "")
+                dollars %= unit
+    words = words.strip()
+    return f"{words} and {cents:02d}/100"
+
+
+@login_required
+def driver_pay_check(request, pk):
+    """Print a check for a driver settlement onto pre-printed check stock."""
+    s = _get(Settlement, pk=pk, company__in=_companies_all(request))
+    if not _is_manager(request.user):
+        _messages.error(request, "Only managers or admins can print checks.")
+        return redirect("driver_pay_detail", pk=pk)
+    company = s.company
+    # assign a check number if printing for the first time via ?assign=1
+    check_no = request.GET.get("no") or company.check_next_number
+    if request.GET.get("assign") == "1":
+        check_no = company.check_next_number
+        company.check_next_number = int(company.check_next_number) + 1
+        company.save(update_fields=["check_next_number"])
+    ctx = {
+        "s": s, "company": company,
+        "amount": s.net_pay,
+        "amount_words": _amount_to_words(s.net_pay),
+        "payee": str(s.driver),
+        "check_no": check_no,
+        "today": _dt.date.today(),
+        "memo": f"Settlement {s.period_start:%m/%d}–{s.period_end:%m/%d/%Y}",
+        "ox": company.check_offset_x or 0,
+        "oy": company.check_offset_y or 0,
+        "signature": company.check_signature or "",
+    }
+    if request.GET.get("pdf") == "1":
+        pdf = _render_pdf("operations/check_print.html", ctx)
+        from django.http import HttpResponse
+        resp = HttpResponse(pdf, content_type="application/pdf")
+        resp["Content-Disposition"] = f'inline; filename="check_{check_no}_{s.driver}.pdf"'
+        return resp
+    return render(request, "operations/check_print.html", ctx)
