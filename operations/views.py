@@ -36,14 +36,25 @@ def pnl_report(request):
     if not user.is_superuser:
         companies = companies.filter(pk__in=user.profile.companies.all())
     rows, tr, te, tw = [], 0, 0, 0
+    t_loaded, t_dead = 0, 0
     for c in companies:
         rev = Load.objects.filter(company=c).aggregate(s=Sum("rate"))["s"] or 0
+        loaded = Load.objects.filter(company=c).aggregate(s=Sum("miles"))["s"] or 0
+        dead = Load.objects.filter(company=c).aggregate(s=Sum("deadhead_miles"))["s"] or 0
+        load_count = Load.objects.filter(company=c).count()
         exp = Expense.objects.filter(company=c).aggregate(s=Sum("amount"))["s"] or 0
         wag = sum(s.net_pay for s in Settlement.objects.filter(company=c))
+        total_mi = loaded + dead
+        net = rev - exp - wag
         rows.append({"name": c.name, "mc": c.mc_number, "rev": rev, "exp": exp,
-                     "wag": wag, "net": rev - exp - wag})
-        tr += rev; te += exp; tw += wag
-    totals = {"rev": tr, "exp": te, "wag": tw, "net": tr - te - tw}
+                     "wag": wag, "net": net, "loads": load_count,
+                     "loaded_mi": loaded, "dead_mi": dead, "total_mi": total_mi,
+                     "rpm": round(float(rev) / total_mi, 2) if total_mi else 0})
+        tr += rev; te += exp; tw += wag; t_loaded += loaded; t_dead += dead
+    t_total_mi = t_loaded + t_dead
+    totals = {"rev": tr, "exp": te, "wag": tw, "net": tr - te - tw,
+              "loaded_mi": t_loaded, "dead_mi": t_dead, "total_mi": t_total_mi,
+              "rpm": round(float(tr) / t_total_mi, 2) if t_total_mi else 0}
     return render(request, "operations/pnl.html", {"rows": rows, "totals": totals})
 
 
