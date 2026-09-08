@@ -10,11 +10,15 @@
    <div><label class="sub">Invoice # (blank = auto)</label><input name="invoice_number" placeholder="INV-00001" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:9px"></div>
    <div><label class="sub">Bill to (broker)</label><select name="broker" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:9px"><option value="">— choose or type below —</option>{% for b in brokers %}<option value="{{ b.id }}">{{ b.name }}</option>{% endfor %}</select></div>
    <div><label class="sub">…or bill-to name</label><input name="bill_to_name" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:9px"></div>
-   <div><label class="sub">Link a load (optional)</label><select name="load" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:9px"><option value="">— none —</option>{% for l in loads %}<option value="{{ l.id }}">{{ l.reference }} (${{ l.rate }})</option>{% endfor %}</select></div>
+   <div style="grid-column:1 / -1"><label class="sub">Link a load (optional) — type to search</label>
+    <input type="text" id="loadSearch" onkeyup="filterInvLoads()" placeholder="🔎 Search by load #, truck, or city…" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:9px;margin-bottom:6px">
+    <select name="load" id="loadPick" size="6" onchange="fillFromLoad()" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:9px"><option value="">— none —</option>{% for l in loads %}<option value="{{ l.id }}" data-rate="{{ l.rate }}" data-broker="{{ l.broker_id|default:'' }}" data-search="{{ l.reference|lower }} {{ l.origin|lower }} {{ l.destination|lower }} {% if l.vehicle %}{{ l.vehicle.unit_number|lower }} unit {{ l.vehicle.unit_number|lower }}{% endif %}">{{ l.reference }}{% if l.vehicle %} · Truck {{ l.vehicle.unit_number }}{% endif %} · {{ l.origin }}→{{ l.destination }} · ${{ l.rate }}{% if l.pickup_date %} · {{ l.pickup_date }}{% endif %}</option>{% endfor %}</select>
+    <div class="sub" id="loadCount" style="font-size:11px;margin-top:3px">{{ loads|length }} recent load(s). Type above to find one.</div>
+   </div>
    <div></div>
    <div><label class="sub">Issue date</label><input type="date" name="issue_date" value="{{ today }}" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:9px"></div>
    <div><label class="sub">Due date</label><input type="date" name="due_date" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:9px"></div>
-   <div><label class="sub">Subtotal</label><input name="subtotal" placeholder="0.00" required style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:9px"></div>
+   <div><label class="sub">Subtotal</label><input name="subtotal" id="subtotalField" placeholder="0.00" required style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:9px"></div>
    <div><label class="sub">Discount</label><input name="discount" placeholder="0.00" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:9px"></div>
    <div><label class="sub">Tax</label><input name="tax" placeholder="0.00" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:9px"></div>
    <div></div>
@@ -22,4 +26,29 @@
   <div style="margin-top:12px"><label class="sub">Notes</label><textarea name="notes" rows="2" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:9px"></textarea></div>
   <button class="btn amber" type="submit" style="margin-top:14px">Create invoice</button>
  </form>
-</div>{% endblock %}
+</div>
+<script>
+ function fillFromLoad(){
+   var sel=document.getElementById('loadPick');
+   var opt=sel.options[sel.selectedIndex];
+   if(!opt || !opt.value) return;
+   var rate=opt.getAttribute('data-rate');
+   var broker=opt.getAttribute('data-broker');
+   if(rate){ document.getElementById('subtotalField').value = parseFloat(rate).toFixed(2); }
+   if(broker){ var b=document.querySelector('select[name="broker"]'); if(b) b.value=broker; }
+ }
+ function filterInvLoads(){
+   var q=document.getElementById('loadSearch').value.toLowerCase().trim();
+   var sel=document.getElementById('loadPick'); var shown=0,total=0;
+   for(var i=0;i<sel.options.length;i++){
+     var o=sel.options[i]; if(!o.value){continue;} total++;
+     var hay=(o.getAttribute('data-search')||'')+' '+o.text.toLowerCase();
+     var m = q==='' || hay.indexOf(q)>-1;
+     o.style.display = m ? '' : 'none';
+     if(m) shown++;
+   }
+   document.getElementById('loadCount').textContent = shown+' of '+total+' load(s) shown'+(q?' for "'+q+'"':'')+'.';
+   for(var j=0;j<sel.options.length;j++){ if(sel.options[j].value && sel.options[j].style.display!=='none'){ sel.selectedIndex=j; fillFromLoad(); break; } }
+ }
+</script>
+{% endblock %}

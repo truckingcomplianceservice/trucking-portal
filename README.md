@@ -1,30 +1,32 @@
 # Trucking Compliance Services — Operations Portal
 
-Profit & Loss now shows loads, miles (loaded/empty/total), and $ per mile.
+Fix: newest loads now appear in the invoice "Link a load" list (+ searchable).
 
 ## Deploy
 1. Download this zip, then in Terminal:
    cd ~/Documents/GitHub/trucking-portal && rm -rf operations trucking_ops templates manage.py requirements.txt Procfile README.md && unzip -o ~/Downloads/<THIS-FILE>.zip -d . && echo DONE
 2. GitHub Desktop -> Commit -> Push. Test in a private/incognito window.
 
-## What's new on the Profit & Loss report
-Each company row (and the totals row) now shows, alongside revenue:
-- Loads (count)
-- Loaded miles
-- Empty (deadhead) miles
-- TOTAL miles the trucks ran
-- $/mi (revenue divided by total miles) -- a quick rate-per-mile figure
+## What was wrong
+The invoice "Link a load" dropdown pulled loads in no particular order and capped
+the list, so once you had a lot of loads, a NEW load (like your truck-786 one)
+often wasn't in the shown batch -- making it look missing.
 
-So you can see how many miles were run for the income earned, and your revenue per
-mile, right on the P&L.
+## The fix
+- The list is now ordered NEWEST FIRST and covers many more loads, so recent loads
+  always show up.
+- It's now a SEARCH box + list: type a load number, a truck number (e.g. 786), or a
+  city to filter instantly.
+- Each option shows: reference - Truck # - origin->destination - $rate - date.
+- Picking a load still auto-fills the subtotal and broker.
 
-NOTE: miles come from what's entered on each load (loaded miles + deadhead miles).
-The more complete your loads' mileage, the more accurate the totals. Loads with 0
-miles simply don't add to the miles columns.
+So to invoice the truck-786 load: Billing -> New invoice -> type "786" (or the load
+number) in the load search -> pick it -> subtotal auto-fills -> Create invoice.
 
 ## Includes everything to date
-P&L miles + $/mi, invoice unpaid-until-recorded, invoice custom line items +
-email, searchable load picker, settlement wage calculator,
+Invoice load list newest-first + searchable, invoice auto-fill from load, P&L
+miles + $/mi, auto loaded-miles, invoice unpaid-until-recorded, invoice custom line
+items + email, searchable load picker, settlement wage calculator,
 daily/per-load/percentage settlements, driver-only load picker, settlement PDF
 itemized fix, itemized settlement lines, driver settlement detail, settlement
 layout fix, easy driver-wage creation, rental truck swap, photo viewer signed-URL

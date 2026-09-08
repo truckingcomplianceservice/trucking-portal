@@ -1523,7 +1523,7 @@ def invoice_create(request):
         return redirect("invoice_detail", pk=inv.id)
     return render(request, "operations/app_invoice_form.html", {
         "companies": cs, "brokers": Broker.objects.all(),
-        "loads": Load.objects.filter(company__in=cs)[:200], "today": _dt.date.today().isoformat(),
+        "loads": Load.objects.filter(company__in=cs).select_related("vehicle", "broker").order_by("-pickup_date", "-id")[:500], "today": _dt.date.today().isoformat(),
     })
 
 
@@ -3416,6 +3416,16 @@ def app_load_new(request):
             if agent_val:
                 broker_agent = BrokerAgent.objects.filter(pk=agent_val, broker=broker).first()
         try:
+            typed_miles = int(_num(request.POST.get("miles", "0")))
+            # AUTO-MILES: if you didn't type loaded miles, estimate origin -> destination
+            if typed_miles <= 0 and origin and destination:
+                try:
+                    from .mileage import best_leg
+                    est, _src = best_leg(origin, destination)
+                    if est:
+                        typed_miles = int(round(est))
+                except Exception:
+                    pass
             load = Load.objects.create(
                 company=company,
                 reference=request.POST.get("reference", "").strip() or "MANUAL",
@@ -3425,7 +3435,7 @@ def app_load_new(request):
                 origin=origin,
                 destination=destination,
                 stops="\n".join(stops),
-                miles=int(_num(request.POST.get("miles", "0"))),
+                miles=typed_miles,
                 deadhead_miles=int(_num(request.POST.get("deadhead_miles", "0"))),
                 rate=round(_num(request.POST.get("rate", "0")), 2),
                 pickup_date=_parse_date(request.POST.get("pickup_date", "")) or None,
