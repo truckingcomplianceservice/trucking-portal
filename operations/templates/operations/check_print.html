@@ -6,40 +6,75 @@
 <div class="noprint" style="margin-bottom:12px">
  <a href="/app/pay/{{ s.id }}/" class="sub" style="color:var(--blue)">&larr; Back to settlement</a>
  <div class="card" style="margin-top:10px;padding:14px 16px">
-  <b>Printing on pre-printed check stock</b>
-  <div class="sub" style="font-size:13px;margin-top:4px">This prints the payee, amount, amount-in-words, date, and memo positioned for a standard business check (check on the TOP third of the page). Load your pre-printed checks and print. Use "Print alignment test" first on plain paper to check positioning; adjust the offsets in Admin → Companies if needed.</div>
+  <b>Laser Multi-Purpose check (check top, no lines)</b>
+  <div class="sub" style="font-size:13px;margin-top:4px">Matches Costco LMP100 / "Laser Multi-Purpose Check Top Without Lines" (8.5×11, check on top, one stub below). Works with your Canon MF240. Do a plain-paper test first; nudge X/Y offsets in Admin → Companies if needed.</div>
   <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
    <button class="btn amber" onclick="window.print()">🖨 Print check</button>
    <a class="btn ghost" href="/app/pay/{{ s.id }}/check/?pdf=1{% if request.GET.no %}&no={{ request.GET.no }}{% endif %}">Download PDF</a>
    {% if request.GET.assign != '1' %}<a class="btn ghost" href="/app/pay/{{ s.id }}/check/?assign=1">Assign next check # ({{ company.check_next_number }})</a>{% endif %}
   </div>
-  <div class="sub" style="font-size:12px;margin-top:8px">Check #: <b>{{ check_no }}</b> · Bank: {{ company.check_bank_name|default:"(set bank name in Admin → Companies)" }} · Alignment offset X:{{ ox }} Y:{{ oy }}</div>
+  <div class="sub" style="font-size:12px;margin-top:8px">Check #: <b>{{ check_no }}</b> · Bank: {{ company.check_bank_name|default:"(set in Admin → Companies)" }} · Offset X:{{ ox }} Y:{{ oy }}</div>
  </div>
 </div>
 
-<div class="check-wrap" style="position:relative;width:8.5in;height:3.5in;border:1px dashed #bbb;margin:0 auto;font-family:Arial,sans-serif;color:#111">
- <div style="position:absolute;left:{{ ox }}px;top:{{ oy }}px;width:100%;height:100%">
+<!-- Multi-Purpose layout: 8.5x11. Check = top 3.5in, no pre-printed lines. Stub below. -->
+<div class="checkpage" style="position:relative;width:8.5in;height:11in;margin:0 auto;font-family:Arial,sans-serif;color:#111;background:#fff">
+ <div style="position:absolute;left:{{ ox }}px;top:{{ oy }}px;width:8.5in;height:11in">
+
+  <!-- ===== CHECK (top 3.5in) ===== -->
   <!-- Date (top right) -->
-  <div style="position:absolute;right:0.7in;top:0.35in;font-size:13px">{{ today|date:"m/d/Y" }}</div>
-  <!-- Payee -->
-  <div style="position:absolute;left:0.55in;top:1.05in;font-size:14px">{{ payee }}</div>
-  <!-- Amount box (numeric) -->
-  <div style="position:absolute;right:0.55in;top:1.0in;font-size:15px;font-weight:bold">${{ amount|floatformat:2|intcomma }}</div>
+  <div style="position:absolute;left:6.55in;top:0.62in;font-size:11pt">{{ today|date:"m/d/Y" }}</div>
+  <!-- Pay to the order of (payee) -->
+  <div style="position:absolute;left:0.95in;top:1.5in;font-size:11pt">{{ payee }}</div>
+  <!-- Numeric amount box (right) -->
+  <div style="position:absolute;left:6.7in;top:1.5in;font-size:11pt;font-weight:bold">**{{ amount|floatformat:2|intcomma }}</div>
   <!-- Amount in words -->
-  <div style="position:absolute;left:0.45in;top:1.5in;font-size:13px">{{ amount_words }} DOLLARS</div>
-  <!-- Memo -->
-  <div style="position:absolute;left:0.6in;top:2.55in;font-size:11px">{{ memo }}</div>
-  <!-- Signature -->
-  {% if signature %}<div style="position:absolute;right:0.7in;top:2.5in;font-size:12px;font-style:italic">{{ signature }}</div>{% endif %}
+  <div style="position:absolute;left:0.35in;top:1.9in;font-size:11pt">{{ amount_words }}************************************</div>
+  <!-- Memo (bottom-left of check) -->
+  <div style="position:absolute;left:0.55in;top:2.95in;font-size:9pt">{{ memo }}</div>
+  <!-- Signature (right) -->
+  {% if signature %}<div style="position:absolute;left:5.2in;top:2.72in;font-size:10pt;font-style:italic">{{ signature }}</div>{% endif %}
+
+  <!-- ===== STUB (below the check) — pay breakdown ===== -->
+  <div style="position:absolute;left:0.5in;top:4.3in;width:7.5in;font-size:9.5pt">
+   <div style="display:flex;justify-content:space-between;border-bottom:1px solid #999;padding-bottom:4px;font-weight:bold;font-size:11pt">
+    <span>{{ payee }}</span><span>Check #{{ check_no }} · {{ today|date:"m/d/Y" }}</span>
+   </div>
+   <div style="margin-top:6px">Pay period: {{ s.period_start|date:"m/d/Y" }} – {{ s.period_end|date:"m/d/Y" }}</div>
+   {% if settle_loads %}
+   <table style="width:100%;border-collapse:collapse;margin-top:6px;font-size:8.5pt">
+    <tr style="color:#666;border-bottom:1px solid #ccc"><td style="padding:2px 0">Date</td><td>Load #</td><td>Route</td><td style="text-align:right">Rate</td></tr>
+    {% for ld in settle_loads %}<tr>
+     <td style="padding:2px 0">{{ ld.pickup_date|date:"m/d"|default:"—" }}</td>
+     <td>{{ ld.reference }}</td>
+     <td>{{ ld.origin }} → {{ ld.destination }}</td>
+     <td style="text-align:right">${{ ld.rate|floatformat:2|intcomma }}</td>
+    </tr>{% endfor %}
+    <tr style="border-top:1px solid #ccc;font-weight:bold"><td colspan="3" style="padding:2px 0">Loads total</td><td style="text-align:right">${{ settle_loads_total|floatformat:2|intcomma }}</td></tr>
+   </table>
+   {% endif %}
+   <table style="width:100%;border-collapse:collapse;margin-top:6px">
+    <tr><td style="padding:2px 0">Gross pay</td><td style="text-align:right">${{ s.gross_pay|floatformat:2|intcomma }}</td></tr>
+    <tr><td style="padding:2px 0">Deductions</td><td style="text-align:right">- ${{ s.deductions|floatformat:2|intcomma }}</td></tr>
+    <tr><td style="padding:2px 0">Reimbursements (out-of-pocket)</td><td style="text-align:right">+ ${{ s.reimbursements|floatformat:2|intcomma }}</td></tr>
+    <tr><td style="padding:2px 0">Extra reimbursement</td><td style="text-align:right">+ ${{ s.extra_reimbursement|floatformat:2|intcomma }}</td></tr>
+    {% for it in reimbursement_items %}<tr><td style="padding:2px 0 2px 14px">+ {{ it.description }}</td><td style="text-align:right">+ ${{ it.amount|floatformat:2 }}</td></tr>{% endfor %}
+    {% for it in deduction_items %}<tr><td style="padding:2px 0 2px 14px">- {{ it.description }}</td><td style="text-align:right">- ${{ it.amount|floatformat:2 }}</td></tr>{% endfor %}
+    <tr style="border-top:2px solid #333;font-weight:bold"><td style="padding:4px 0">NET PAY</td><td style="text-align:right;padding:4px 0">${{ amount|floatformat:2|intcomma }}</td></tr>
+   </table>
+   <div style="margin-top:6px;color:#666;font-size:8.5pt">This stub is your record of pay for the period above.</div>
+  </div>
+
  </div>
 </div>
 
 <style>
  @media print {
    .noprint, .fl-side, .fl-topbar, .fl-menu-btn { display:none !important; }
-   body { padding:0 !important; background:#fff !important; }
+   body { padding:0 !important; margin:0 !important; background:#fff !important; }
    .fl-content { padding:0 !important; }
-   .check-wrap { border:none !important; margin:0 !important; }
+   .checkpage { margin:0 !important; }
+   @page { size: letter; margin:0; }
  }
 </style>
 {% endblock %}

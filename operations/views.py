@@ -5015,6 +5015,10 @@ def driver_pay_check(request, pk):
         "ox": company.check_offset_x or 0,
         "oy": company.check_offset_y or 0,
         "signature": company.check_signature or "",
+        "reimbursement_items": s.line_items.filter(kind="reimbursement"),
+        "deduction_items": s.line_items.filter(kind="deduction"),
+        "settle_loads": s.loads.select_related("vehicle").order_by("pickup_date"),
+        "settle_loads_total": s.loads.aggregate(x=Sum("rate"))["x"] or 0,
     }
     if request.GET.get("pdf") == "1":
         pdf = _render_pdf("operations/check_print.html", ctx)
