@@ -464,9 +464,37 @@ def app_load_detail(request, pk):
     return render(request, "operations/app_load_detail.html",
                   {"l": l, "sc": STATUS_CLASS.get(l.status, "c-gray"),
                    "pc": PAY_CLASS.get(l.payment_status, "c-gray"),
+                   "load_photos": list(l.photos.all()),
                    "thread_notes": l.team_notes.select_related("author"),
                    "note_company_id": l.company_id, "note_field": "load",
                    "note_obj_id": l.id, "note_next": f"/app/loads/{l.id}/"})
+
+
+@login_required
+def load_photo_add(request, pk):
+    """Add a photo to a load (cargo, trailer, damage, etc.)."""
+    l = _get(Load, pk=pk, company__in=_companies_all(request))
+    if request.method == "POST":
+        f = request.FILES.get("image")
+        if f:
+            from .models import LoadPhoto
+            LoadPhoto.objects.create(load=l, company=l.company, image=f,
+                                     caption=request.POST.get("caption", "").strip()[:200],
+                                     uploaded_by=request.user)
+            _messages.success(request, "Photo added.")
+        else:
+            _messages.error(request, "Please choose a photo.")
+    return redirect("app_load_detail", pk=pk)
+
+
+@login_required
+def load_photo_remove(request, pk, photo_pk):
+    l = _get(Load, pk=pk, company__in=_companies_all(request))
+    p = l.photos.filter(pk=photo_pk).first()
+    if p and request.method == "POST":
+        p.delete()
+        _messages.success(request, "Photo removed.")
+    return redirect("app_load_detail", pk=pk)
 
 
 @require_section("drivers")

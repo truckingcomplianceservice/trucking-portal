@@ -762,6 +762,22 @@ class SettlementLineItem(models.Model):
         return f"{self.get_kind_display()}: {self.description} ${self.amount}"
 
 
+class LoadPhoto(models.Model):
+    """Photos attached to a specific load: cargo, trailer, damage, seals, etc."""
+    load = models.ForeignKey("Load", on_delete=models.CASCADE, related_name="photos")
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name="load_photos")
+    image = models.ImageField(upload_to="loads/photos/")
+    caption = models.CharField(max_length=200, blank=True)
+    uploaded_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"Photo for {self.load}"
+
+
 class DriverLocation(models.Model):
     """Latest known GPS location for a driver, sent from the driver app (with the
     driver's permission) while the app is open. Not 24/7 background tracking."""

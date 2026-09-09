@@ -59,4 +59,48 @@ function ldClose(){document.getElementById('ldViewer').style.display='none';docu
 document.addEventListener('keydown',function(e){if(e.key==='Escape')ldClose();});
 </script>
  </div>
-</div>{% endblock %}
+</div>
+
+<div class="card" style="margin-top:14px"><div class="card-h"><h3>Photos{% if load_photos %} ({{ load_photos|length }}){% endif %}</h3><span class="sub">Cargo, trailer, damage, seals, etc.</span></div>
+ <div style="padding:14px 16px">
+  {% if load_photos %}<div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px">
+   {% for p in load_photos %}<div style="width:150px">
+    <img src="{{ p.image.url }}" onclick="lpOpen({{ forloop.counter0 }})" style="width:150px;height:110px;object-fit:cover;border-radius:8px;border:1px solid var(--line);cursor:pointer">
+    <div class="sub" style="font-size:11px;margin-top:3px">{{ p.caption|default:"" }}</div>
+    <form method="post" action="/app/loads/{{ l.id }}/photo/{{ p.id }}/remove/" onsubmit="return confirm('Remove this photo?');">{% csrf_token %}<button class="btn ghost" style="padding:2px 7px;font-size:11px;color:#c0392b" type="submit">Delete</button></form>
+   </div>{% endfor %}
+  </div>
+  <div class="sub" style="font-size:12px;margin-bottom:10px">Tap any photo to view full-size and flip through them all.</div>
+  {% else %}<div class="sub" style="margin-bottom:10px">No photos yet. Add pictures of the cargo, trailer, seals, or any damage for this load.</div>{% endif %}
+  <form method="post" action="/app/loads/{{ l.id }}/photo/add/" enctype="multipart/form-data" style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">{% csrf_token %}
+   <div><label class="sub">Add photo</label><input type="file" name="image" accept="image/*" capture="environment" required style="padding:6px 8px;border:1px solid var(--line);border-radius:8px"></div>
+   <div style="flex:1;min-width:160px"><label class="sub">Caption (optional)</label><input name="caption" placeholder="e.g. Cargo loaded, trailer #, damage on pallet 3" style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px"></div>
+   <button class="btn amber" type="submit">Add photo</button>
+  </form>
+ </div>
+</div>
+
+{% if load_photos %}
+<div id="lpGal" style="display:none;position:fixed;inset:0;background:rgba(10,14,22,.94);z-index:5000;align-items:center;justify-content:center;flex-direction:column">
+ <div style="position:absolute;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:center;padding:14px 18px;color:#fff">
+  <span id="lpCount" style="font-size:14px"></span>
+  <button onclick="lpClose()" style="background:none;border:none;color:#fff;font-size:30px;cursor:pointer;line-height:1">×</button>
+ </div>
+ <img id="lpImg" src="" style="max-width:92vw;max-height:74vh;min-width:200px;min-height:150px;object-fit:contain;border-radius:8px;background:#1a1f2b">
+ <div id="lpCap" style="color:#e6e9f0;font-size:14px;margin-top:12px;text-align:center;padding:0 20px;max-width:92vw"></div>
+ <button onclick="lpPrev(event)" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,.15);border:none;color:#fff;font-size:30px;width:52px;height:64px;border-radius:10px;cursor:pointer">‹</button>
+ <button onclick="lpNext(event)" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,.15);border:none;color:#fff;font-size:30px;width:52px;height:64px;border-radius:10px;cursor:pointer">›</button>
+</div>
+<script>
+ var lpPics=[{% for p in load_photos %}{src:"{{ p.image.url|escapejs }}",cap:"{{ p.caption|escapejs }}"}{% if not forloop.last %},{% endif %}{% endfor %}];
+ var lpI=0;
+ function lpShow(){var p=lpPics[lpI];var img=document.getElementById('lpImg');img.onerror=function(){document.getElementById('lpCap').textContent='(This image could not be loaded)';};img.src=p.src;document.getElementById('lpCap').textContent=p.cap||'';document.getElementById('lpCount').textContent=(lpI+1)+' / '+lpPics.length;}
+ function lpOpen(i){lpI=i;lpShow();document.getElementById('lpGal').style.display='flex';}
+ function lpClose(){document.getElementById('lpGal').style.display='none';}
+ function lpNext(e){if(e)e.stopPropagation();lpI=(lpI+1)%lpPics.length;lpShow();}
+ function lpPrev(e){if(e)e.stopPropagation();lpI=(lpI-1+lpPics.length)%lpPics.length;lpShow();}
+ document.addEventListener('keydown',function(e){if(document.getElementById('lpGal').style.display==='flex'){if(e.key==='ArrowRight')lpNext();else if(e.key==='ArrowLeft')lpPrev();else if(e.key==='Escape')lpClose();}});
+ (function(){var x0=null;var g=document.getElementById('lpGal');g.addEventListener('touchstart',function(e){x0=e.touches[0].clientX;});g.addEventListener('touchend',function(e){if(x0===null)return;var dx=e.changedTouches[0].clientX-x0;if(Math.abs(dx)>40){if(dx<0)lpNext();else lpPrev();}x0=null;});})();
+</script>
+{% endif %}
+{% endblock %}
