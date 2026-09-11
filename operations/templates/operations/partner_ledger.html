@@ -16,7 +16,7 @@
 <div class="card"><div class="card-h"><h3>Each partner — company-wide</h3><a href="/admin/operations/partner/" style="font-size:13px">Manage partners</a></div>
  <table><thead><tr><th>Partner</th><th class="n">Ownership</th><th class="n">Contributed</th><th class="n">Paid back</th><th class="n">Still owed</th><th class="n">Profit share</th></tr></thead><tbody>
  {% for r in rows %}<tr>
-  <td><b>{{ r.p.name }}</b></td>
+  <td><a href="/app/partners/{{ r.p.id }}/statement/" style="font-weight:bold;color:var(--blue);text-decoration:none">{{ r.p.name }}</a></td>
   <td class="n">{{ r.ownership|floatformat:"-2" }}%</td>
   <td class="n">${{ r.contributed|floatformat:2|intcomma }}</td>
   <td class="n">${{ r.paid_back|floatformat:2|intcomma }}</td>

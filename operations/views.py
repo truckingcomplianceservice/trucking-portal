@@ -5152,3 +5152,55 @@ def partner_payback_add(request):
         else:
             _messages.error(request, "Pick a partner and enter an amount.")
     return redirect("partner_ledger")
+
+
+@login_required
+def partner_statement(request, pk):
+    """Detailed statement for one partner: every out-of-pocket expense they paid
+    and every payback, in date order, with a running balance. Printable."""
+    if not _is_manager(request.user):
+        _messages.error(request, "Only managers or admins can view partner statements.")
+        return redirect("dashboard")
+    from .models import Partner, PartnerPayback
+    cs = _companies(request)
+    partner = _get(Partner, pk=pk, company__in=cs)
+    company = partner.company
+
+    # build a combined, date-sorted list of contributions (+) and paybacks (-)
+    entries = []
+    for e in Expense.objects.filter(company=company, paid_by_partner=partner, out_of_pocket=True):
+        entries.append({
+            "date": e.date, "kind": "contribution",
+            "desc": e.category + (f" — {e.vendor}" if e.vendor else "")
+                    + (f" (Unit {e.vehicle.unit_number})" if e.vehicle else ""),
+            "amount": float(e.amount or 0),
+        })
+    for pb in PartnerPayback.objects.filter(company=company, partner=partner):
+        entries.append({
+            "date": pb.date, "kind": "payback",
+            "desc": "Payback" + (f" — {pb.method}" if pb.method else "")
+                    + (f" ({pb.note})" if pb.note else "")
+                    + (f" (Unit {pb.vehicle.unit_number})" if pb.vehicle else ""),
+            "amount": -float(pb.amount or 0),
+        })
+    entries.sort(key=lambda x: (x["date"] or _dt.date(1900, 1, 1)))
+    # running balance = what company owes the partner
+    running = 0.0
+    for en in entries:
+        running += en["amount"]
+        en["balance"] = round(running, 2)
+
+    total_contributed = round(sum(e["amount"] for e in entries if e["amount"] > 0), 2)
+    total_paid_back = round(-sum(e["amount"] for e in entries if e["amount"] < 0), 2)
+    balance = round(total_contributed - total_paid_back, 2)
+
+    ctx = {"partner": partner, "company": company, "entries": entries,
+           "total_contributed": total_contributed, "total_paid_back": total_paid_back,
+           "balance": balance, "today": _dt.date.today()}
+    if request.GET.get("pdf") == "1":
+        pdf = _render_pdf("operations/partner_statement.html", {**ctx, "pdf": True})
+        from django.http import HttpResponse
+        resp = HttpResponse(pdf, content_type="application/pdf")
+        resp["Content-Disposition"] = f'inline; filename="statement_{partner.name}.pdf"'
+        return resp
+    return render(request, "operations/partner_statement.html", ctx)

@@ -1,0 +1,40 @@
+{% extends "operations/app_base.html" %}
+{% load humanize %}
+{% block title %}Statement — {{ partner.name }}{% endblock %}
+{% block page_title %}Partner statement — {{ partner.name }}{% endblock %}
+{% block content %}
+<div class="noprint" style="margin-bottom:12px">
+ <a href="/app/partners/" class="sub" style="color:var(--blue)">&larr; Partner ledger</a>
+ <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
+  <button class="btn amber" onclick="window.print()">🖨 Print</button>
+  <a class="btn ghost" href="/app/partners/{{ partner.id }}/statement/?pdf=1">Download PDF</a>
+ </div>
+</div>
+
+<div class="print-only" style="margin-bottom:10px"><h2 style="margin:0;color:#1e2d45">{{ company.name }}</h2><div class="sub">Partner statement · printed {{ today|date:"M d, Y" }}</div></div>
+
+<div class="card">
+ <div class="card-h"><h3>{{ partner.name }} — statement</h3><span class="sub">Ownership {{ partner.ownership_pct|floatformat:"-2" }}%</span></div>
+ <div class="kpis" style="grid-template-columns:1fr 1fr 1fr;padding:14px">
+  <div class="kpi"><div class="l">Total contributed</div><div class="n" style="color:#137a51">${{ total_contributed|floatformat:2|intcomma }}</div></div>
+  <div class="kpi"><div class="l">Total paid back</div><div class="n">${{ total_paid_back|floatformat:2|intcomma }}</div></div>
+  <div class="kpi"><div class="l">Still owed</div><div class="n" style="color:{% if balance > 0 %}#b0281a{% else %}#137a51{% endif %}">${{ balance|floatformat:2|intcomma }}</div></div>
+ </div>
+</div>
+
+<div class="card" style="margin-top:14px"><div class="card-h"><h3>Transaction history</h3></div>
+ {% if entries %}<table><thead><tr><th>Date</th><th>Description</th><th class="n">In (paid by {{ partner.name }})</th><th class="n">Out (paid back)</th><th class="n">Balance owed</th></tr></thead><tbody>
+ {% for en in entries %}<tr>
+  <td class="sub">{{ en.date|date:"M d, Y" }}</td>
+  <td>{{ en.desc }}</td>
+  <td class="n" style="color:#137a51">{% if en.amount > 0 %}+ ${{ en.amount|floatformat:2|intcomma }}{% endif %}</td>
+  <td class="n" style="color:#b0281a">{% if en.amount < 0 %}- ${{ en.amount|floatformat:2|intcomma|cut:"-" }}{% endif %}</td>
+  <td class="n"><b>${{ en.balance|floatformat:2|intcomma }}</b></td>
+ </tr>{% endfor %}
+ </tbody><tfoot><tr><td colspan="2" style="text-align:right"><b>Totals</b></td><td class="n"><b>+ ${{ total_contributed|floatformat:2|intcomma }}</b></td><td class="n"><b>- ${{ total_paid_back|floatformat:2|intcomma }}</b></td><td class="n"><b>${{ balance|floatformat:2|intcomma }}</b></td></tr></tfoot></table>
+ {% else %}<div class="empty">No activity yet for this partner. Record expenses "Paid by: Partner {{ partner.name }}" and paybacks to build this statement.</div>{% endif %}
+ <div class="sub" style="padding:8px 4px;font-size:12px">"Balance owed" is the running total the company owes {{ partner.name }} after each line. Positive = company owes them; zero = settled.</div>
+</div>
+
+<style>@media print{.noprint,.fl-side,.fl-topbar,.fl-menu-btn{display:none!important}body{padding:0!important}.fl-content{padding:0!important}}</style>
+{% endblock %}

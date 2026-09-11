@@ -8,6 +8,7 @@ from operations import views
 
 urlpatterns = [
     path("app/partners/", views.partner_ledger, name="partner_ledger"),
+    path("app/partners/<int:pk>/statement/", views.partner_statement, name="partner_statement"),
     path("app/partners/payback/", views.partner_payback_add, name="partner_payback_add"),
     path("driver-sw.js", views.driver_sw, name="driver_sw"),
     path("office-sw.js", views.office_sw, name="office_sw"),
