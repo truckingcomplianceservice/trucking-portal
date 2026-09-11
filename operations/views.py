@@ -762,7 +762,8 @@ def app_accounting(request):
                   {"rows": rows, "totals": totals, "expenses": expenses, "settlements": settlements,
                    "companies": cs,
                    "vehicles": Vehicle.objects.filter(company__in=cs).order_by("unit_number"),
-                   "drivers": Driver.objects.filter(company__in=cs).order_by("first_name")})
+                   "drivers": Driver.objects.filter(company__in=cs).order_by("first_name"),
+                   "partners": Partner.objects.filter(company__in=cs, active=True).order_by("name")})
 
 
 @require_section("accounting")
@@ -775,6 +776,17 @@ def expense_add(request):
         try:
             import os
             os.makedirs(os.path.join(settings.MEDIA_ROOT, "expenses"), exist_ok=True)
+            # "Paid by" dropdown: company | partner:<id> | driver:<id>
+            paid_by = request.POST.get("paid_by", "company")
+            oop = False
+            partner_obj = None
+            driver_obj = Driver.objects.filter(pk=request.POST.get("driver"), company__in=cs).first()
+            if paid_by.startswith("partner:"):
+                partner_obj = Partner.objects.filter(pk=paid_by.split(":")[1], company=company).first()
+                oop = True
+            elif paid_by.startswith("driver:"):
+                driver_obj = Driver.objects.filter(pk=paid_by.split(":")[1], company=company).first()
+                oop = True
             Expense.objects.create(
                 company=company,
                 date=_parse_date(request.POST.get("date", "")) or _dt.date.today(),
@@ -782,9 +794,9 @@ def expense_add(request):
                 amount=round(_num(request.POST.get("amount", "0")), 2),
                 vendor=request.POST.get("vendor", "").strip(),
                 vehicle=Vehicle.objects.filter(pk=request.POST.get("vehicle"), company__in=cs).first(),
-                driver=Driver.objects.filter(pk=request.POST.get("driver"), company__in=cs).first(),
-                out_of_pocket=(request.POST.get("out_of_pocket") == "on"),
-                paid_by_partner=Partner.objects.filter(pk=request.POST.get("paid_by_partner"), company=company).first() if request.POST.get("paid_by_partner") else None,
+                driver=driver_obj,
+                out_of_pocket=oop,
+                paid_by_partner=partner_obj,
                 receipt=request.FILES.get("receipt"))
             _messages.success(request, "Expense added.")
         except Exception as e:

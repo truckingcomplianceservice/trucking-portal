@@ -13,6 +13,11 @@
    <div><label class="sub">Amount ($)</label><input name="amount" placeholder="0.00" style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px"></div>
    <div><label class="sub">Vendor</label><input name="vendor" style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px"></div>
    <div><label class="sub">Truck</label><select name="vehicle" style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px"><option value="">—</option>{% for v in vehicles %}<option value="{{ v.id }}">Unit {{ v.unit_number }}</option>{% endfor %}</select></div>
+   <div><label class="sub">Paid by</label><select name="paid_by" style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px">
+     <option value="company">Company (business account/card)</option>
+     {% for p in partners %}<option value="partner:{{ p.id }}">Partner: {{ p.name }} (out of pocket)</option>{% endfor %}
+     {% for d in drivers %}<option value="driver:{{ d.id }}">Driver: {{ d.first_name }} {{ d.last_name }} (out of pocket)</option>{% endfor %}
+   </select></div>
    <div><label class="sub">Receipt / invoice</label><input type="file" name="receipt" style="width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:8px"></div>
   </div>
   <button class="btn amber" type="submit" style="margin-top:10px">Save expense</button>
