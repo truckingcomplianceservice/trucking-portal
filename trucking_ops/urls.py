@@ -7,6 +7,8 @@ from django.views.generic import RedirectView
 from operations import views
 
 urlpatterns = [
+    path("app/partners/", views.partner_ledger, name="partner_ledger"),
+    path("app/partners/payback/", views.partner_payback_add, name="partner_payback_add"),
     path("driver-sw.js", views.driver_sw, name="driver_sw"),
     path("office-sw.js", views.office_sw, name="office_sw"),
     path("office-manifest.webmanifest", views.office_manifest, name="office_manifest"),

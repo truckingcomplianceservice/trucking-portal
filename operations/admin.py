@@ -337,3 +337,18 @@ try:
     admin.site.register(TeamInvite)
 except Exception:
     pass
+
+
+from .models import Partner, PartnerPayback
+
+@admin.register(Partner)
+class PartnerAdmin(admin.ModelAdmin):
+    list_display = ("name", "company", "ownership_pct", "active")
+    list_filter = ("company", "active")
+    search_fields = ("name",)
+
+@admin.register(PartnerPayback)
+class PartnerPaybackAdmin(admin.ModelAdmin):
+    list_display = ("partner", "company", "date", "amount", "vehicle", "method")
+    list_filter = ("company", "partner")
+    date_hierarchy = "date"

@@ -6,7 +6,7 @@ from django.db.models import Sum, Q
 from django.shortcuts import render, get_object_or_404, redirect
 from django.views.static import serve
 from django.conf import settings
-from .models import (DriverLocation, LoadStatusEvent,
+from .models import (DriverLocation, LoadStatusEvent, Partner, PartnerPayback,
     TeamMessage, ShiftHandoff, Notification, TaskComment, IftaStateEntry, TeamInvite, BrokerAgent, Company, Load, Expense, Settlement, Driver, Vehicle, Applicant, ApplicantStatusHistory, SignatureRecord, AuditorLink,
                      ComplianceDocument, Broker, FuelTransaction, RentalContract, VehicleDocument, VehiclePhoto, CompanyDocument, notify)
 
@@ -783,6 +783,8 @@ def expense_add(request):
                 vendor=request.POST.get("vendor", "").strip(),
                 vehicle=Vehicle.objects.filter(pk=request.POST.get("vehicle"), company__in=cs).first(),
                 driver=Driver.objects.filter(pk=request.POST.get("driver"), company__in=cs).first(),
+                out_of_pocket=(request.POST.get("out_of_pocket") == "on"),
+                paid_by_partner=Partner.objects.filter(pk=request.POST.get("paid_by_partner"), company=company).first() if request.POST.get("paid_by_partner") else None,
                 receipt=request.FILES.get("receipt"))
             _messages.success(request, "Expense added.")
         except Exception as e:
@@ -5027,3 +5029,97 @@ def driver_pay_check(request, pk):
         resp["Content-Disposition"] = f'inline; filename="check_{check_no}_{s.driver}.pdf"'
         return resp
     return render(request, "operations/check_print.html", ctx)
+
+
+@login_required
+def partner_ledger(request):
+    """Partner equity ledger: contributions (out-of-pocket expenses each partner
+    paid), paybacks, balance owed, ownership %, and profit share — company-wide
+    and per truck."""
+    cs = _companies(request)
+    company = _active(request) or cs.first()
+    if not company:
+        _messages.error(request, "Pick a company first.")
+        return redirect("dashboard")
+    if not _is_manager(request.user):
+        _messages.error(request, "Only managers or admins can view the partner ledger.")
+        return redirect("dashboard")
+
+    from .models import Partner, PartnerPayback
+    partners = list(Partner.objects.filter(company=company, active=True))
+
+    # company profit (revenue - expenses - wages) for profit-share calc
+    rev = float(Load.objects.filter(company=company).aggregate(s=Sum("rate"))["s"] or 0)
+    exp = float(Expense.objects.filter(company=company).aggregate(s=Sum("amount"))["s"] or 0)
+    wag = float(sum(st.net_pay for st in Settlement.objects.filter(company=company)))
+    profit = rev - exp - wag
+
+    rows = []
+    for p in partners:
+        contributed = float(Expense.objects.filter(company=company, paid_by_partner=p, out_of_pocket=True
+                            ).aggregate(s=Sum("amount"))["s"] or 0)
+        paid_back = float(PartnerPayback.objects.filter(company=company, partner=p
+                          ).aggregate(s=Sum("amount"))["s"] or 0)
+        share_pct = float(p.ownership_pct or 0)
+        rows.append({
+            "p": p,
+            "contributed": round(contributed, 2),
+            "paid_back": round(paid_back, 2),
+            "balance": round(contributed - paid_back, 2),   # company still owes this
+            "ownership": share_pct,
+            "profit_share": round(profit * share_pct / 100, 2),
+        })
+
+    # per-truck breakdown: for each truck, how much each partner contributed / got back
+    trucks = Vehicle.objects.filter(company=company).order_by("unit_number")
+    truck_rows = []
+    for v in trucks:
+        pcols = []
+        any_activity = False
+        for p in partners:
+            c_amt = float(Expense.objects.filter(company=company, vehicle=v, paid_by_partner=p,
+                          out_of_pocket=True).aggregate(s=Sum("amount"))["s"] or 0)
+            b_amt = float(PartnerPayback.objects.filter(company=company, vehicle=v, partner=p
+                          ).aggregate(s=Sum("amount"))["s"] or 0)
+            if c_amt or b_amt:
+                any_activity = True
+            pcols.append({"p": p, "contributed": round(c_amt, 2), "paid_back": round(b_amt, 2),
+                          "balance": round(c_amt - b_amt, 2)})
+        if any_activity:
+            truck_rows.append({"v": v, "cols": pcols})
+
+    totals = {
+        "contributed": round(sum(r["contributed"] for r in rows), 2),
+        "paid_back": round(sum(r["paid_back"] for r in rows), 2),
+        "balance": round(sum(r["balance"] for r in rows), 2),
+        "ownership": round(sum(r["ownership"] for r in rows), 2),
+    }
+    return render(request, "operations/partner_ledger.html", {
+        "company": company, "rows": rows, "truck_rows": truck_rows,
+        "partners": partners, "profit": round(profit, 2), "totals": totals,
+    })
+
+
+@login_required
+def partner_payback_add(request):
+    """Record a payback to a partner."""
+    if not _is_manager(request.user):
+        _messages.error(request, "Only managers or admins can record paybacks.")
+        return redirect("partner_ledger")
+    from .models import Partner, PartnerPayback
+    company = _active(request) or _companies(request).first()
+    if request.method == "POST":
+        p = Partner.objects.filter(pk=request.POST.get("partner"), company=company).first()
+        amt = _num(request.POST.get("amount", "0"))
+        if p and amt > 0:
+            v = None
+            if request.POST.get("vehicle"):
+                v = Vehicle.objects.filter(pk=request.POST.get("vehicle"), company=company).first()
+            PartnerPayback.objects.create(company=company, partner=p, vehicle=v,
+                date=_parse_date(request.POST.get("date", "")) or _dt.date.today(),
+                amount=round(amt, 2), method=request.POST.get("method", "").strip()[:40],
+                note=request.POST.get("note", "").strip()[:200])
+            _messages.success(request, f"Payback of ${amt:.2f} to {p.name} recorded.")
+        else:
+            _messages.error(request, "Pick a partner and enter an amount.")
+    return redirect("partner_ledger")

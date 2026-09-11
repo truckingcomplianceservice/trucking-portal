@@ -300,6 +300,9 @@ class Expense(models.Model):
     vehicle = models.ForeignKey(Vehicle, on_delete=models.SET_NULL, null=True, blank=True)
     load = models.ForeignKey(Load, on_delete=models.SET_NULL, null=True, blank=True)
     receipt = models.FileField(upload_to="expenses/", blank=True)
+    paid_by_partner = models.ForeignKey("Partner", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="expenses_paid",
+        help_text="If a partner paid this out of pocket, who.")
     out_of_pocket = models.BooleanField("Driver paid from own pocket (reimburse)", default=False)
     notes = models.TextField(blank=True)
 
@@ -776,6 +779,44 @@ class LoadPhoto(models.Model):
 
     def __str__(self):
         return f"Photo for {self.load}"
+
+
+class Partner(models.Model):
+    """A business partner/owner. Tracks ownership share for profit splits and
+    serves as the person who contributes money and gets paid back."""
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name="partners")
+    name = models.CharField(max_length=120)
+    ownership_pct = models.DecimalField("Ownership %", max_digits=5, decimal_places=2, default=0,
+        help_text="This partner's ownership share of the company, e.g. 50.00")
+    email = models.CharField(max_length=254, blank=True)
+    phone = models.CharField(max_length=30, blank=True)
+    active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return f"{self.name} ({self.ownership_pct}%)"
+
+
+class PartnerPayback(models.Model):
+    """Money paid BACK to a partner (reimbursing their contributions / a draw)."""
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name="partner_paybacks")
+    partner = models.ForeignKey("Partner", on_delete=models.CASCADE, related_name="paybacks")
+    vehicle = models.ForeignKey(Vehicle, on_delete=models.SET_NULL, null=True, blank=True,
+        help_text="Optional: tie this payback to a specific truck.")
+    date = models.DateField()
+    amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    method = models.CharField(max_length=40, blank=True)
+    note = models.CharField(max_length=200, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-date", "-id"]
+
+    def __str__(self):
+        return f"Payback ${self.amount} to {self.partner}"
 
 
 class DriverLocation(models.Model):
