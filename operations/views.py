@@ -35,27 +35,58 @@ def pnl_report(request):
     companies = Company.objects.all()
     if not user.is_superuser:
         companies = companies.filter(pk__in=user.profile.companies.all())
+    from .models import Partner, PartnerPayback
     rows, tr, te, tw = [], 0, 0, 0
     t_loaded, t_dead = 0, 0
+    company_partners = []   # per-company partner breakdown
     for c in companies:
         rev = Load.objects.filter(company=c).aggregate(s=Sum("rate"))["s"] or 0
         loaded = Load.objects.filter(company=c).aggregate(s=Sum("miles"))["s"] or 0
         dead = Load.objects.filter(company=c).aggregate(s=Sum("deadhead_miles"))["s"] or 0
         load_count = Load.objects.filter(company=c).count()
         exp = Expense.objects.filter(company=c).aggregate(s=Sum("amount"))["s"] or 0
-        wag = sum(s.net_pay for s in Settlement.objects.filter(company=c))
+        wag = 0.0
+        for st in Settlement.objects.filter(company=c):
+            try:
+                wag += float(st.net_pay or 0)
+            except Exception:
+                pass
         total_mi = loaded + dead
-        net = rev - exp - wag
+        net = float(rev) - float(exp) - wag
         rows.append({"name": c.name, "mc": c.mc_number, "rev": rev, "exp": exp,
                      "wag": wag, "net": net, "loads": load_count,
                      "loaded_mi": loaded, "dead_mi": dead, "total_mi": total_mi,
                      "rpm": round(float(rev) / total_mi, 2) if total_mi else 0})
-        tr += rev; te += exp; tw += wag; t_loaded += loaded; t_dead += dead
+        tr += float(rev); te += float(exp); tw += wag; t_loaded += loaded; t_dead += dead
+
+        # partner breakdown for this company
+        plist = list(Partner.objects.filter(company=c, active=True))
+        if plist:
+            prows = []
+            for p in plist:
+                contributed = float(Expense.objects.filter(company=c, paid_by_partner=p,
+                                    out_of_pocket=True).aggregate(s=Sum("amount"))["s"] or 0)
+                paid_back = float(PartnerPayback.objects.filter(company=c, partner=p
+                                  ).aggregate(s=Sum("amount"))["s"] or 0)
+                share_pct = float(p.ownership_pct or 0)
+                profit_share = round(net * share_pct / 100, 2)
+                prows.append({
+                    "name": p.name, "ownership": share_pct,
+                    "contributed": round(contributed, 2),
+                    "paid_back": round(paid_back, 2),
+                    "owed": round(contributed - paid_back, 2),
+                    "profit_share": profit_share,
+                    # what partner nets: their profit share, minus what's still owed back to them settled
+                    "take_home": round(profit_share, 2),
+                })
+            company_partners.append({"company": c.name, "net": round(net, 2), "partners": prows})
+
     t_total_mi = t_loaded + t_dead
     totals = {"rev": tr, "exp": te, "wag": tw, "net": tr - te - tw,
               "loaded_mi": t_loaded, "dead_mi": t_dead, "total_mi": t_total_mi,
               "rpm": round(float(tr) / t_total_mi, 2) if t_total_mi else 0}
-    return render(request, "operations/pnl.html", {"rows": rows, "totals": totals})
+    return render(request, "operations/pnl.html", {"rows": rows, "totals": totals,
+                  "company_partners": company_partners})
 
 
 @login_required

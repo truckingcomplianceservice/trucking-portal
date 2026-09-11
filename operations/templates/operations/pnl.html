@@ -44,4 +44,26 @@
     <td class="num">${{ totals.net|floatformat:2 }}</td></tr>
   </tbody>
  </table>
+
+ {% if company_partners %}
+ <h2 style="margin:24px 0 8px;font-size:18px;color:#1e2d45">Partner breakdown &amp; profit distribution</h2>
+ {% for cp in company_partners %}
+ <div style="border:1px solid #e6e9f0;border-radius:12px;padding:14px 16px;margin-bottom:14px">
+  <div style="font-weight:700;margin-bottom:8px">{{ cp.company }} — Net profit/loss: <span style="color:{% if cp.net >= 0 %}#137a51{% else %}#c0392b{% endif %}">${{ cp.net|floatformat:2 }}</span></div>
+  <table style="width:100%;border-collapse:collapse;font-size:14px"><thead><tr style="text-align:left;color:#727c93">
+   <th style="padding:6px">Partner</th><th class="num" style="text-align:right;padding:6px">Ownership</th><th class="num" style="text-align:right;padding:6px">Spent (out of pocket)</th><th class="num" style="text-align:right;padding:6px">Paid back</th><th class="num" style="text-align:right;padding:6px">Still owed</th><th class="num" style="text-align:right;padding:6px">Profit share</th>
+  </tr></thead><tbody>
+  {% for p in cp.partners %}<tr style="border-top:1px solid #eee">
+   <td style="padding:6px"><b>{{ p.name }}</b></td>
+   <td class="num" style="text-align:right;padding:6px">{{ p.ownership|floatformat:"-2" }}%</td>
+   <td class="num" style="text-align:right;padding:6px">${{ p.contributed|floatformat:2 }}</td>
+   <td class="num" style="text-align:right;padding:6px">${{ p.paid_back|floatformat:2 }}</td>
+   <td class="num" style="text-align:right;padding:6px;color:{% if p.owed > 0 %}#b0281a{% else %}#137a51{% endif %}"><b>${{ p.owed|floatformat:2 }}</b></td>
+   <td class="num" style="text-align:right;padding:6px;color:{% if p.profit_share >= 0 %}#137a51{% else %}#c0392b{% endif %}"><b>${{ p.profit_share|floatformat:2 }}</b></td>
+  </tr>{% endfor %}
+  </tbody></table>
+  <div style="font-size:12px;color:#727c93;margin-top:8px">"Spent" = out-of-pocket expenses each partner paid · "Still owed" = the company still owes them that (spent − paid back) · "Profit share" = ownership % × net profit ${{ cp.net|floatformat:2 }}. Profit share is each partner's slice of the profit; money still owed is separate cash to return to them.</div>
+ </div>
+ {% endfor %}
+ {% endif %}
 </div></body></html>
