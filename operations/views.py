@@ -5037,7 +5037,13 @@ def partner_ledger(request):
     paid), paybacks, balance owed, ownership %, and profit share — company-wide
     and per truck."""
     cs = _companies(request)
-    company = _active(request) or cs.first()
+    # _active() returns a string id or "all" — resolve to a real Company object
+    active_val = _active(request)
+    company = None
+    if active_val and active_val != "all":
+        company = cs.filter(pk=active_val).first()
+    if company is None:
+        company = cs.first()
     if not company:
         _messages.error(request, "Pick a company first.")
         return redirect("dashboard")
@@ -5051,7 +5057,12 @@ def partner_ledger(request):
     # company profit (revenue - expenses - wages) for profit-share calc
     rev = float(Load.objects.filter(company=company).aggregate(s=Sum("rate"))["s"] or 0)
     exp = float(Expense.objects.filter(company=company).aggregate(s=Sum("amount"))["s"] or 0)
-    wag = float(sum(st.net_pay for st in Settlement.objects.filter(company=company)))
+    wag = 0.0
+    for st in Settlement.objects.filter(company=company):
+        try:
+            wag += float(st.net_pay or 0)
+        except Exception:
+            pass
     profit = rev - exp - wag
 
     rows = []
@@ -5107,7 +5118,13 @@ def partner_payback_add(request):
         _messages.error(request, "Only managers or admins can record paybacks.")
         return redirect("partner_ledger")
     from .models import Partner, PartnerPayback
-    company = _active(request) or _companies(request).first()
+    cs = _companies(request)
+    active_val = _active(request)
+    company = None
+    if active_val and active_val != "all":
+        company = cs.filter(pk=active_val).first()
+    if company is None:
+        company = cs.first()
     if request.method == "POST":
         p = Partner.objects.filter(pk=request.POST.get("partner"), company=company).first()
         amt = _num(request.POST.get("amount", "0"))
