@@ -29,6 +29,7 @@ urlpatterns = [
     path("app/team/invite/", views.team_invite_create, name="team_invite_create"),
     path("app/team/invite/<int:pk>/approve/", views.team_invite_approve, name="team_invite_approve"),
     path("app/ifta/", views.ifta_report, name="ifta_report"),
+    path("app/ifta/import/", views.ifta_import, name="ifta_import"),
     path("app/notifications/poll/", views.notif_poll, name="notif_poll"),
     path("app/notifications/read/", views.notif_read, name="notif_read"),
     path("app/tasks/<int:pk>/respond/", views.task_respond, name="task_respond"),

@@ -5235,3 +5235,158 @@ def partner_statement(request, pk):
         resp["Content-Disposition"] = f'inline; filename="statement_{partner.name}.pdf"'
         return resp
     return render(request, "operations/partner_statement.html", ctx)
+
+
+# ================= IFTA CSV import =================
+_US_STATES = {
+    "alabama":"AL","alaska":"AK","arizona":"AZ","arkansas":"AR","california":"CA",
+    "colorado":"CO","connecticut":"CT","delaware":"DE","florida":"FL","georgia":"GA",
+    "hawaii":"HI","idaho":"ID","illinois":"IL","indiana":"IN","iowa":"IA","kansas":"KS",
+    "kentucky":"KY","louisiana":"LA","maine":"ME","maryland":"MD","massachusetts":"MA",
+    "michigan":"MI","minnesota":"MN","mississippi":"MS","missouri":"MO","montana":"MT",
+    "nebraska":"NE","nevada":"NV","new hampshire":"NH","new jersey":"NJ","new mexico":"NM",
+    "new york":"NY","north carolina":"NC","north dakota":"ND","ohio":"OH","oklahoma":"OK",
+    "oregon":"OR","pennsylvania":"PA","rhode island":"RI","south carolina":"SC",
+    "south dakota":"SD","tennessee":"TN","texas":"TX","utah":"UT","vermont":"VT",
+    "virginia":"VA","washington":"WA","west virginia":"WV","wisconsin":"WI","wyoming":"WY",
+    "district of columbia":"DC",
+    # Canadian provinces (IFTA covers these too)
+    "alberta":"AB","british columbia":"BC","manitoba":"MB","new brunswick":"NB",
+    "newfoundland":"NL","nova scotia":"NS","ontario":"ON","prince edward island":"PE",
+    "quebec":"QC","saskatchewan":"SK",
+}
+_STATE_ABBRS = set(_US_STATES.values())
+
+
+def _normalize_state(val):
+    """Return a 2-letter state/province code from a full name or abbreviation, or None."""
+    if not val:
+        return None
+    v = str(val).strip()
+    if not v:
+        return None
+    up = v.upper()
+    if up in _STATE_ABBRS:
+        return up
+    low = v.lower().strip()
+    if low in _US_STATES:
+        return _US_STATES[low]
+    # try trimming things like "CA - California" or "California, USA"
+    for sep in [" - ", "-", ",", "/"]:
+        if sep in v:
+            for part in v.split(sep):
+                r = _normalize_state(part)
+                if r:
+                    return r
+    return None
+
+
+def _guess_columns(headers):
+    """Guess which CSV column is the state and which is the miles/distance."""
+    state_kw = ["state", "jurisdiction", "province", "juris", "st"]
+    mile_kw = ["miles", "distance", "total miles", "jurisdiction miles", "state miles",
+               "dist", "mileage", "odometer miles", "miles driven"]
+    hl = [(_h or "").strip().lower() for _h in headers]
+    state_col = mile_col = None
+    # exact-ish match first
+    for i, h in enumerate(hl):
+        if state_col is None and any(h == k or h.startswith(k) or k in h for k in state_kw):
+            state_col = i
+    for i, h in enumerate(hl):
+        if mile_col is None and any(k in h for k in mile_kw):
+            mile_col = i
+    return state_col, mile_col
+
+
+@login_required
+def ifta_import(request):
+    """Upload a CSV mileage/ELD report; auto-detect state + miles columns, sum
+    miles by state, preview, then populate the IFTA worksheet."""
+    if not _can_delete(request.user):
+        _messages.error(request, "IFTA is available to administrators only.")
+        return redirect("dashboard")
+    cs = _companies(request)
+    company = cs.first()
+    year = int(request.GET.get("year", _dt.date.today().year))
+    quarter = int(request.GET.get("quarter", (_dt.date.today().month - 1)//3 + 1))
+
+    import csv, io
+    if request.method == "POST" and request.FILES.get("csvfile"):
+        raw = request.FILES["csvfile"].read()
+        try:
+            text = raw.decode("utf-8-sig")
+        except Exception:
+            text = raw.decode("latin-1", errors="ignore")
+        reader = list(csv.reader(io.StringIO(text)))
+        if not reader:
+            _messages.error(request, "That CSV looks empty.")
+            return redirect(f"/app/ifta/import/?year={year}&quarter={quarter}")
+        headers = reader[0]
+        data_rows = reader[1:]
+        # allow user-specified columns (from the mapping screen), else auto-guess
+        s_col = request.POST.get("state_col")
+        m_col = request.POST.get("miles_col")
+        if s_col not in (None, "") and m_col not in (None, ""):
+            state_col, mile_col = int(s_col), int(m_col)
+        else:
+            state_col, mile_col = _guess_columns(headers)
+
+        if state_col is None or mile_col is None:
+            # need the mapping screen
+            request.session["ifta_csv"] = text
+            return render(request, "operations/ifta_import.html", {
+                "company": company, "year": year, "quarter": quarter,
+                "need_mapping": True, "headers": list(enumerate(headers)),
+                "sample": data_rows[:3],
+            })
+
+        # sum miles by normalized state
+        by_state = {}
+        unknown = []
+        for r in data_rows:
+            if len(r) <= max(state_col, mile_col):
+                continue
+            st = _normalize_state(r[state_col])
+            miles = _num(r[mile_col])
+            if st is None:
+                if (r[state_col] or "").strip():
+                    unknown.append((r[state_col], miles))
+                continue
+            by_state[st] = by_state.get(st, 0) + miles
+        # store for confirmation
+        request.session["ifta_import_result"] = {
+            "by_state": {k: round(v, 1) for k, v in by_state.items()},
+            "year": year, "quarter": quarter,
+        }
+        # gallons preview from fuel
+        m1, m2 = IFTA_QUARTERS[quarter]
+        start = _dt.date(year, m1, 1)
+        end = (_dt.date(year, m2, 28) + _dt.timedelta(days=4)).replace(day=1) - _dt.timedelta(days=1)
+        from django.db.models import Sum as _Sum
+        fuel = (FuelTransaction.objects.filter(company=company, date__gte=start, date__lte=end)
+                .exclude(ifta_state="").values("ifta_state").annotate(g=_Sum("gallons")))
+        gallons_by_state = {f["ifta_state"].upper(): round(float(f["g"] or 0), 1) for f in fuel}
+        preview = []
+        for st in sorted(set(by_state) | set(gallons_by_state)):
+            preview.append({"state": st, "miles": round(by_state.get(st, 0), 1),
+                            "gallons": gallons_by_state.get(st, 0)})
+        return render(request, "operations/ifta_import.html", {
+            "company": company, "year": year, "quarter": quarter,
+            "preview": preview, "unknown": unknown,
+            "total_miles": round(sum(by_state.values()), 1),
+        })
+
+    # confirm step: write the imported miles into IftaStateEntry
+    if request.method == "POST" and request.POST.get("action") == "confirm":
+        result = request.session.get("ifta_import_result")
+        if result:
+            for st, miles in result["by_state"].items():
+                IftaStateEntry.objects.update_or_create(
+                    company=company, year=result["year"], quarter=result["quarter"], state=st,
+                    defaults={"miles": miles})
+            _messages.success(request, "Imported miles saved to the worksheet. Review and add tax rates, then Save & Recalculate.")
+            request.session.pop("ifta_import_result", None)
+        return redirect(f"/app/ifta/?year={year}&quarter={quarter}")
+
+    return render(request, "operations/ifta_import.html", {
+        "company": company, "year": year, "quarter": quarter, "start_form": True})

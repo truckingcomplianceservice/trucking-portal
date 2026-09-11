@@ -1,37 +1,35 @@
 # Trucking Compliance Services — Operations Portal
 
-Profit & Loss now includes partner spending, balances, and profit distribution.
+IFTA: upload any CSV mileage/ELD report instead of typing state miles by hand.
 
 ## Deploy
 1. Download this zip, then in Terminal:
    cd ~/Documents/GitHub/trucking-portal && rm -rf operations trucking_ops templates manage.py requirements.txt Procfile README.md && unzip -o ~/Downloads/<THIS-FILE>.zip -d . && echo DONE
 2. GitHub Desktop -> Commit -> Push. Test in a private/incognito window.
 
-## New on the Profit & Loss report (Reports -> Profit & Loss)
-Below the usual P&L (revenue, expenses, wages, miles, net) there's now a
-"Partner breakdown & profit distribution" section. For each company it shows:
-- The company's NET PROFIT/LOSS.
-- A row per partner:
-  * Ownership %
-  * Spent (out of pocket) -- what that partner paid from their pocket
-  * Paid back -- what the company has returned to them
-  * Still owed -- what the company still owes them (spent - paid back)
-  * Profit share -- ownership % x net profit (their slice of the profit)
+## New: Upload CSV / import mileage on the IFTA worksheet
+On the IFTA page there's a new "Upload CSV / import mileage" button. Steps:
+1. Upload any mileage or ELD CSV -- no specific template needed.
+2. The system AUTO-DETECTS the state and miles columns even when providers use
+   different names (State, Jurisdiction, Miles, Distance, Total Miles, Jurisdiction
+   Miles, etc.). If it can't tell, it shows a mapping screen to pick the columns.
+3. It recognizes states by full name OR abbreviation (California or CA), combines
+   duplicate state rows, and totals miles per state.
+4. IMPORT PREVIEW shows each state with miles (from CSV) and gallons (pulled
+   automatically from your Fuel transactions for that quarter), e.g.:
+     CA — 4,532 miles — 1,240 gallons
+     NV — 1,820 miles — 410 gallons
+     AZ — 2,104 miles — 530 gallons
+5. Rows with an unrecognized state are shown as a warning and skipped.
+6. Click "Import these miles" and the worksheet's Miles column is filled in. You can
+   still review/edit miles and add tax rates, then Save & Recalculate as before.
 
-So the P&L now answers all of it in one place: profit/loss of the company, how
-much each partner spent, how much is still owed to each, and how the profit
-divides between the partners.
-
-Example (2 partners 50/50, $8,000 net profit; Muzammal spent $400, paid back $150):
-  Muzammal  50%  spent $400  paid back $150  still owed $250  profit share $4,000
-  Ali       50%  spent $0    paid back $0    still owed $0    profit share $4,000
-
-NOTE: "Profit share" (each partner's slice of profit) and "Still owed" (cash to
-return for out-of-pocket spending) are separate on purpose -- one is equity
-earnings, the other is a reimbursement. Keep ownership % totaling 100%.
+All the IFTA math (total miles, total gallons, fleet MPG, taxable gallons, net
+gallons, tax owed/credit) works exactly as before -- the import just fills the
+miles for you instead of manual entry.
 
 ## Includes everything to date
-P&L partner breakdown + profit distribution, partner statement, expense "Paid by"
+IFTA CSV import, P&L partner breakdown, partner statement, expense "Paid by"
 dropdown, partner ledger, loads on check stub, LMP100 check layout, load photos
 gallery, driver check printing, invoice load search, invoice auto-fill from load,
 P&L miles + $/mi, auto loaded-miles, invoice unpaid-until-recorded, invoice custom

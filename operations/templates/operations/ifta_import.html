@@ -1,0 +1,61 @@
+{% extends "operations/app_base.html" %}
+{% load humanize %}
+{% block title %}Import mileage — IFTA{% endblock %}
+{% block page_title %}Import mileage CSV — Q{{ quarter }} {{ year }}{% endblock %}
+{% block content %}
+<div style="margin-bottom:12px"><a href="/app/ifta/?year={{ year }}&quarter={{ quarter }}" class="sub" style="color:var(--blue)">&larr; Back to IFTA worksheet</a></div>
+{% if messages %}{% for m in messages %}<div style="margin:8px 0;padding:10px 14px;border-radius:8px;font-size:13px;background:{% if m.tags == 'error' %}#fbe7e5;color:#b02b24{% else %}#e4f4ec;color:#137a51{% endif %}">{{ m }}</div>{% endfor %}{% endif %}
+
+{% if start_form %}
+<div class="card"><div class="card-h"><h3>Upload CSV / import mileage report</h3></div>
+ <div style="padding:16px 18px">
+  <p class="sub" style="font-size:13px">Upload any mileage or ELD report as a CSV. The system will auto-detect the state and miles columns (works with different providers), total the miles by state, and let you preview before it fills in the worksheet. No specific template required.</p>
+  <form method="post" enctype="multipart/form-data" style="margin-top:10px">{% csrf_token %}
+   <input type="file" name="csvfile" accept=".csv,text/csv" required style="padding:8px;border:1px solid var(--line);border-radius:8px">
+   <button class="btn amber" type="submit" style="margin-left:8px">Upload &amp; preview</button>
+  </form>
+  <div class="sub" style="font-size:12px;margin-top:10px">It looks for columns named things like State, Jurisdiction, Miles, Distance, Total Miles, Jurisdiction Miles, etc. If it can't tell, it'll ask you to pick the columns.</div>
+ </div>
+</div>
+{% endif %}
+
+{% if need_mapping %}
+<div class="card"><div class="card-h"><h3>Which columns are State and Miles?</h3></div>
+ <div style="padding:16px 18px">
+  <p class="sub" style="font-size:13px">We couldn't confidently detect the columns. Pick which CSV column is the State/Jurisdiction and which is the Miles/Distance.</p>
+  <form method="post">{% csrf_token %}
+   <div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:8px">
+    <div><label class="sub">State column</label><br><select name="state_col" required style="padding:8px 10px;border:1px solid var(--line);border-radius:8px">{% for i, h in headers %}<option value="{{ i }}">{{ h }}</option>{% endfor %}</select></div>
+    <div><label class="sub">Miles column</label><br><select name="miles_col" required style="padding:8px 10px;border:1px solid var(--line);border-radius:8px">{% for i, h in headers %}<option value="{{ i }}">{{ h }}</option>{% endfor %}</select></div>
+   </div>
+   <div style="margin-top:12px"><b class="sub">Sample rows:</b>
+    <table style="margin-top:6px;font-size:12px"><tbody>{% for r in sample %}<tr>{% for cell in r %}<td style="border:1px solid var(--line);padding:3px 6px">{{ cell }}</td>{% endfor %}</tr>{% endfor %}</tbody></table>
+   </div>
+   <button class="btn amber" type="submit" style="margin-top:12px">Continue</button>
+  </form>
+ </div>
+</div>
+{% endif %}
+
+{% if preview %}
+<div class="card"><div class="card-h"><h3>Import preview</h3><span class="sub">Total {{ total_miles|intcomma }} miles</span></div>
+ <div style="padding:8px 18px 16px">
+  {% if unknown %}<div style="background:#fff7e6;border:1px solid #f0c040;border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:13px">
+   ⚠ Some rows had a state we couldn't recognize and were skipped: {% for u in unknown %}<span style="margin-right:8px">"{{ u.0 }}" ({{ u.1|floatformat:0 }} mi)</span>{% endfor %}. Fix those in the CSV, or add the miles manually on the worksheet.
+  </div>{% endif %}
+  <table><thead><tr><th>State</th><th class="n">Miles (from CSV)</th><th class="n">Gallons (from fuel)</th></tr></thead><tbody>
+  {% for r in preview %}<tr>
+   <td><b>{{ r.state }}</b></td>
+   <td class="n">{{ r.miles|floatformat:0|intcomma }}</td>
+   <td class="n">{% if r.gallons %}{{ r.gallons|floatformat:0|intcomma }}{% else %}<span class="sub">0</span>{% endif %}</td>
+  </tr>{% endfor %}
+  </tbody></table>
+  <div class="sub" style="font-size:12px;margin-top:8px">Miles come from your CSV; gallons come from the Fuel transactions already in the portal for this quarter. You'll be able to review and edit miles on the worksheet before Save &amp; Recalculate.</div>
+  <form method="post" style="margin-top:12px"><input type="hidden" name="action" value="confirm">{% csrf_token %}
+   <button class="btn amber" type="submit">✓ Import these miles to the worksheet</button>
+   <a href="/app/ifta/import/?year={{ year }}&quarter={{ quarter }}" class="btn ghost" style="margin-left:8px">Cancel / upload different file</a>
+  </form>
+ </div>
+</div>
+{% endif %}
+{% endblock %}

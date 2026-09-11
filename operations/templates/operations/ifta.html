@@ -15,7 +15,8 @@
   </select>
   <span class="sub">{{ start }} → {{ end }}{% if company %} · {{ company.name }}{% endif %}</span>
  </form>
- <button class="btn ghost" onclick="window.print()" style="margin-left:auto;padding:7px 14px">🖨 Print</button>
+ <a class="btn amber" href="/app/ifta/import/?year={{ year }}&quarter={{ quarter }}" style="margin-left:auto;padding:7px 14px;text-decoration:none">⬆ Upload CSV / import mileage</a>
+ <button class="btn ghost" onclick="window.print()" style="padding:7px 14px">🖨 Print</button>
 </div>
 
 <div class="kpis" style="margin-bottom:14px">
