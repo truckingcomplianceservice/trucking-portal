@@ -5053,7 +5053,7 @@ def driver_pay_check(request, pk):
         "s": s, "company": company,
         "amount": s.net_pay,
         "amount_words": _amount_to_words(s.net_pay),
-        "payee": str(s.driver),
+        "payee": (s.driver.pay_to_name.strip() if getattr(s.driver, "pay_to_name", "").strip() else str(s.driver)),
         "check_no": check_no,
         "today": _dt.date.today(),
         "memo": f"Settlement {s.period_start:%m/%d}–{s.period_end:%m/%d/%Y}",
@@ -5390,3 +5390,17 @@ def ifta_import(request):
 
     return render(request, "operations/ifta_import.html", {
         "company": company, "year": year, "quarter": quarter, "start_form": True})
+
+
+@login_required
+def driver_pay_to_save(request, pk):
+    """Set the 'pay checks to' business name for a driver."""
+    if not _is_manager(request.user):
+        _messages.error(request, "Only managers or admins can change this.")
+        return redirect("app_driver_detail", pk=pk)
+    d = _get(Driver, pk=pk, company__in=_companies_all(request))
+    if request.method == "POST":
+        d.pay_to_name = (request.POST.get("pay_to_name") or "").strip()[:150]
+        d.save(update_fields=["pay_to_name"])
+        _messages.success(request, "Check payee name updated.")
+    return redirect("app_driver_detail", pk=pk)

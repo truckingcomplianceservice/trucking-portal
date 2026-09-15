@@ -38,8 +38,18 @@
  </div>
 </div>
 
-<div class="card" style="margin-top:14px"><div class="card-h"><h3>Driver portal login</h3></div>
- <div style="padding:4px 18px 18px">
+<div class="card" style="margin-top:14px"><div class="card-h"><h3>Pay checks to</h3></div>
+ <div style="padding:8px 18px 16px">
+  <form method="post" action="/app/drivers/{{ d.id }}/pay-to/" style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">{% csrf_token %}
+   <div style="flex:1;min-width:220px"><label class="sub">Business / company name on checks (optional)</label>
+    <input name="pay_to_name" value="{{ d.pay_to_name }}" placeholder="e.g. Singh Trucking LLC — leave blank to use {{ d.first_name }} {{ d.last_name }}" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px"></div>
+   <button class="btn amber" type="submit">Save</button>
+  </form>
+  <div class="sub" style="font-size:12px;margin-top:6px">If this driver is paid as a company (owner-operator), enter their business name and checks will be made out to it. Leave blank to pay {{ d.first_name }} {{ d.last_name }} personally.</div>
+ </div>
+</div>
+
+<div class="card" style="margin-top:14px"><div class="card-h"><h3>Driver portal login</h3></div> <div style="padding:4px 18px 18px">
  {% if has_login %}
   <p style="font-size:14px">✅ This driver has a portal login: <b>{{ login_username }}</b></p>
   <p class="sub" style="font-size:13px">They log in at your site and land in the driver portal, where they see their loads, upload BOL/POD, add expenses, and view their pay.</p>

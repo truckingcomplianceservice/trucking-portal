@@ -80,6 +80,7 @@ urlpatterns = [
     path("app/drivers/", views.app_drivers, name="app_drivers"),
     path("app/drivers/<int:pk>/", views.app_driver_detail, name="app_driver_detail"),
     path("app/drivers/<int:pk>/create-login/", views.driver_create_login, name="driver_create_login"),
+    path("app/drivers/<int:pk>/pay-to/", views.driver_pay_to_save, name="driver_pay_to_save"),
     path("app/drivers/invite/", views.driver_invite_create, name="driver_invite_general"),
     path("app/drivers/<int:pk>/invite/", views.driver_invite_create, name="driver_invite_create"),
     path("app/drivers/<int:pk>/remove-login/", views.driver_remove_login, name="driver_remove_login"),

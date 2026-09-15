@@ -147,6 +147,8 @@ class Driver(models.Model):
     )
     first_name = models.CharField(max_length=50)
     last_name = models.CharField(max_length=50)
+    pay_to_name = models.CharField("Pay checks to (business name)", max_length=150, blank=True,
+        help_text="If the driver is paid as a company (e.g. 'Singh Trucking LLC'), enter it here. Checks are made out to this name instead of the personal name.")
     phone = models.CharField(max_length=30, blank=True)
     email = models.EmailField(blank=True)
 
