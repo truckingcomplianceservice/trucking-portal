@@ -68,6 +68,8 @@ class Company(models.Model):
     check_next_number = models.IntegerField("Next check number", default=1001)
     check_offset_x = models.IntegerField("Check print offset X (points, +right/-left)", default=0)
     check_offset_y = models.IntegerField("Check print offset Y (points, +down/-up)", default=0)
+    check_amount_offset_x = models.IntegerField("Amount box offset X (points, +right/-left)", default=0)
+    check_amount_offset_y = models.IntegerField("Amount box offset Y (points, +down/-up)", default=0)
     check_signature = models.CharField("Signature line name (optional)", max_length=120, blank=True)
     slug = models.SlugField(max_length=60, blank=True, db_index=True,
         help_text="Used in this company's portal link, e.g. /c/roundway")

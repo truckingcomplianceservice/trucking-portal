@@ -13,7 +13,8 @@
    <a class="btn ghost" href="/app/pay/{{ s.id }}/check/?pdf=1{% if request.GET.no %}&no={{ request.GET.no }}{% endif %}">Download PDF</a>
    {% if request.GET.assign != '1' %}<a class="btn ghost" href="/app/pay/{{ s.id }}/check/?assign=1">Assign next check # ({{ company.check_next_number }})</a>{% endif %}
   </div>
-  <div class="sub" style="font-size:12px;margin-top:8px">Check #: <b>{{ check_no }}</b> · Bank: {{ company.check_bank_name|default:"(set in Admin → Companies)" }} · Offset X:{{ ox }} Y:{{ oy }}</div>
+  <div class="sub" style="font-size:12px;margin-top:8px">Check #: <b>{{ check_no }}</b> · Bank: {{ company.check_bank_name|default:"(set in Admin → Companies)" }} · Whole-page offset X:{{ ox }} Y:{{ oy }} · Amount offset X:{{ aox }} Y:{{ aoy }}</div>
+  <div class="sub" style="font-size:12px;margin-top:4px;color:var(--amber)">If the dollar amount isn't lined up with the $ sign, set "Amount box offset X/Y" in Admin → Companies. +X moves it right, -X left, +Y down, -Y up (points, ~1/72 inch). This moves ONLY the amount, not the rest of the check.</div>
  </div>
 </div>
 
@@ -26,8 +27,8 @@
   <div style="position:absolute;left:6.55in;top:0.62in;font-size:11pt">{{ today|date:"m/d/Y" }}</div>
   <!-- Pay to the order of (payee) -->
   <div style="position:absolute;left:0.95in;top:1.5in;font-size:11pt">{{ payee }}</div>
-  <!-- Numeric amount box (right) — raised slightly to sit next to the $ sign -->
-  <div style="position:absolute;left:6.7in;top:1.42in;font-size:11pt;font-weight:bold">{{ amount|floatformat:2|intcomma }}</div>
+  <!-- Numeric amount box (right) — position adjustable via amount offsets in Admin -->
+  <div style="position:absolute;left:calc(6.7in + {{ aox }}px);top:calc(1.42in + {{ aoy }}px);font-size:11pt;font-weight:bold">{{ amount|floatformat:2|intcomma }}</div>
   <!-- Amount in words -->
   <div style="position:absolute;left:0.35in;top:1.9in;font-size:11pt">{{ amount_words }}************************************</div>
   <!-- Memo (bottom-left of check) -->

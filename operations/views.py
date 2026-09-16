@@ -5069,6 +5069,8 @@ def driver_pay_check(request, pk):
         "memo": f"Settlement {s.period_start:%m/%d}–{s.period_end:%m/%d/%Y}",
         "ox": company.check_offset_x or 0,
         "oy": company.check_offset_y or 0,
+        "aox": company.check_amount_offset_x or 0,
+        "aoy": company.check_amount_offset_y or 0,
         "signature": company.check_signature or "",
         "reimbursement_items": s.line_items.filter(kind="reimbursement"),
         "deduction_items": s.line_items.filter(kind="deduction"),
