@@ -40,12 +40,18 @@
 
 <div class="card" style="margin-top:14px"><div class="card-h"><h3>Pay checks to</h3></div>
  <div style="padding:8px 18px 16px">
-  <form method="post" action="/app/drivers/{{ d.id }}/pay-to/" style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">{% csrf_token %}
+  <form method="post" action="/app/drivers/{{ d.id }}/pay-to/">{% csrf_token %}
+   <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
    <div style="flex:1;min-width:220px"><label class="sub">Business / company name on checks (optional)</label>
     <input name="pay_to_name" value="{{ d.pay_to_name }}" placeholder="e.g. Singh Trucking LLC — leave blank to use {{ d.first_name }} {{ d.last_name }}" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px"></div>
    <div style="min-width:160px"><label class="sub">Business EIN (for 1099)</label>
     <input name="business_ein" value="{{ d.business_ein }}" placeholder="XX-XXXXXXX" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px"></div>
-   <button class="btn amber" type="submit">Save</button>
+   </div>
+   <label style="display:flex;align-items:center;gap:8px;margin-top:12px;font-size:13px">
+    <input type="checkbox" name="hide_amounts" style="width:auto" {% if d.hide_load_amounts_on_check %}checked{% endif %}>
+    Hide load $ amounts on this driver's checks (still lists the loads, just not each amount)
+   </label>
+   <div style="margin-top:10px"><button class="btn amber" type="submit">Save</button></div>
   </form>
   <div class="sub" style="font-size:12px;margin-top:6px">If this driver is paid as a company (owner-operator), enter their business name + EIN. Checks are made out to the business, and the <b>1099 is generated against the company name + EIN</b> — just like paying a leased carrier. Leave blank to pay {{ d.first_name }} {{ d.last_name }} personally (1099 uses their SSN in Tax ID).</div>
  </div>

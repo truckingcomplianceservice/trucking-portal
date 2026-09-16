@@ -171,6 +171,8 @@ class Driver(models.Model):
     tax_id = models.CharField("Tax ID (SSN/EIN, for 1099)", max_length=20, blank=True)
     business_ein = models.CharField("Business EIN (if paid as a company)", max_length=20, blank=True,
         help_text="If you pay this driver as their company, put the company's EIN here. The 1099 uses the business name + this EIN.")
+    hide_load_amounts_on_check = models.BooleanField("Hide load $ amounts on this driver's checks", default=False,
+        help_text="If on, the check stub lists the loads but NOT each load's dollar amount.")
     address = models.CharField("Mailing address", max_length=250, blank=True)
     upload_token = models.CharField(max_length=32, blank=True, db_index=True,
         help_text="Used for this driver's private document-upload link.")

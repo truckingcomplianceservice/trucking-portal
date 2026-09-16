@@ -48,15 +48,15 @@
   <div class="card" style="margin-top:14px"><div class="card-h"><h3>Loads covered ({{ settle_loads.count }})</h3>
    <div style="display:flex;gap:6px">
     <form method="post" style="display:inline">{% csrf_token %}<input type="hidden" name="action" value="toggle_hide_amounts"><button class="btn ghost" style="padding:5px 10px;font-size:12px" type="submit">{% if s.hide_load_amounts %}Show $ amounts{% else %}Hide $ amounts{% endif %}</button></form>
-    <form method="post" style="display:inline">{% csrf_token %}<input type="hidden" name="action" value="use_loads_total"><button class="btn ghost" style="padding:5px 10px;font-size:12px" type="submit">Use loads total (${{ loads_total|floatformat:2|intcomma }}) as gross</button></form></div></div>
+    <form method="post" style="display:inline">{% csrf_token %}<input type="hidden" name="action" value="use_loads_total"><button class="btn ghost" style="padding:5px 10px;font-size:12px" type="submit">Use loads total{% if not hide_amounts %} (${{ loads_total|floatformat:2|intcomma }}){% endif %} as gross</button></form></div></div>
    <div style="padding:14px 16px">
-    {% if settle_loads %}<table><thead><tr><th>Pickup</th><th>Ref</th><th>Route</th>{% if not s.hide_load_amounts %}<th class="n">Rate</th>{% endif %}<th></th></tr></thead><tbody>
+    {% if settle_loads %}<table><thead><tr><th>Pickup</th><th>Ref</th><th>Route</th>{% if not hide_amounts %}<th class="n">Rate</th>{% endif %}<th></th></tr></thead><tbody>
     {% for l in settle_loads %}<tr>
      <td>{{ l.pickup_date|default:"—" }}</td><td class="mono">{{ l.reference }}</td>
-     <td class="sub">{{ l.origin }} → {{ l.destination }}</td>{% if not s.hide_load_amounts %}<td class="n">${{ l.rate|floatformat:2|intcomma }}</td>{% endif %}
+     <td class="sub">{{ l.origin }} → {{ l.destination }}</td>{% if not hide_amounts %}<td class="n">${{ l.rate|floatformat:2|intcomma }}</td>{% endif %}
      <td class="n"><form method="post" style="display:inline">{% csrf_token %}<input type="hidden" name="action" value="remove_load"><input type="hidden" name="load_id" value="{{ l.id }}"><button class="btn ghost" style="padding:3px 8px;font-size:11px" type="submit">Remove</button></form></td>
-    </tr>{% endfor %}</tbody>{% if not s.hide_load_amounts %}<tfoot><tr><td colspan="3" style="text-align:right"><b>Loads total</b></td><td class="n"><b>${{ loads_total|floatformat:2|intcomma }}</b></td><td></td></tr></tfoot>{% endif %}</table>
-    {% if s.hide_load_amounts %}<div class="sub" style="margin-top:8px">Load $ amounts are hidden on this statement. The driver will see routes but not each load's rate.</div>{% endif %}
+    </tr>{% endfor %}</tbody>{% if not hide_amounts %}<tfoot><tr><td colspan="3" style="text-align:right"><b>Loads total</b></td><td class="n"><b>${{ loads_total|floatformat:2|intcomma }}</b></td><td></td></tr></tfoot>{% endif %}</table>
+    {% if hide_amounts %}<div class="sub" style="margin-top:8px">Load $ amounts are hidden{% if drv_hide %} for this driver (set on their page){% endif %}. The driver sees routes but not each load's rate.</div>{% endif %}
     {% else %}<div class="sub">No loads attached. Add the ones this pay covers below.</div>{% endif %}
     {% if addable %}
      <div style="margin-top:12px">
@@ -114,13 +114,13 @@
 
   <div class="card"><div class="card-h"><h3>💵 Calculate wages</h3></div>
    <div style="padding:8px 18px 16px">
-    <div class="sub" style="font-size:12px;margin-bottom:10px">Loads: <b>{{ load_count }}</b> · Loads total: <b>${{ loads_total|floatformat:2|intcomma }}</b> · Loaded miles: <b>{{ loaded_miles|intcomma }}</b> · Empty miles: <b>{{ deadhead_miles|intcomma }}</b> · Total miles: <b>{{ total_miles_all|intcomma }}</b></div>
+    <div class="sub" style="font-size:12px;margin-bottom:10px">Loads: <b>{{ load_count }}</b>{% if not hide_amounts %} · Loads total: <b>${{ loads_total|floatformat:2|intcomma }}</b>{% endif %} · Loaded miles: <b>{{ loaded_miles|intcomma }}</b> · Empty miles: <b>{{ deadhead_miles|intcomma }}</b> · Total miles: <b>{{ total_miles_all|intcomma }}</b></div>
 
     <!-- Percentage -->
     <form method="post" style="border-top:1px solid var(--line);padding-top:10px">{% csrf_token %}<input type="hidden" name="action" value="use_percent">
      <label class="sub">By percentage of loads</label>
      <div style="display:flex;gap:8px"><input name="percent" placeholder="e.g. 25" value="{% if driver_pay_type == 'percentage' %}{{ driver_pay_rate }}{% endif %}" style="flex:1;padding:9px 11px;border:1px solid var(--line);border-radius:8px"><button class="btn amber" type="submit">Apply %</button></div>
-     <div class="sub" style="font-size:11px;margin-top:3px">Gross = % × loads total (${{ loads_total|floatformat:2|intcomma }}).</div>
+     <div class="sub" style="font-size:11px;margin-top:3px">Gross = % × loads total{% if not hide_amounts %} (${{ loads_total|floatformat:2|intcomma }}){% endif %}.</div>
     </form>
 
     <!-- Per mile -->
@@ -140,7 +140,7 @@
 
     <!-- Full loads total -->
     <form method="post" style="border-top:1px solid var(--line);padding-top:10px;margin-top:10px">{% csrf_token %}<input type="hidden" name="action" value="use_loads_total">
-     <button class="btn ghost" type="submit" style="width:100%">Pay full loads total (${{ loads_total|floatformat:2|intcomma }})</button>
+     <button class="btn ghost" type="submit" style="width:100%">Pay full loads total{% if not hide_amounts %} (${{ loads_total|floatformat:2|intcomma }}){% endif %}</button>
     </form>
    </div>
   </div>

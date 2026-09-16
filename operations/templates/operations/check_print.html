@@ -26,8 +26,8 @@
   <div style="position:absolute;left:6.55in;top:0.62in;font-size:11pt">{{ today|date:"m/d/Y" }}</div>
   <!-- Pay to the order of (payee) -->
   <div style="position:absolute;left:0.95in;top:1.5in;font-size:11pt">{{ payee }}</div>
-  <!-- Numeric amount box (right) -->
-  <div style="position:absolute;left:6.7in;top:1.5in;font-size:11pt;font-weight:bold">**{{ amount|floatformat:2|intcomma }}</div>
+  <!-- Numeric amount box (right) — raised slightly to sit next to the $ sign -->
+  <div style="position:absolute;left:6.7in;top:1.42in;font-size:11pt;font-weight:bold">{{ amount|floatformat:2|intcomma }}</div>
   <!-- Amount in words -->
   <div style="position:absolute;left:0.35in;top:1.9in;font-size:11pt">{{ amount_words }}************************************</div>
   <!-- Memo (bottom-left of check) -->
@@ -43,14 +43,14 @@
    <div style="margin-top:6px">Pay period: {{ s.period_start|date:"m/d/Y" }} – {{ s.period_end|date:"m/d/Y" }}</div>
    {% if settle_loads %}
    <table style="width:100%;border-collapse:collapse;margin-top:6px;font-size:8.5pt">
-    <tr style="color:#666;border-bottom:1px solid #ccc"><td style="padding:2px 0">Date</td><td>Load #</td><td>Route</td><td style="text-align:right">Rate</td></tr>
+    <tr style="color:#666;border-bottom:1px solid #ccc"><td style="padding:2px 0">Date</td><td>Load #</td><td>Route</td>{% if not hide_amounts %}<td style="text-align:right">Rate</td>{% endif %}</tr>
     {% for ld in settle_loads %}<tr>
      <td style="padding:2px 0">{{ ld.pickup_date|date:"m/d"|default:"—" }}</td>
      <td>{{ ld.reference }}</td>
      <td>{{ ld.origin }} → {{ ld.destination }}</td>
-     <td style="text-align:right">${{ ld.rate|floatformat:2|intcomma }}</td>
+     {% if not hide_amounts %}<td style="text-align:right">${{ ld.rate|floatformat:2|intcomma }}</td>{% endif %}
     </tr>{% endfor %}
-    <tr style="border-top:1px solid #ccc;font-weight:bold"><td colspan="3" style="padding:2px 0">Loads total</td><td style="text-align:right">${{ settle_loads_total|floatformat:2|intcomma }}</td></tr>
+    {% if not hide_amounts %}<tr style="border-top:1px solid #ccc;font-weight:bold"><td colspan="3" style="padding:2px 0">Loads total</td><td style="text-align:right">${{ settle_loads_total|floatformat:2|intcomma }}</td></tr>{% endif %}
    </table>
    {% endif %}
    <table style="width:100%;border-collapse:collapse;margin-top:6px">

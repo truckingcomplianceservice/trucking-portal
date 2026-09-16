@@ -2855,6 +2855,7 @@ def driver_pay_detail(request, pk):
     return render(request, "operations/driver_pay_detail.html",
                   {"s": s, "oop": oop, "company": s.company,
                    "settle_loads": settle_loads, "loads_total": loads_total, "addable": addable,
+                   "hide_amounts": bool(getattr(s.driver, "hide_load_amounts_on_check", False) or s.hide_load_amounts),
                    "loaded_miles": loaded_miles, "deadhead_miles": deadhead_miles,
                    "total_miles_all": loaded_miles + deadhead_miles,
                    "load_count": settle_loads.count(),
@@ -5073,6 +5074,7 @@ def driver_pay_check(request, pk):
         "deduction_items": s.line_items.filter(kind="deduction"),
         "settle_loads": s.loads.select_related("vehicle").order_by("pickup_date"),
         "settle_loads_total": s.loads.aggregate(x=Sum("rate"))["x"] or 0,
+        "hide_amounts": bool(getattr(s.driver, "hide_load_amounts_on_check", False) or s.hide_load_amounts),
     }
     if request.GET.get("pdf") == "1":
         pdf = _render_pdf("operations/check_print.html", ctx)
@@ -5411,6 +5413,7 @@ def driver_pay_to_save(request, pk):
     if request.method == "POST":
         d.pay_to_name = (request.POST.get("pay_to_name") or "").strip()[:150]
         d.business_ein = (request.POST.get("business_ein") or "").strip()[:20]
-        d.save(update_fields=["pay_to_name", "business_ein"])
-        _messages.success(request, "Check payee name updated.")
+        d.hide_load_amounts_on_check = (request.POST.get("hide_amounts") == "on")
+        d.save(update_fields=["pay_to_name", "business_ein", "hide_load_amounts_on_check"])
+        _messages.success(request, "Driver check settings updated.")
     return redirect("app_driver_detail", pk=pk)
