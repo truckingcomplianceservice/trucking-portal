@@ -43,9 +43,11 @@
   <form method="post" action="/app/drivers/{{ d.id }}/pay-to/" style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">{% csrf_token %}
    <div style="flex:1;min-width:220px"><label class="sub">Business / company name on checks (optional)</label>
     <input name="pay_to_name" value="{{ d.pay_to_name }}" placeholder="e.g. Singh Trucking LLC — leave blank to use {{ d.first_name }} {{ d.last_name }}" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px"></div>
+   <div style="min-width:160px"><label class="sub">Business EIN (for 1099)</label>
+    <input name="business_ein" value="{{ d.business_ein }}" placeholder="XX-XXXXXXX" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px"></div>
    <button class="btn amber" type="submit">Save</button>
   </form>
-  <div class="sub" style="font-size:12px;margin-top:6px">If this driver is paid as a company (owner-operator), enter their business name and checks will be made out to it. Leave blank to pay {{ d.first_name }} {{ d.last_name }} personally.</div>
+  <div class="sub" style="font-size:12px;margin-top:6px">If this driver is paid as a company (owner-operator), enter their business name + EIN. Checks are made out to the business, and the <b>1099 is generated against the company name + EIN</b> — just like paying a leased carrier. Leave blank to pay {{ d.first_name }} {{ d.last_name }} personally (1099 uses their SSN in Tax ID).</div>
  </div>
 </div>
 

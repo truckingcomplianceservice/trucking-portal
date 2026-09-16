@@ -169,6 +169,8 @@ class Driver(models.Model):
     pay_rate = models.DecimalField(max_digits=10, decimal_places=2, default=0,
         help_text="Cents per mile, percent (e.g. 25), or weekly salary amount.")
     tax_id = models.CharField("Tax ID (SSN/EIN, for 1099)", max_length=20, blank=True)
+    business_ein = models.CharField("Business EIN (if paid as a company)", max_length=20, blank=True,
+        help_text="If you pay this driver as their company, put the company's EIN here. The 1099 uses the business name + this EIN.")
     address = models.CharField("Mailing address", max_length=250, blank=True)
     upload_token = models.CharField(max_length=32, blank=True, db_index=True,
         help_text="Used for this driver's private document-upload link.")

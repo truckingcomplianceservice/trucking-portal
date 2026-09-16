@@ -1685,14 +1685,22 @@ def _1099_context(request, driver_id, year):
     box1 = sum(float(s.gross_pay or 0) for s in paid_qs)
     settlement_count = paid_qs.count()
     c = d.company
-    recipient_name = f"{d.first_name} {d.last_name}".strip()
+    # If the driver is paid as a company (business name set), the 1099 recipient is
+    # the BUSINESS name + business EIN. Otherwise it's the personal name + SSN/EIN.
+    paid_as_company = bool((d.pay_to_name or "").strip())
+    if paid_as_company:
+        recipient_name = d.pay_to_name.strip()
+        recipient_tin = (d.business_ein or d.tax_id or "").strip()
+    else:
+        recipient_name = f"{d.first_name} {d.last_name}".strip()
+        recipient_tin = (d.tax_id or "").strip()
     # completeness check — flag anything a valid 1099 needs but is missing
     missing = []
     if not c.name: missing.append("Payer (company) name")
     if not c.ein: missing.append("Payer TIN / EIN")
     if not c.address: missing.append("Payer address")
     if not recipient_name: missing.append("Recipient name")
-    if not d.tax_id: missing.append("Recipient TIN (SSN/EIN)")
+    if not recipient_tin: missing.append("Recipient TIN (EIN/SSN)")
     if not d.address: missing.append("Recipient address")
     if box1 <= 0: missing.append("Compensation amount (no paid settlements found)")
     return {
@@ -1710,7 +1718,8 @@ def _1099_context(request, driver_id, year):
         "payer_state_no": c.state_tax_no,
         "recipient_name": recipient_name,
         "recipient_address": d.address,
-        "recipient_tin": d.tax_id,
+        "recipient_tin": recipient_tin,
+        "paid_as_company": paid_as_company,
         "account_no": f"DRV-{d.id:04d}",
         "missing": missing,
         "is_complete": not missing,
@@ -5401,6 +5410,7 @@ def driver_pay_to_save(request, pk):
     d = _get(Driver, pk=pk, company__in=_companies_all(request))
     if request.method == "POST":
         d.pay_to_name = (request.POST.get("pay_to_name") or "").strip()[:150]
-        d.save(update_fields=["pay_to_name"])
+        d.business_ein = (request.POST.get("business_ein") or "").strip()[:20]
+        d.save(update_fields=["pay_to_name", "business_ein"])
         _messages.success(request, "Check payee name updated.")
     return redirect("app_driver_detail", pk=pk)

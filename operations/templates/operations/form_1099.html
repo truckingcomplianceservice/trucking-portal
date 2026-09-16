@@ -34,9 +34,9 @@ h1{font-size:18px;margin:0 0 2px}.form-t{font-size:13px;color:#727c93;margin-bot
   <div class="cell"><div class="l">Payer (your company)</div><div class="v">{{ company.name }}</div>
     <div class="v" style="font-weight:400;font-size:12px">{{ company.address|default:"(add address in Companies)" }}</div></div>
   <div class="cell"><div class="l">Payer EIN</div><div class="v">{{ company.ein|default:"(add EIN in Companies)" }}</div></div>
-  <div class="cell"><div class="l">Recipient</div><div class="v">{{ d.first_name }} {{ d.last_name }}</div>
+  <div class="cell"><div class="l">Recipient</div><div class="v">{{ recipient_name }}{% if paid_as_company %} <span style="font-weight:400;font-size:11px">(paid as company)</span>{% endif %}</div>
     <div class="v" style="font-weight:400;font-size:12px">{{ d.address|default:"(add address on driver)" }}</div></div>
-  <div class="cell"><div class="l">Recipient TIN (SSN/EIN)</div><div class="v">{{ d.tax_id|default:"(add tax ID on driver)" }}</div></div>
+  <div class="cell"><div class="l">Recipient TIN ({% if paid_as_company %}EIN{% else %}SSN/EIN{% endif %})</div><div class="v">{{ recipient_tin|default:"(add tax ID on driver)" }}</div></div>
   <div class="cell box1"><div class="l">Box 1 &mdash; Nonemployee compensation</div><div class="v">${{ paid }}</div></div>
  </div>
  <div class="note">This is a data summary to hand to your accountant or enter into an e-file service (e.g. Tax1099, Track1099). It is not the official IRS red-ink form. Verify all figures and identifiers before filing.</div>
