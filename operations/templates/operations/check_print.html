@@ -13,8 +13,18 @@
    <a class="btn ghost" href="/app/pay/{{ s.id }}/check/?pdf=1{% if request.GET.no %}&no={{ request.GET.no }}{% endif %}">Download PDF</a>
    {% if request.GET.assign != '1' %}<a class="btn ghost" href="/app/pay/{{ s.id }}/check/?assign=1">Assign next check # ({{ company.check_next_number }})</a>{% endif %}
   </div>
-  <div class="sub" style="font-size:12px;margin-top:8px">Check #: <b>{{ check_no }}</b> · Bank: {{ company.check_bank_name|default:"(set in Admin → Companies)" }} · Whole-page offset X:{{ ox }} Y:{{ oy }} · Amount offset X:{{ aox }} Y:{{ aoy }}</div>
-  <div class="sub" style="font-size:12px;margin-top:4px;color:var(--amber)">If the dollar amount isn't lined up with the $ sign, set "Amount box offset X/Y" in Admin → Companies. +X moves it right, -X left, +Y down, -Y up (points, ~1/72 inch). This moves ONLY the amount, not the rest of the check.</div>
+  <div style="margin-top:10px;padding:10px 12px;background:#f7f8fa;border-radius:9px">
+   <b style="font-size:13px">Line up the $ amount:</b> if it doesn't sit next to the $ sign, nudge it here (saves automatically), then re-print.
+   <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+    <a class="btn ghost" style="padding:5px 12px" href="/app/pay/{{ s.id }}/check/nudge/?dir=up">↑ Up</a>
+    <a class="btn ghost" style="padding:5px 12px" href="/app/pay/{{ s.id }}/check/nudge/?dir=down">↓ Down</a>
+    <a class="btn ghost" style="padding:5px 12px" href="/app/pay/{{ s.id }}/check/nudge/?dir=left">← Left</a>
+    <a class="btn ghost" style="padding:5px 12px" href="/app/pay/{{ s.id }}/check/nudge/?dir=right">→ Right</a>
+    <a class="btn ghost" style="padding:5px 12px" href="/app/pay/{{ s.id }}/check/nudge/?dir=reset">Reset</a>
+    <span class="sub" style="font-size:12px;margin-left:6px">Current amount position: X {{ aox }}, Y {{ aoy }}</span>
+   </div>
+  </div>
+  <div class="sub" style="font-size:12px;margin-top:8px">Check #: <b>{{ check_no }}</b> · Bank: {{ company.check_bank_name|default:"(set in Admin → Companies)" }}</div>
  </div>
 </div>
 
@@ -27,8 +37,8 @@
   <div style="position:absolute;left:6.55in;top:0.62in;font-size:11pt">{{ today|date:"m/d/Y" }}</div>
   <!-- Pay to the order of (payee) -->
   <div style="position:absolute;left:0.95in;top:1.5in;font-size:11pt">{{ payee }}</div>
-  <!-- Numeric amount box (right) — position adjustable via amount offsets in Admin -->
-  <div style="position:absolute;left:calc(6.7in + {{ aox }}px);top:calc(1.42in + {{ aoy }}px);font-size:11pt;font-weight:bold">{{ amount|floatformat:2|intcomma }}</div>
+  <!-- Numeric amount box (right) — aligned with the $ sign; adjustable via amount offsets -->
+  <div style="position:absolute;left:calc(6.7in + {{ aox }}px);top:calc(1.22in + {{ aoy }}px);font-size:11pt;font-weight:bold">{{ amount|floatformat:2|intcomma }}</div>
   <!-- Amount in words -->
   <div style="position:absolute;left:0.35in;top:1.9in;font-size:11pt">{{ amount_words }}************************************</div>
   <!-- Memo (bottom-left of check) -->

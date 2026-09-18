@@ -58,6 +58,32 @@ class Company(models.Model):
     power_units = models.IntegerField("Power units", null=True, blank=True)
     fmcsa_updated = models.DateField("FMCSA data pulled on", null=True, blank=True)
     active = models.BooleanField(default=True)
+    # ---- SaaS subscription ----
+    SUB_STATUS = [("trial","Free trial"),("active","Active / paid"),("past_due","Past due"),
+                  ("canceled","Canceled"),("none","None")]
+    subscription_status = models.CharField(max_length=12, choices=SUB_STATUS, default="none")
+    trial_start = models.DateField(null=True, blank=True)
+    trial_end = models.DateField(null=True, blank=True)
+    stripe_customer_id = models.CharField(max_length=80, blank=True)
+    stripe_subscription_id = models.CharField(max_length=80, blank=True)
+    billing_email = models.CharField(max_length=254, blank=True)
+
+    def truck_count(self):
+        return self.vehicles.exclude(status="retired").count()
+
+    def monthly_bill(self):
+        """$100 base for up to 5 trucks, +$20/truck after that."""
+        n = self.truck_count()
+        extra = max(0, n - 5)
+        return 100 + extra * 20
+
+    def trial_days_left(self):
+        import datetime as _d
+        if self.trial_end:
+            return max(0, (self.trial_end - _d.date.today()).days)
+        return 0
+
+
     apply_token = models.CharField(max_length=32, blank=True, db_index=True,
         help_text="Used to build this company's public driver-application link.")
     track_drivers = models.BooleanField("Track driver location (phone GPS)", default=False,

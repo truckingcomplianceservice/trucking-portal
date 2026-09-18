@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Start your free trial — CarrierPro</title>
+<style>
+ :root{--navy:#1e2d45;--gold:#b39a6d;--line:#e2e6ee;--muted:#6b7385;--bg:#f4f6f9;--green:#137a51}
+ *{box-sizing:border-box;margin:0;padding:0}
+ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--navy)}
+ .top{background:var(--navy);color:#fff;padding:16px 24px;font-size:20px;font-weight:700}
+ .top .gold{color:var(--gold)}
+ .wrap{max-width:960px;margin:0 auto;padding:32px 20px;display:grid;grid-template-columns:1fr 1fr;gap:28px}
+ @media(max-width:760px){.wrap{grid-template-columns:1fr}}
+ .card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:26px}
+ h1{font-size:26px;margin-bottom:8px}
+ .sub{color:var(--muted);font-size:15px;line-height:1.5}
+ label{display:block;font-size:13px;font-weight:600;color:var(--navy);margin:14px 0 5px}
+ input{width:100%;padding:11px 13px;border:1px solid var(--line);border-radius:9px;font-size:15px}
+ .btn{width:100%;background:var(--gold);color:#fff;border:none;border-radius:10px;padding:13px;font-size:16px;font-weight:700;cursor:pointer;margin-top:18px}
+ .err{background:#fdecea;color:#c0392b;border-radius:9px;padding:10px 13px;font-size:14px;margin-bottom:12px}
+ .price{font-size:40px;font-weight:800;color:var(--navy)}
+ .price small{font-size:16px;color:var(--muted);font-weight:500}
+ .feat{display:flex;gap:9px;align-items:flex-start;margin:9px 0;font-size:14px}
+ .feat .c{color:var(--green);font-weight:800}
+ .trial{background:#e4f4ec;color:var(--green);border-radius:9px;padding:10px 13px;font-size:14px;font-weight:600;text-align:center;margin-top:14px}
+ .foot{text-align:center;color:var(--muted);font-size:13px;padding:16px}
+ a{color:var(--gold)}
+</style></head><body>
+<div class="top">Carrier<span class="gold">Pro</span> — Trucking Management System</div>
+<div class="wrap">
+
+ <div class="card">
+  <h1>Start your 7-day free trial</h1>
+  <p class="sub">Create your account and start managing your fleet in minutes. No credit card needed to start.</p>
+  
+  <form method="post" style="margin-top:6px"><input type="hidden" name="csrfmiddlewaretoken" value="MPVE2AK7D61XEr6cqwAdphoyWPa51Uv7eUkoW396DI92Ai0bXWC3Dx6u5s4ouusk">
+   <label>Company name</label><input name="company_name" required placeholder="e.g. Pure 99 Inc" value="">
+   <label>Your name</label><input name="full_name" placeholder="First Last" value="">
+   <label>Email</label><input name="email" type="email" required placeholder="you@company.com" value="">
+   <label>Choose a username</label><input name="username" required autocapitalize="none" value="">
+   <label>Password (min 8 characters)</label><input name="password" type="password" required>
+   <label>Confirm password</label><input name="password2" type="password" required>
+   <button class="btn" type="submit">Start free trial →</button>
+  </form>
+  <p class="sub" style="margin-top:14px;font-size:13px">Already have an account? <a href="/login/">Log in</a></p>
+ </div>
+
+ <div class="card" style="background:linear-gradient(180deg,#fff, #fbfaf7)">
+  <div style="font-size:13px;font-weight:700;color:var(--gold);letter-spacing:.05em">PRICING</div>
+  <div class="price" style="margin-top:8px">$100<small>/month</small></div>
+  <div class="sub">for 1–5 trucks, then <b>$20/month per additional truck</b>.</div>
+  <div class="trial">✓ 7 days free — cancel anytime</div>
+  <div style="margin-top:20px;font-weight:700">Everything included:</div>
+  <div class="feat"><span class="c">✓</span> Dispatch &amp; load management</div>
+  <div class="feat"><span class="c">✓</span> Driver mobile app (loads, POD upload, status, pay)</div>
+  <div class="feat"><span class="c">✓</span> Driver pay &amp; settlements + check printing</div>
+  <div class="feat"><span class="c">✓</span> Customer invoicing &amp; payments</div>
+  <div class="feat"><span class="c">✓</span> Broker &amp; agent management</div>
+  <div class="feat"><span class="c">✓</span> Profit &amp; Loss, per-truck reports, $/mile</div>
+  <div class="feat"><span class="c">✓</span> IFTA worksheet with CSV mileage import</div>
+  <div class="feat"><span class="c">✓</span> 1099s, partner accounting, fuel &amp; expenses</div>
+  <div class="feat"><span class="c">✓</span> Driver location map &amp; document storage</div>
+  <div class="feat"><span class="c">✓</span> Hiring &amp; DQF compliance tools</div>
+  <div class="sub" style="margin-top:16px;font-size:13px">Example: 8 trucks = $100 + (3 × $20) = <b>$160/month</b>.</div>
+ </div>
+
+</div>
+<div class="foot">CarrierPro — built for carriers of every size. Questions? Contact us before you sign up.</div>
+</body></html>

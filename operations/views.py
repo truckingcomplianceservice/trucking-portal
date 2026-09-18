@@ -5419,3 +5419,96 @@ def driver_pay_to_save(request, pk):
         d.save(update_fields=["pay_to_name", "business_ein", "hide_load_amounts_on_check"])
         _messages.success(request, "Driver check settings updated.")
     return redirect("app_driver_detail", pk=pk)
+
+
+# ================= Self-serve signup (SaaS) =================
+def signup(request):
+    """Public signup: a new carrier creates their company + admin login and
+    starts a 7-day free trial. No payment required yet (Stage 1)."""
+    from django.contrib.auth import login as _login
+    error = ""
+    if request.method == "POST":
+        company_name = (request.POST.get("company_name") or "").strip()
+        full_name = (request.POST.get("full_name") or "").strip()
+        email = (request.POST.get("email") or "").strip()
+        username = (request.POST.get("username") or "").strip()
+        pw = request.POST.get("password") or ""
+        pw2 = request.POST.get("password2") or ""
+        # validation
+        if not (company_name and username and pw and email):
+            error = "Please fill in company, email, username, and password."
+        elif pw != pw2:
+            error = "Passwords don't match."
+        elif len(pw) < 8:
+            error = "Password must be at least 8 characters."
+        elif _User.objects.filter(username__iexact=username).exists():
+            error = "That username is taken — pick another."
+        else:
+            # create the company on a 7-day trial
+            today = _dt.date.today()
+            import re as _re
+            base_slug = _re.sub(r"[^a-z0-9]+", "-", company_name.lower()).strip("-")[:40] or "carrier"
+            slug = base_slug
+            i = 2
+            while Company.objects.filter(slug=slug).exists():
+                slug = f"{base_slug}-{i}"; i += 1
+            company = Company.objects.create(
+                name=company_name[:120], slug=slug,
+                subscription_status="trial", trial_start=today,
+                trial_end=today + _dt.timedelta(days=7),
+                billing_email=email[:254])
+            # create the admin user
+            first = full_name.split(" ")[0] if full_name else ""
+            last = " ".join(full_name.split(" ")[1:]) if full_name else ""
+            u = _User.objects.create_user(username=username, password=pw,
+                                          first_name=first[:150], last_name=last[:150],
+                                          email=email[:254])
+            u.is_staff = True
+            u.save()
+            prof, _ = Profile.objects.get_or_create(user=u)
+            prof.role = "admin"
+            prof.save()
+            prof.companies.add(company)
+            _login(request, u)
+            request.session["active_company"] = str(company.id)
+            return redirect("dashboard")
+    return render(request, "operations/signup.html", {"error": error})
+
+
+@login_required
+def billing_status(request):
+    """Shows the company's plan, trial status, truck count, and monthly bill."""
+    cs = _companies(request)
+    company = cs.first()
+    if not company:
+        return redirect("dashboard")
+    return render(request, "operations/billing_status.html", {
+        "company": company,
+        "truck_count": company.truck_count(),
+        "monthly_bill": company.monthly_bill(),
+        "trial_days_left": company.trial_days_left(),
+    })
+
+
+@login_required
+def check_nudge(request, pk):
+    """Nudge the check amount position (saves to the company), then back to check."""
+    if not _is_manager(request.user):
+        return redirect("driver_pay_detail", pk=pk)
+    s = _get(Settlement, pk=pk, company__in=_companies_all(request))
+    company = s.company
+    d = request.GET.get("dir")
+    STEP = 6  # points per nudge (~1/12 inch)
+    if d == "up":
+        company.check_amount_offset_y = (company.check_amount_offset_y or 0) - STEP
+    elif d == "down":
+        company.check_amount_offset_y = (company.check_amount_offset_y or 0) + STEP
+    elif d == "left":
+        company.check_amount_offset_x = (company.check_amount_offset_x or 0) - STEP
+    elif d == "right":
+        company.check_amount_offset_x = (company.check_amount_offset_x or 0) + STEP
+    elif d == "reset":
+        company.check_amount_offset_x = 0
+        company.check_amount_offset_y = 0
+    company.save(update_fields=["check_amount_offset_x", "check_amount_offset_y"])
+    return redirect(f"/app/pay/{pk}/check/")

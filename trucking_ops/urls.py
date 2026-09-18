@@ -7,6 +7,8 @@ from django.views.generic import RedirectView
 from operations import views
 
 urlpatterns = [
+    path("signup/", views.signup, name="signup"),
+    path("app/billing-status/", views.billing_status, name="billing_status"),
     path("app/partners/", views.partner_ledger, name="partner_ledger"),
     path("app/partners/<int:pk>/statement/", views.partner_statement, name="partner_statement"),
     path("app/partners/payback/", views.partner_payback_add, name="partner_payback_add"),
@@ -54,6 +56,7 @@ urlpatterns = [
     path("app/pay/<int:pk>/", views.driver_pay_detail, name="driver_pay_detail"),
     path("app/pay/<int:pk>/pdf/", views.driver_pay_pdf, name="driver_pay_pdf"),
     path("app/pay/<int:pk>/check/", views.driver_pay_check, name="driver_pay_check"),
+    path("app/pay/<int:pk>/check/nudge/", views.check_nudge, name="check_nudge"),
     path("app/pay/<int:pk>/email/", views.driver_pay_email, name="driver_pay_email"),
     path("app/performance/note/", views.perf_note_add, name="perf_note_add"),
     path("app/performance/<str:kind>/<int:pk>/", views.performance_detail, name="performance_detail"),

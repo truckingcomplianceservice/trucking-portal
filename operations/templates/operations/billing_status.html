@@ -1,0 +1,36 @@
+{% extends "operations/app_base.html" %}
+{% load humanize %}
+{% block title %}Subscription — {{ company.name }}{% endblock %}
+{% block page_title %}Subscription &amp; billing{% endblock %}
+{% block content %}
+<div class="card"><div class="card-h"><h3>{{ company.name }} — plan</h3></div>
+ <div style="padding:16px 18px">
+  {% if company.subscription_status == "trial" %}
+   <div style="background:#e4f4ec;color:#137a51;border-radius:9px;padding:12px 14px;font-weight:600">
+    Free trial — {{ trial_days_left }} day{{ trial_days_left|pluralize }} left{% if company.trial_end %} (ends {{ company.trial_end }}){% endif %}.
+   </div>
+  {% elif company.subscription_status == "active" %}
+   <div style="background:#e4f4ec;color:#137a51;border-radius:9px;padding:12px 14px;font-weight:600">Active subscription — thank you!</div>
+  {% elif company.subscription_status == "past_due" %}
+   <div style="background:#fdecea;color:#c0392b;border-radius:9px;padding:12px 14px;font-weight:600">Payment past due — please update billing to keep your account active.</div>
+  {% else %}
+   <div style="background:#eef2f8;border-radius:9px;padding:12px 14px">No active subscription.</div>
+  {% endif %}
+
+  <div class="kpis" style="grid-template-columns:1fr 1fr 1fr;margin-top:16px">
+   <div class="kpi"><div class="l">Trucks</div><div class="n">{{ truck_count }}</div></div>
+   <div class="kpi"><div class="l">Monthly bill</div><div class="n">${{ monthly_bill }}</div></div>
+   <div class="kpi"><div class="l">Plan</div><div class="n" style="font-size:15px">{{ company.get_subscription_status_display }}</div></div>
+  </div>
+
+  <div class="sub" style="margin-top:14px;font-size:13px">
+   Pricing: <b>$100/month for 1–5 trucks</b>, then <b>$20/month per additional truck</b>.
+   You currently have {{ truck_count }} truck{{ truck_count|pluralize }}, so your bill is <b>${{ monthly_bill }}/month</b>.
+  </div>
+
+  <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--line)">
+   <div class="sub" style="font-size:13px">💳 Online payment (Stripe) is being set up. For now, billing is handled directly — contact us to activate your paid subscription when your trial ends.</div>
+  </div>
+ </div>
+</div>
+{% endblock %}
