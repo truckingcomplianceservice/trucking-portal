@@ -1,4 +1,4 @@
-# CarrierConnect360 — full logo, centered and aligned
+# CarrierConnect360 — logo left, menu right
 
 ## Deploy
 1. Download this zip, then in Terminal:
@@ -6,20 +6,14 @@
 2. GitHub Desktop -> Commit -> Push. Hard refresh (Cmd+Shift+R) in incognito.
 
 ## What changed
-The full CarrierConnect360 logo (with the Dispatch / Compliance / Accounting /
-Reporting feature icons) is now shown CENTERED in its own clean band at the top of
-the landing page, with the nav links (Features, How it works, Pricing, Log in,
-Start free trial) in the row below. This gives the wide logo room to breathe and
-everything lines up properly -- fixing the cramped/misaligned look.
-
-The outer whitespace around the logo was auto-trimmed so it's evenly centered.
-
-NOTE: on the app pages / login / driver portal (which have narrow headers), the
-compact shield + CarrierConnect360 version is still used, since the full banner
-logo only fits well on the wide landing page.
+Standard header layout now: LOGO on the LEFT, MENU on the RIGHT, in one clean row
+(Features, How it works, Pricing, Log in, Start free trial). Uses the compact
+shield + CarrierConnect360 logo (the tagline + feature-icon row is trimmed so it
+fits properly beside the menu -- a full banner logo is too wide to sit next to nav
+links). This is the normal professional website header layout.
 
 ## Includes everything to date
-Full logo centered on landing, logo everywhere, light landing page, multi-domain,
+Logo-left menu-right header, logo everywhere, light landing page, multi-domain,
 staff-entered application, email verification, terminate/rehire, driver counts +
 complete-record-on-hire, verified e-consent, FMCSA road test, FMCSA application
 form, driver email login, DQF EPN + email app link + expiration reminders, FMCSA
