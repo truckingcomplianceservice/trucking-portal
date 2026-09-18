@@ -1,7 +1,9 @@
 <!DOCTYPE html>
+{% load static %}
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>CarrierConnect360 — All-in-one trucking software</title>
 <meta name="description" content="Run your entire trucking business in one place: dispatch, driver pay, invoicing, IFTA, and FMCSA compliance. Start a 7-day free trial.">
+<link rel="icon" type="image/png" href="{% static 'img/icon.png' %}">
 <style>
  :root{--navy:#16273f;--gold:#f5b62c;--gold-d:#e0982a;--ink:#16273f;--body:#5a6b80;--line:#eef0f4;--cream:#fbfaf7}
  *{box-sizing:border-box;margin:0;padding:0}
@@ -70,7 +72,7 @@
  footer a{color:var(--gold-d)}
 </style></head><body>
 <nav><div class="wrap navbar">
- <a href="/" class="logo"><svg width="30" height="30" viewBox="0 0 30 30"><rect x="2" y="8" width="15" height="12" rx="2" fill="#f5b62c"/><path d="M17 12h5l4 4v4h-9z" fill="#f5b62c"/><circle cx="9" cy="21" r="2.5" fill="#16273f" stroke="#f5b62c" stroke-width="1.4"/><circle cx="21" cy="21" r="2.5" fill="#16273f" stroke="#f5b62c" stroke-width="1.4"/></svg> Carrier<span class="g">Connect360</span></a>
+ <a href="/" class="logo"><img src="{% static 'img/logo.png' %}" alt="Trucking Compliance Services" style="height:38px;width:auto"></a>
  <div class="navlinks">
   <a href="#features" class="hidem">Features</a>
   <a href="#how" class="hidem">How it works</a>

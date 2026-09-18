@@ -1,5 +1,7 @@
+{% load static %}
 <!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{% if company %}{{ company.name }}{% else %}Sign in{% endif %}</title>
+<link rel="icon" type="image/png" href="{% static 'img/icon.png' %}">
 <style>
  body{font-family:system-ui,-apple-system,'Segoe UI',sans-serif;background:#eef1f6;margin:0;color:#161c2b}
  .wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
@@ -18,7 +20,7 @@
 <div class="wrap"><div class="box">
  <div class="brand">
   {% if company and company.logo %}<img src="{{ company.logo.url }}" alt="{{ company.name }}">
-  {% else %}<img src="/static/logo.png" alt="logo">{% endif %}
+  {% else %}<img src="{% static 'img/logo.png' %}" alt="logo">{% endif %}
   <div class="nm">{% if company %}{{ company.name }}{% else %}Trucking Compliance Services{% endif %}</div>
   <div class="sub">{% if company %}Carrier portal{% else %}Operations portal{% endif %}</div>
  </div>

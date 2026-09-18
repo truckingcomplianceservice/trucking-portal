@@ -21,7 +21,7 @@
 </style></head><body>
  <button class="btn" onclick="window.print()">Print / Save as PDF</button>
  <div class="top">
-  <div><img src="{% static 'logo.png' %}" class="logo" alt="logo">
+  <div><img src="{% static 'img/logo_white.png' %}" class="logo" alt="logo">
    <div class="co">{{ inv.company.name }}</div>
    {% if inv.company.address %}<div class="meta">{{ inv.company.address }}</div>{% endif %}
    <div class="meta">{% if inv.company.mc_number %}MC {{ inv.company.mc_number }}{% endif %}{% if inv.company.dot_number %} · DOT {{ inv.company.dot_number }}{% endif %}{% if inv.company.ca_number %} · CA {{ inv.company.ca_number }}{% endif %}</div>
