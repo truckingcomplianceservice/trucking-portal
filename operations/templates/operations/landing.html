@@ -35,7 +35,7 @@
  .stat:last-child{border-right:none}
  .stat b{color:var(--navy);font-size:22px;font-weight:800;margin-right:4px}
  .stat .gold{color:var(--gold-d)}
- @media(max-width:720px){h1{font-size:32px}.sub{font-size:16px}.stat{border-right:none}}
+ @media(max-width:720px){h1{font-size:32px}.sub{font-size:16px}.stat{border-right:none}.lg-full{display:none!important}.lg-mini{display:inline-block!important}}
  section{padding:60px 0}
  .eyebrow{text-align:center;color:var(--gold-d);font-weight:700;font-size:12px;letter-spacing:.1em;text-transform:uppercase}
  h2{text-align:center;font-size:30px;font-weight:800;color:var(--navy);margin-top:8px;letter-spacing:-.02em}
@@ -72,7 +72,7 @@
  footer a{color:var(--gold-d)}
 </style></head><body>
 <nav><div class="wrap navbar">
- <a href="/" class="logo"><img src="{% static 'img/logo.png' %}" alt="CarrierConnect360" style="height:44px;width:auto"></a>
+ <a href="/" class="logo"><img class="lg-full" src="{% static 'img/logo.png' %}" alt="CarrierConnect360" style="height:36px;width:auto;max-width:340px"><img class="lg-mini" src="{% static 'img/icon.png' %}" alt="CarrierConnect360" style="height:38px;width:auto;display:none"></a>
  <div class="navlinks">
   <a href="#features" class="hidem">Features</a>
   <a href="#how" class="hidem">How it works</a>
