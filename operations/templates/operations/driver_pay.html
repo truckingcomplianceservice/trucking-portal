@@ -12,10 +12,29 @@
 
 <div class="grid2" style="align-items:start">
  <div>
+  <form method="get" style="margin-bottom:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+   <input type="hidden" name="show" value="{{ show }}">
+   <input type="text" name="q" value="{{ q }}" placeholder="🔎 Search by driver or company name…" style="flex:1;min-width:200px;padding:9px 12px;border:1px solid var(--line);border-radius:8px">
+   <button class="btn navy" type="submit">Search</button>
+   {% if q %}<a href="?show={{ show }}" class="btn ghost">Clear</a>{% endif %}
+  </form>
+  {% if q %}
+  <div class="card" style="margin-bottom:12px;border-left:4px solid var(--amber)">
+   <div style="padding:12px 16px">
+    <b>Results for "{{ q }}"</b>
+    <div class="kpis" style="grid-template-columns:1fr 1fr 1fr;margin-top:8px">
+     <div class="kpi"><div class="l">Settlements</div><div class="n">{{ search_count }}</div></div>
+     <div class="kpi"><div class="l">Total paid</div><div class="n" style="color:#137a51">${{ search_total_paid|floatformat:2|intcomma }}</div></div>
+     <div class="kpi"><div class="l">Total unpaid</div><div class="n" style="color:#c0392b">${{ search_total_unpaid|floatformat:2|intcomma }}</div></div>
+    </div>
+    <div class="sub" style="font-size:12px;margin-top:6px">Complete settlement history for "{{ q }}" is listed below. Total paid is everything marked paid across all periods.</div>
+   </div>
+  </div>
+  {% endif %}
   <div style="display:flex;gap:6px;margin-bottom:12px">
-   <a class="btn {% if show == 'all' %}amber{% else %}ghost{% endif %}" href="?show=all">All</a>
-   <a class="btn {% if show == 'unpaid' %}amber{% else %}ghost{% endif %}" href="?show=unpaid">Unpaid</a>
-   <a class="btn {% if show == 'paid' %}amber{% else %}ghost{% endif %}" href="?show=paid">Paid</a>
+   <a class="btn {% if show == 'all' %}amber{% else %}ghost{% endif %}" href="?show=all{% if q %}&q={{ q }}{% endif %}">All</a>
+   <a class="btn {% if show == 'unpaid' %}amber{% else %}ghost{% endif %}" href="?show=unpaid{% if q %}&q={{ q }}{% endif %}">Unpaid</a>
+   <a class="btn {% if show == 'paid' %}amber{% else %}ghost{% endif %}" href="?show=paid{% if q %}&q={{ q }}{% endif %}">Paid</a>
   </div>
   <div class="card">
    {% if rows %}<table><thead><tr><th>Driver</th><th>Week</th><th class="n">Net pay</th><th>Status</th><th>Reference</th></tr></thead><tbody>

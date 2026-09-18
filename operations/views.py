@@ -2664,12 +2664,35 @@ def driver_pay(request):
         settlements = settlements.filter(paid=False)
     elif show == "paid":
         settlements = settlements.filter(paid=True)
+    # SEARCH by driver name or company name
+    q = (request.GET.get("q") or "").strip()
+    if q:
+        from django.db.models import Q as _Q
+        settlements = settlements.filter(
+            _Q(driver__first_name__icontains=q) | _Q(driver__last_name__icontains=q) |
+            _Q(driver__pay_to_name__icontains=q) | _Q(company__name__icontains=q))
     rows = list(settlements.order_by("-period_end"))
+    # summary totals for whatever is currently shown (great when searching one driver)
+    total_count = len(rows)
+    total_paid = 0.0
+    total_unpaid = 0.0
+    for st in rows:
+        try:
+            amt = float(st.net_pay or 0)
+        except Exception:
+            amt = 0.0
+        if st.paid:
+            total_paid += amt
+        else:
+            total_unpaid += amt
     drivers = Driver.objects.filter(company__in=cs).order_by("first_name")
     # default the "new" week to the last 7 days
     today = _dt.date.today()
     monday = today - _dt.timedelta(days=today.weekday())
     return render(request, "operations/driver_pay.html", {
+        "q": q, "search_count": total_count,
+        "search_total_paid": round(total_paid, 2),
+        "search_total_unpaid": round(total_unpaid, 2),
         "rows": rows, "drivers": drivers, "show": show,
         "week_start": (monday - _dt.timedelta(days=7)).isoformat(),
         "week_end": (monday - _dt.timedelta(days=1)).isoformat(),
