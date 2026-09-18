@@ -3644,8 +3644,15 @@ def app_load_new(request):
     default_company = cs.filter(pk=active).first() if active and active != "all" else cs.first()
     if request.method == "POST":
         company = cs.filter(pk=request.POST.get("company")).first() or default_company
-        # stops come in as multiple 'stop' fields, in order
-        stops = [s.strip() for s in request.POST.getlist("stop") if s.strip()]
+        # structured stops: parallel lists of location/date/time/appointment
+        stop_locs = request.POST.getlist("stop_loc")
+        stop_dates = request.POST.getlist("stop_date")
+        stop_times = request.POST.getlist("stop_time")
+        stop_appts = request.POST.getlist("stop_appt")
+        # backward-compat: old simple "stop" field
+        if not stop_locs:
+            stop_locs = request.POST.getlist("stop")
+        stops = [s.strip() for s in stop_locs if s.strip()]
         origin = stops[0] if stops else request.POST.get("origin", "").strip()
         destination = stops[-1] if len(stops) > 1 else request.POST.get("destination", "").strip()
         # ---- Broker: pick existing, or create a new one from the rate con ----
@@ -3709,6 +3716,18 @@ def app_load_new(request):
                 if request.FILES.get(field):
                     setattr(load, field, request.FILES[field])
             load.save()
+            # create structured stop records (location + date + time + appointment)
+            from .models import LoadStop
+            for i, loc in enumerate(stop_locs):
+                loc = (loc or "").strip()
+                if not loc:
+                    continue
+                kind = "pickup" if i == 0 else ("delivery" if i == len([x for x in stop_locs if x.strip()]) - 1 else "stop")
+                LoadStop.objects.create(
+                    load=load, seq=i, kind=kind, location=loc[:255],
+                    stop_date=_parse_date(stop_dates[i]) if i < len(stop_dates) and stop_dates[i] else None,
+                    stop_time=(stop_times[i].strip()[:20] if i < len(stop_times) else ""),
+                    appointment=(stop_appts[i].strip()[:60] if i < len(stop_appts) else ""))
             # notify the assigned driver (in-app + email + SMS if enabled)
             if load.driver and load.driver.user:
                 where = f"{load.origin} → {load.destination}"

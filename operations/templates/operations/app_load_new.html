@@ -48,13 +48,27 @@
    </div>
   </div>
 
-  <div style="margin-top:14px"><label class="sub" style="font-weight:600">Stops (in order) — add as many as the trip has</label>
+  <div style="margin-top:14px"><label class="sub" style="font-weight:600">Stops (in order) — each with its own date, time &amp; appointment #</label>
    <div id="stops">
-    <div class="stoprow" style="display:flex;gap:8px;margin-top:6px;align-items:center"><span class="sub stopn" style="width:64px">Pickup</span><input name="stop" placeholder="City, ST" style="flex:1;padding:8px 10px;border:1px solid var(--line);border-radius:8px"><button type="button" class="btn ghost" style="padding:4px 9px" onclick="rmStop(this)">✕</button></div>
-    <div class="stoprow" style="display:flex;gap:8px;margin-top:6px;align-items:center"><span class="sub stopn" style="width:64px">Stop 2</span><input name="stop" placeholder="City, ST" style="flex:1;padding:8px 10px;border:1px solid var(--line);border-radius:8px"><button type="button" class="btn ghost" style="padding:4px 9px" onclick="rmStop(this)">✕</button></div>
+    <div class="stoprow" style="border:1px solid var(--line);border-radius:10px;padding:10px;margin-top:8px">
+     <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px"><span class="sub stopn" style="width:64px;font-weight:600">Pickup</span><input name="stop_loc" placeholder="City, ST (or full address)" style="flex:1;padding:8px 10px;border:1px solid var(--line);border-radius:8px"><button type="button" class="btn ghost" style="padding:4px 9px" onclick="rmStop(this)">✕</button></div>
+     <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <input name="stop_date" type="date" style="padding:7px 9px;border:1px solid var(--line);border-radius:8px" title="Date">
+      <input name="stop_time" placeholder="Time (e.g. 8am–12pm)" style="width:150px;padding:7px 9px;border:1px solid var(--line);border-radius:8px">
+      <input name="stop_appt" placeholder="Appointment / PO #" style="flex:1;min-width:140px;padding:7px 9px;border:1px solid var(--line);border-radius:8px">
+     </div>
+    </div>
+    <div class="stoprow" style="border:1px solid var(--line);border-radius:10px;padding:10px;margin-top:8px">
+     <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px"><span class="sub stopn" style="width:64px;font-weight:600">Delivery</span><input name="stop_loc" placeholder="City, ST (or full address)" style="flex:1;padding:8px 10px;border:1px solid var(--line);border-radius:8px"><button type="button" class="btn ghost" style="padding:4px 9px" onclick="rmStop(this)">✕</button></div>
+     <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <input name="stop_date" type="date" style="padding:7px 9px;border:1px solid var(--line);border-radius:8px" title="Date">
+      <input name="stop_time" placeholder="Time (e.g. 8am–12pm)" style="width:150px;padding:7px 9px;border:1px solid var(--line);border-radius:8px">
+      <input name="stop_appt" placeholder="Appointment / PO #" style="flex:1;min-width:140px;padding:7px 9px;border:1px solid var(--line);border-radius:8px">
+     </div>
+    </div>
    </div>
    <button type="button" class="btn ghost" style="margin-top:8px" onclick="addStop()">+ Add another stop</button>
-   <div class="sub" style="margin-top:4px">First stop = pickup, last stop = final delivery. For a simple 1-pickup 1-drop load, just fill the first two.</div>
+   <div class="sub" style="margin-top:4px">First stop = pickup, last stop = final delivery. Each stop has its own date, time window, and appointment/PO number.</div>
   </div>
 
   <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:14px">
@@ -100,14 +114,14 @@ function renumber(){
 }
 function addStop(){
  var d=document.createElement('div');
- d.className='stoprow'; d.style.cssText='display:flex;gap:8px;margin-top:6px;align-items:center';
- d.innerHTML='<span class="sub stopn" style="width:64px"></span><input name="stop" placeholder="City, ST" style="flex:1;padding:8px 10px;border:1px solid var(--line);border-radius:8px"><button type="button" class="btn ghost" style="padding:4px 9px" onclick="rmStop(this)">✕</button>';
+ d.className='stoprow'; d.style.cssText='border:1px solid var(--line);border-radius:10px;padding:10px;margin-top:8px';
+ d.innerHTML='<div style="display:flex;gap:8px;align-items:center;margin-bottom:6px"><span class="sub stopn" style="width:64px;font-weight:600"></span><input name="stop_loc" placeholder="City, ST (or full address)" style="flex:1;padding:8px 10px;border:1px solid var(--line);border-radius:8px"><button type="button" class="btn ghost" style="padding:4px 9px" onclick="rmStop(this)">✕</button></div><div style="display:flex;gap:8px;flex-wrap:wrap"><input name="stop_date" type="date" style="padding:7px 9px;border:1px solid var(--line);border-radius:8px"><input name="stop_time" placeholder="Time" style="width:150px;padding:7px 9px;border:1px solid var(--line);border-radius:8px"><input name="stop_appt" placeholder="Appointment / PO #" style="flex:1;min-width:140px;padding:7px 9px;border:1px solid var(--line);border-radius:8px"></div>';
  document.getElementById('stops').appendChild(d); renumber();
 }
 function rmStop(btn){
  var rows=document.querySelectorAll('#stops .stoprow');
  if(rows.length<=2){return;} // keep at least pickup + delivery
- btn.parentElement.remove(); renumber();
+ btn.closest('.stoprow').remove(); renumber();
 }
 function calcMiles(){
  var a=parseFloat(document.getElementById('m_loaded').value)||0;

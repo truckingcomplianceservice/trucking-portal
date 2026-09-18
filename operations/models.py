@@ -965,6 +965,25 @@ class DriverEmploymentEvent(models.Model):
         return f"{self.get_kind_display()} — {self.driver} ({self.date})"
 
 
+class LoadStop(models.Model):
+    """A structured stop on a load, with its own date/time and appointment number."""
+    KIND = [("pickup","Pickup"),("delivery","Delivery"),("stop","Stop")]
+    load = models.ForeignKey("Load", on_delete=models.CASCADE, related_name="stop_list")
+    seq = models.PositiveIntegerField(default=0)
+    kind = models.CharField(max_length=10, choices=KIND, default="stop")
+    location = models.CharField(max_length=255, blank=True)
+    stop_date = models.DateField(null=True, blank=True)
+    stop_time = models.CharField(max_length=20, blank=True)   # free text e.g. "08:00" or "8am-12pm"
+    appointment = models.CharField("Appointment / PO #", max_length=60, blank=True)
+    note = models.CharField(max_length=200, blank=True)
+
+    class Meta:
+        ordering = ["seq", "id"]
+
+    def __str__(self):
+        return f"{self.get_kind_display()}: {self.location}"
+
+
 class DriverLocation(models.Model):
     """Latest known GPS location for a driver, sent from the driver app (with the
     driver's permission) while the app is open. Not 24/7 background tracking."""
