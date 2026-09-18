@@ -15,6 +15,7 @@
  <h3>Quick actions</h3>
  <button class="btn block" onclick="document.getElementById('expm').classList.add('open')">+ Add an expense</button>
  <a class="btn ghost block" href="/driver/loads/">Upload BOL / POD on a load</a>
+ {% if drv.upload_token %}<a class="btn ghost block" href="/driver/{{ drv.upload_token }}/">My documents &amp; application</a>{% endif %}
 </div>
 
 <div class="card">

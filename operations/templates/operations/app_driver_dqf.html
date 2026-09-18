@@ -19,18 +19,19 @@
  <div style="flex:1">
    <div style="font-size:17px;font-weight:700;font-family:'Space Grotesk'">{{ d.first_name }} {{ d.last_name }}</div>
    <div class="sub">{{ d.company.name }} · {{ d.get_driver_type_display }}</div>
-   <div style="display:flex;align-items:center;gap:10px;margin-top:8px"><div class="prog"><span style="width:{% widthratio complete total 100 %}%"></span></div><span class="sub">{{ complete }}/{{ total }} complete</span></div>
+   <div style="display:flex;align-items:center;gap:10px;margin-top:8px"><div class="prog"><span style="width:{% widthratio req_done req_total 100 %}%"></span></div><span class="sub">{{ req_done }}/{{ req_total }} required items complete</span></div>
  </div>
  <span class="chip {{ overall.cls }}" style="font-size:13px;padding:5px 12px"><span class="d"></span>{{ overall.label }}</span>
 </div>
 
 <div class="grid2">
- <div class="card"><div class="card-h"><h3>Qualification checklist</h3><a href="/admin/operations/compliancedocument/add/?driver__id__exact={{ d.id }}">+ Add document</a></div>
+ <div class="card"><div class="card-h"><h3>FMCSA Driver Qualification File — 49 CFR Part 391</h3><a href="/admin/operations/compliancedocument/add/?driver__id__exact={{ d.id }}">+ Add document</a></div>
+ <div style="padding:6px 16px 4px"><b style="font-size:13px;color:var(--navy)">Required at hire (before operating a CMV)</b></div>
  <table><tbody>
- {% for i in items %}<tr>
-   <td><b>{{ i.label_name }}</b>{% if i.expiry %}<div class="sub">Expires {{ i.expiry }}</div>{% endif %}</td>
+ {% for i in hire_items %}<tr>
+   <td><b>{{ i.label_name }}</b>{% if not i.required %} <span class="chip c-gray" style="font-size:10px">recommended</span>{% endif %}<div class="sub" style="font-size:11px">{{ i.help }}</div>{% if i.expiry %}<div class="sub">Expires {{ i.expiry }}</div>{% endif %}</td>
    <td style="text-align:right"><span class="chip {{ i.cls }}"><span class="d"></span>{{ i.label }}</span></td>
-   <td style="text-align:right;width:150px">
+   <td style="text-align:right;width:140px">
      {% if i.state == 'pending' and i.doc %}
        <form method="post" action="/dqf/{{ i.doc.id }}/approve/" style="display:inline">{% csrf_token %}<button class="approve">Approve</button></form>
        <form method="post" action="/dqf/{{ i.doc.id }}/reject/" style="display:inline">{% csrf_token %}<button class="reject">Reject</button></form>
@@ -38,12 +39,37 @@
    </td>
  </tr>{% endfor %}
  </tbody></table>
+ <div style="padding:12px 16px 4px;border-top:1px solid var(--line)"><b style="font-size:13px;color:var(--navy)">Ongoing / annual (keep current every 12 months)</b></div>
+ <table><tbody>
+ {% for i in annual_items %}<tr>
+   <td><b>{{ i.label_name }}</b><div class="sub" style="font-size:11px">{{ i.help }}</div>{% if i.expiry %}<div class="sub">Expires {{ i.expiry }}</div>{% endif %}</td>
+   <td style="text-align:right"><span class="chip {{ i.cls }}"><span class="d"></span>{{ i.label }}</span></td>
+   <td style="text-align:right;width:140px">
+     {% if i.state == 'pending' and i.doc %}
+       <form method="post" action="/dqf/{{ i.doc.id }}/approve/" style="display:inline">{% csrf_token %}<button class="approve">Approve</button></form>
+       <form method="post" action="/dqf/{{ i.doc.id }}/reject/" style="display:inline">{% csrf_token %}<button class="reject">Reject</button></form>
+     {% elif i.doc and i.doc.file %}<a href="{{ i.doc.file.url }}" class="sub" style="color:var(--blue)">View file</a>{% endif %}
+   </td>
+ </tr>{% endfor %}
+ </tbody></table>
+ <div class="sub" style="padding:8px 16px 12px;font-size:11px">This checklist follows 49 CFR Part 391 (and §382 for drug/alcohol/Clearinghouse). Keep the actual documents on file; this tracks presence, review, and expiration. Not legal advice — confirm your specific obligations with a DOT compliance professional.</div>
  </div>
 
  <div class="card" style="align-self:start"><div class="card-h"><h3>Driver upload link</h3></div>
   <div style="padding:14px 18px">
    <div class="sub">Send this private link to {{ d.first_name }}. They can upload documents (medical card, MVR, etc.) from their phone — no login. Uploads arrive here as <b>Pending review</b> for you to approve.</div>
    <div class="linkbox"><input id="ul" readonly value="{{ upload_url }}"><button class="btn navy" style="padding:8px 12px" onclick="navigator.clipboard.writeText(document.getElementById('ul').value);this.textContent='Copied'">Copy</button></div>
+   <form method="post" action="/app/drivers/{{ d.id }}/dqf/email-link/" style="margin-top:12px;border-top:1px solid var(--line);padding-top:12px">{% csrf_token %}
+    <div class="sub" style="font-size:13px;margin-bottom:6px"><b>Or email the link to the driver:</b> they fill out the application &amp; upload docs from their phone.</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+     <input name="email" type="email" value="{{ d.email }}" placeholder="driver@email.com" style="flex:1;min-width:160px;padding:9px 11px;border:1px solid var(--line);border-radius:8px">
+     <button class="btn amber" type="submit">✉ Email application link</button>
+    </div>
+   </form>
+   <form method="post" action="/app/drivers/notify-expiring/" style="margin-top:12px">{% csrf_token %}
+    <button class="btn ghost" type="submit" style="font-size:13px">🔔 Send expiration reminders to drivers</button>
+    <div class="sub" style="font-size:11px;margin-top:4px">Notifies any driver (in-app + email) with a document expiring in the next 30 days.</div>
+   </form>
   </div>
  </div>
 </div>

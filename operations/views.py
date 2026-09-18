@@ -1413,6 +1413,47 @@ DQF_CHECKLIST = [
     ("Safety performance history", "safety_history"),
 ]
 
+# ===== FULL FMCSA 49 CFR Part 391 Driver Qualification File checklist =====
+# (label, doc_type, reg cite, category, required, help)
+DQF_FMCSA = [
+    # --- At hire (before the driver operates a CMV) ---
+    ("Employment application (§391.21)", "application", "391.21", "hire", True,
+     "Completed, signed driver application listing 3 yrs residence, 10 yrs employment, license history, accidents/violations."),
+    ("CDL / license — copy on file (§391.51)", "cdl", "391.51", "hire", True,
+     "Copy of the driver's current CDL. Track class/endorsements and expiration."),
+    ("Medical examiner's certificate (§391.43)", "medical", "391.43", "hire", True,
+     "Current DOT medical card from a certified examiner. Renew before expiry."),
+    ("Medical examiner National Registry verification (§391.23)", "med_registry", "391.23", "hire", True,
+     "Verify the examiner is listed on the National Registry of Certified Medical Examiners."),
+    ("Motor Vehicle Record (MVR) at hire (§391.23)", "mvr", "391.23", "hire", True,
+     "MVR from each state the driver held a license in the past 3 years, obtained within 30 days of hire."),
+    ("Road test certificate or CDL equivalency (§391.31/§391.33)", "road_test", "391.31", "hire", True,
+     "Road test given by the carrier, OR a copy of the CDL used in lieu of a road test."),
+    ("Pre-employment drug test — negative (§382.301)", "drug_test", "382.301", "hire", True,
+     "Verified negative pre-employment controlled-substances test before performing safety-sensitive duties."),
+    ("Clearinghouse pre-employment full query (§382.701)", "clearinghouse", "382.701", "hire", True,
+     "FMCSA Drug & Alcohol Clearinghouse full query with driver consent, before hire."),
+    ("Previous employer safety-performance requests (§391.23)", "prev_employer", "391.23", "hire", True,
+     "Written requests to all DOT-regulated employers for the past 3 years for safety history + drug/alcohol records (§40.25). Keep the request AND response (or documented no-response)."),
+    ("PSP report — Pre-Employment Screening (recommended)", "psp", "391.23", "hire", False,
+     "FMCSA PSP crash/inspection history. Recommended best practice (requires driver consent)."),
+    ("Entry-Level Driver Training (ELDT) certificate (§380)", "eldt", "380", "hire", False,
+     "For drivers who obtained/upgraded a CDL after Feb 7 2022 — proof of ELDT from a registered provider."),
+    ("Safety performance history investigation record (§391.23(e))", "safety_history", "391.23", "hire", True,
+     "Documented investigation into the driver's safety history from past DOT employers."),
+    # --- Ongoing / annual ---
+    ("Annual MVR (§391.25)", "annual_review", "391.25", "annual", True,
+     "Obtain a new MVR at least every 12 months and review the driver's record."),
+    ("Annual review of driving record — signed note (§391.25)", "annual_note", "391.25", "annual", True,
+     "Signed/dated note by the carrier that the annual MVR was reviewed and the driver is still qualified."),
+    ("Annual driver's certificate of violations (§391.27)", "cert_violations", "391.27", "annual", True,
+     "Driver's yearly signed list of all traffic convictions in the past 12 months (or 'none')."),
+    ("Clearinghouse annual query (§382.701)", "clearinghouse_annual", "382.701", "annual", True,
+     "Limited Clearinghouse query at least once every 12 months."),
+    ("Employer Pull Notice (EPN) enrollment — CA (§1808.1 CVC)", "epn", "CA 1808.1", "annual", False,
+     "California only: enroll the driver in the DMV Employer Pull Notice program so DMV auto-notifies you of any change to their driving record. Keep the current EPN report on file."),
+]
+
 
 def _dqf_item_status(driver, doc_type):
     """Compute status for one checklist item from the driver's documents/fields."""
@@ -1439,7 +1480,8 @@ def _dqf_item_status(driver, doc_type):
 
 
 def _dqf_overall(driver):
-    states = [_dqf_item_status(driver, dt)["state"] for _, dt in DQF_CHECKLIST]
+    # only REQUIRED items count toward qualified/action-needed
+    states = [_dqf_item_status(driver, dt)["state"] for _, dt, _, _, req, _ in DQF_FMCSA if req]
     if any(s in ("missing", "expired") for s in states):
         return {"cls": "c-red", "label": "Action needed"}
     if any(s in ("pending", "expiring") for s in states):
@@ -1450,17 +1492,23 @@ def _dqf_overall(driver):
 @login_required
 def app_driver_dqf(request, pk):
     d = _get(Driver, pk=pk, company__in=_companies_all(request))
-    items = []
-    for label, dt in DQF_CHECKLIST:
+    hire_items, annual_items = [], []
+    req_total = req_done = 0
+    for label, dt, cite, cat, req, help_ in DQF_FMCSA:
         st = _dqf_item_status(d, dt)
-        st.update({"label_name": label, "doc_type": dt})
-        items.append(st)
+        st.update({"label_name": label, "doc_type": dt, "cite": cite,
+                   "required": req, "help": help_})
+        if req:
+            req_total += 1
+            if st["state"] == "complete":
+                req_done += 1
+        (hire_items if cat == "hire" else annual_items).append(st)
     overall = _dqf_overall(d)
     upload_url = request.build_absolute_uri(f"/driver/{d.upload_token}/")
-    complete = sum(1 for i in items if i["state"] == "complete")
     return render(request, "operations/app_driver_dqf.html", {
-        "d": d, "items": items, "overall": overall, "upload_url": upload_url,
-        "complete": complete, "total": len(items),
+        "d": d, "hire_items": hire_items, "annual_items": annual_items,
+        "overall": overall, "upload_url": upload_url,
+        "req_done": req_done, "req_total": req_total,
         "doc_types": ComplianceDocument.DOC_TYPE_CHOICES,
     })
 
@@ -2332,7 +2380,14 @@ def portal_login(request, slug=None):
         login_id = request.POST.get("username", "").strip()
         pw = request.POST.get("password", "")
         user = authenticate(request, username=login_id, password=pw)
-        # If username didn't match, try treating it as a phone number (drivers)
+        # If username didn't match, try EMAIL (drivers or any user)
+        if user is None and login_id and "@" in login_id:
+            match = _User.objects.filter(email__iexact=login_id.strip()).first()
+            if match:
+                u2 = authenticate(request, username=match.username, password=pw)
+                if u2 is not None:
+                    user = u2
+        # If still no match, try treating it as a phone number (drivers)
         if user is None and login_id:
             import re as _re2
             digits = _re2.sub(r"[^0-9]", "", login_id)
@@ -5535,3 +5590,74 @@ def check_nudge(request, pk):
         company.check_amount_offset_y = 0
     company.save(update_fields=["check_amount_offset_x", "check_amount_offset_y"])
     return redirect(f"/app/pay/{pk}/check/")
+
+
+@login_required
+def dqf_email_link(request, pk):
+    """Email the driver their private DQF upload/application link."""
+    if not _is_manager(request.user):
+        _messages.error(request, "Only managers or admins can send this.")
+        return redirect("app_driver_dqf", pk=pk)
+    d = _get(Driver, pk=pk, company__in=_companies_all(request))
+    to = (request.POST.get("email") or getattr(d, "email", "") or "").strip()
+    if not to:
+        _messages.error(request, "This driver has no email — add one first.")
+        return redirect("app_driver_dqf", pk=pk)
+    # save the email to the driver if provided
+    if request.POST.get("email") and hasattr(d, "email"):
+        d.email = to[:254]
+        d.save(update_fields=["email"])
+    link = request.build_absolute_uri(f"/driver/{d.upload_token}/")
+    try:
+        from django.core.mail import EmailMessage
+        body = (f"Hi {d.first_name},\n\n{d.company.name} needs you to complete your driver "
+                f"qualification documents. Please open this secure link on your phone and "
+                f"fill out your application and upload your documents (CDL, medical card, etc.):\n\n"
+                f"{link}\n\nNo login needed — just tap the link. Thank you.\n\n{d.company.name}")
+        EmailMessage(subject=f"Complete your driver application — {d.company.name}",
+                     body=body, from_email=settings.DEFAULT_FROM_EMAIL, to=[to]).send(fail_silently=False)
+        _messages.success(request, f"Application link emailed to {to}.")
+    except Exception as e:
+        _messages.error(request, f"Could not send email: {e}")
+    return redirect("app_driver_dqf", pk=pk)
+
+
+def _notify_driver_expirations(days_ahead=30):
+    """Notify drivers (in-app + email) about documents expiring within N days.
+    Safe to call repeatedly; only notifies once per doc per window via a marker."""
+    from django.core.mail import EmailMessage
+    today = _dt.date.today()
+    horizon = today + _dt.timedelta(days=days_ahead)
+    count = 0
+    for d in Driver.objects.exclude(user__isnull=True).select_related("user", "company"):
+        expiring = []
+        # CDL + medical from driver fields
+        if d.cdl_expiry and today <= d.cdl_expiry <= horizon:
+            expiring.append(("CDL", d.cdl_expiry))
+        if d.medical_expiry and today <= d.medical_expiry <= horizon:
+            expiring.append(("Medical card", d.medical_expiry))
+        # compliance docs with expiry
+        for doc in ComplianceDocument.objects.filter(driver=d).exclude(expiry_date__isnull=True):
+            if today <= doc.expiry_date <= horizon:
+                expiring.append((doc.get_doc_type_display(), doc.expiry_date))
+        if not expiring:
+            continue
+        lines = "\n".join(f"- {name}: expires {exp}" for name, exp in expiring)
+        text = f"Reminder: you have document(s) expiring soon: " + ", ".join(f"{n} ({e})" for n, e in expiring)
+        try:
+            notify(d.user, text, kind="general", url="/driver/", company=d.company, email=True)
+            count += 1
+        except Exception:
+            pass
+    return count
+
+
+@login_required
+def dqf_notify_expiring(request):
+    """Admin action: send expiration reminders to all drivers with expiring docs."""
+    if not _is_manager(request.user):
+        _messages.error(request, "Only managers or admins can do this.")
+        return redirect("dashboard")
+    n = _notify_driver_expirations(30)
+    _messages.success(request, f"Sent expiration reminders to {n} driver(s) with documents expiring in the next 30 days.")
+    return redirect(request.META.get("HTTP_REFERER", "/app/drivers/"))

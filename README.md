@@ -1,37 +1,43 @@
 # Trucking Compliance Services — Operations Portal
 
-Search settlements by driver or company + see totals paid/unpaid.
+Drivers log in by EMAIL; one login covers loads, pay, AND documents.
 
 ## Deploy
 1. Download this zip, then in Terminal:
    cd ~/Documents/GitHub/trucking-portal && rm -rf operations trucking_ops templates manage.py requirements.txt Procfile README.md && unzip -o ~/Downloads/<THIS-FILE>.zip -d . && echo DONE
 2. GitHub Desktop -> Commit -> Push. Test in a private/incognito window.
 
-## New: search on the Driver pay page
-On Driver pay there's now a search box: type a DRIVER name (or company name) and:
-- The list filters to that driver's/company's settlements only.
-- A summary shows: how many settlements, TOTAL PAID, and total unpaid for them.
-- Below it, the complete settlement history for that driver/company is listed.
+## What's new: one driver login for everything
+- Drivers can now log in with their EMAIL (in addition to username or phone) at
+  /login/. Whatever they type -- email, username, or phone -- it finds them.
+- Once logged in, the SAME account gives the driver access to:
+  * Their loads + load history + status/navigation
+  * Upload BOL / POD
+  * Add expenses
+  * Their PAY / settlements + full pay-stub breakdown
+  * NEW: "My documents & application" -- a link in the driver portal to fill out
+    the application and upload their DQF documents (CDL, medical, etc.).
+- So the driver you email the application link to can also just log in with their
+  email and see loads + paystubs -- it's one connected experience.
 
-So you can quickly answer "how much have I paid this driver in total, and what's
-their full history" -- just type their name and search. Works with the All / Unpaid
-/ Paid filters too. Also matches an owner-operator's business (pay-to) name.
-
-Example: search "Harjeet" -> 3 settlements, Total paid $3,500, unpaid $1,800, with
-all three periods listed.
+HOW IT FITS TOGETHER:
+- The emailed application link is a no-login page for quick onboarding uploads.
+- Give the driver a login (Drivers -> Create driver login, or invite link) with
+  their email, and that same email logs them into the full portal (loads, pay,
+  documents). The login page now says "Username, email, or phone".
 
 ## Includes everything to date
-Settlement search + totals, check amount nudge, rebrand to Trucking Compliance
-Services, self-serve signup + 7-day trial, hide-load-amounts consistency,
-owner-operator company pay + EIN on 1099, driver pay-to business name, IFTA CSV
-import, P&L partner breakdown, partner statement, expense Paid-by, partner ledger,
-loads on check stub, LMP100 check layout, load photos, driver check printing,
-invoice load search + auto-fill, P&L miles + $/mi, auto loaded-miles, invoice
-unpaid-until-paid, invoice line items + email, searchable load picker, wage
-calculator, daily/per-load/percentage settlements, driver-only load picker,
-settlement PDF itemized, itemized settlement lines, driver settlement detail,
-settlement layout fix, easy driver-wage creation, rental truck swap, photo viewer
-fix, truck photo gallery, office PWA + mobile, phone tap-to-call + phone login +
+Driver email login + unified portal access, DQF EPN + email app link + expiration
+reminders, FMCSA DQF (Part 391), settlement search, check amount nudge, rebrand,
+self-serve signup + trial, hide-load-amounts, owner-operator EIN/1099, driver
+pay-to business name, IFTA CSV import, P&L partner breakdown, partner statement,
+expense Paid-by, partner ledger, loads on check stub, LMP100 check layout, load
+photos, driver check printing, invoice load search + auto-fill, P&L miles + $/mi,
+auto loaded-miles, invoice unpaid-until-paid, invoice line items + email,
+searchable load picker, wage calculator, settlements basis options, driver-only
+load picker, settlement PDF itemized, itemized lines, driver settlement detail,
+settlement layout fix, easy wage creation, rental truck swap, photo viewer fix,
+truck photo gallery, office PWA + mobile, phone tap-to-call + phone login +
 SMS-ready, driver nav + status + scanner, location notice, driver map, driver
 tracking, driver PWA, driver load detail, driver login fix, driver invite links,
 create-driver-login, driver portal, IFTA print, broker detail, driver wages

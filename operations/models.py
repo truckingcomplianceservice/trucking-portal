@@ -572,6 +572,12 @@ class ComplianceDocument(models.Model):
         ("road_test", "Road test / CDL equivalency"),
         ("safety_history", "Safety performance history"),
         ("eldt", "ELDT certificate"),
+        ("med_registry", "Medical examiner registry verification"),
+        ("prev_employer", "Previous employer safety-history request/response"),
+        ("annual_note", "Annual review signed note"),
+        ("cert_violations", "Annual certificate of violations"),
+        ("clearinghouse_annual", "Clearinghouse annual query"),
+        ("epn", "Employer Pull Notice (EPN) — CA"),
         ("w9", "W-9 (contractor)"),
         ("other", "Other"),
     ]
