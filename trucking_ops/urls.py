@@ -178,7 +178,7 @@ urlpatterns = [
     path("apply/done/", views.apply_thanks, name="apply_thanks"),
     path("apply/<str:token>/", views.apply_view, name="apply"),
     path("media/<path:path>", views.protected_media, name="protected_media"),
-    path("", RedirectView.as_view(url="/dashboard/", permanent=False)),
+    path("", views.landing, name="landing"),
 ]
 
 handler404 = "operations.views.go_home"

@@ -6099,3 +6099,10 @@ def applicant_add(request):
         form = ApplicantForm()
         form.fields["consent"].required = False
     return render(request, "operations/applicant_add.html", {"form": form, "companies": cs})
+
+
+def landing(request):
+    """Public marketing landing page. Logged-in users go to their dashboard."""
+    if request.user.is_authenticated:
+        return redirect("dashboard")
+    return render(request, "operations/landing.html", {})

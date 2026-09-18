@@ -27,14 +27,16 @@ SECRET_KEY = os.environ.get("SECRET_KEY", 'django-insecure-n8=o0o@h83^1$=1)^gic8
 DEBUG = os.environ.get("DEBUG", "False") == "True"
 
 ALLOWED_HOSTS = ["localhost", "127.0.0.1", ".railway.app"]
-if os.environ.get("ALLOWED_HOST"):
-    ALLOWED_HOSTS.append(os.environ["ALLOWED_HOST"])
 CSRF_TRUSTED_ORIGINS = ["https://*.railway.app"]
-if os.environ.get("ALLOWED_HOST"):
-    CSRF_TRUSTED_ORIGINS.append("https://" + os.environ["ALLOWED_HOST"])
+# ALLOWED_HOST may contain one domain OR several separated by commas.
+_hosts_env = os.environ.get("ALLOWED_HOST", "")
+_host_list = [h.strip() for h in _hosts_env.split(",") if h.strip()]
+for _h in _host_list:
+    ALLOWED_HOSTS.append(_h)
+    CSRF_TRUSTED_ORIGINS.append("https://" + _h)
 
-# Base URL used in notification emails (so links work). Falls back to the host.
-APP_BASE_URL = ("https://" + os.environ["ALLOWED_HOST"]) if os.environ.get("ALLOWED_HOST") else ""
+# Base URL used in notification emails (so links work). Uses the first host.
+APP_BASE_URL = ("https://" + _host_list[0]) if _host_list else ""
 
 
 # Application definition
