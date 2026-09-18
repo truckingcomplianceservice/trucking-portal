@@ -17,7 +17,8 @@
  .wrap{max-width:1080px;margin:0 auto;padding:0 22px}
  nav{background:#fff;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:50}
  .navbar{display:flex;align-items:center;justify-content:space-between;padding:15px 0}
- .logo{display:flex;align-items:center;gap:9px;color:var(--navy);font-size:21px;font-weight:800;letter-spacing:-.02em}
+ .logo{display:flex;align-items:center;gap:9px;color:var(--navy);font-size:21px;font-weight:800;letter-spacing:-.02em;flex-shrink:0}
+ .logo img{max-width:none}
  .logo .g{color:var(--gold-d)}
  .navlinks{display:flex;align-items:center;gap:20px}
  .navlinks a{color:var(--body);font-size:14px;font-weight:500}
@@ -72,7 +73,7 @@
  footer a{color:var(--gold-d)}
 </style></head><body>
 <nav><div class="wrap navbar">
- <a href="/" class="logo"><img class="lg-full" src="{% static 'img/logo.png' %}" alt="CarrierConnect360" style="height:36px;width:auto;max-width:340px"><img class="lg-mini" src="{% static 'img/icon.png' %}" alt="CarrierConnect360" style="height:38px;width:auto;display:none"></a>
+ <a href="/" class="logo"><img class="lg-full" src="{% static 'img/logo.png' %}" alt="CarrierConnect360" style="height:40px;width:auto;display:block"><img class="lg-mini" src="{% static 'img/icon.png' %}" alt="CarrierConnect360" style="height:40px;width:auto;display:none"></a>
  <div class="navlinks">
   <a href="#features" class="hidem">Features</a>
   <a href="#how" class="hidem">How it works</a>
