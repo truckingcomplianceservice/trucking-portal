@@ -17,6 +17,36 @@
  <a class="btn ghost" href="/app/pay/?show=all">View all driver pay</a>
 </div>
 
+<div class="card" style="margin-top:12px"><div class="card-h"><h3>Employment status</h3><span class="chip {% if d.status == 'active' %}c-green{% else %}c-gray{% endif %}"><span class="d"></span>{{ d.get_status_display }}</span></div>
+ <div style="padding:10px 18px 16px">
+  {% if d.hire_date %}<span class="sub">Hired {{ d.hire_date }}</span>{% endif %}
+  {% if d.termination_date %} · <span class="sub">Left {{ d.termination_date }}</span>{% endif %}
+  {% if d.rehire_date %} · <span class="sub">Rehired {{ d.rehire_date }}</span>{% endif %}
+  {% if can_manage %}
+  <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
+   {% if d.status == 'active' %}
+    <form method="post" action="/app/drivers/{{ d.id }}/terminate/" style="display:flex;gap:6px;align-items:center" onsubmit="return confirm('Mark this driver as terminated/left? Their record is kept, they become Inactive.')">{% csrf_token %}
+     <input type="date" name="date" style="padding:7px 9px;border:1px solid var(--line);border-radius:7px">
+     <input name="reason" placeholder="reason (optional)" style="padding:7px 9px;border:1px solid var(--line);border-radius:7px">
+     <button class="btn ghost" type="submit" style="color:#c0392b">Terminate / mark left</button>
+    </form>
+   {% else %}
+    <form method="post" action="/app/drivers/{{ d.id }}/rehire/" style="display:flex;gap:6px;align-items:center" onsubmit="return confirm('Rehire this driver? Their full record stays. FMCSA-required fresh items (MVR, drug test, Clearinghouse) will be flagged to redo.')">{% csrf_token %}
+     <input type="date" name="date" style="padding:7px 9px;border:1px solid var(--line);border-radius:7px">
+     <button class="btn amber" type="submit">↩ Rehire driver</button>
+    </form>
+   {% endif %}
+  </div>
+  {% endif %}
+  {% if employment_events %}
+  <div style="margin-top:12px;border-top:1px solid var(--line);padding-top:10px">
+   <b class="sub" style="font-size:12px">Employment history</b>
+   {% for e in employment_events %}<div class="sub" style="font-size:12px;padding:3px 0">{{ e.date }} — {{ e.get_kind_display }}{% if e.reason %}: {{ e.reason }}{% endif %}</div>{% endfor %}
+  </div>
+  {% endif %}
+ </div>
+</div>
+
 <div class="grid2" style="margin-top:12px">
  <div class="card"><div class="card-h"><h3>Driver</h3><a href="/app/drivers/{{ d.id }}/dqf/">DQF file</a> &nbsp; <a href="/admin/operations/driver/{{ d.id }}/change/">Edit</a></div>  <div style="padding:6px 18px 14px">
    <div class="field"><span class="k">Company</span><span class="v">{{ d.company.name }}</span></div>

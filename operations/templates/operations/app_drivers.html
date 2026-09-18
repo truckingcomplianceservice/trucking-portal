@@ -4,6 +4,26 @@
 {% block content %}
 <div class="toolbar"><div class="spacer"></div>{% if can_manage %}<form method="post" action="/app/drivers/invite/" style="display:inline">{% csrf_token %}<button class="btn ghost" type="submit">🔗 Invite driver by link</button></form> {% endif %}<a class="btn amber" href="/admin/operations/driver/add/">+ Add driver</a></div>
 
+<div class="kpis" style="grid-template-columns:1fr 1fr 1fr;margin-bottom:12px">
+ <div class="kpi"><div class="l">Active drivers</div><div class="n" style="color:#137a51">{{ total_active }}</div></div>
+ <div class="kpi"><div class="l">Inactive drivers</div><div class="n" style="color:#c0392b">{{ total_inactive }}</div></div>
+ <div class="kpi"><div class="l">Total</div><div class="n">{{ total_active|add:total_inactive }}</div></div>
+</div>
+
+{% if company_counts|length > 1 %}
+<div class="card" style="margin-bottom:12px"><div class="card-h"><h3>By company</h3></div>
+ <table><thead><tr><th>Company</th><th class="n">Active</th><th class="n">Inactive</th><th class="n">Total</th></tr></thead><tbody>
+ {% for cc in company_counts %}<tr><td><b>{{ cc.company }}</b></td><td class="n" style="color:#137a51">{{ cc.active }}</td><td class="n" style="color:#c0392b">{{ cc.inactive }}</td><td class="n"><b>{{ cc.total }}</b></td></tr>{% endfor %}
+ </tbody></table>
+</div>
+{% endif %}
+
+<div style="display:flex;gap:6px;margin-bottom:12px">
+ <a class="btn {% if status_filter == 'all' %}amber{% else %}ghost{% endif %}" href="?status=all">All</a>
+ <a class="btn {% if status_filter == 'active' %}amber{% else %}ghost{% endif %}" href="?status=active">Active</a>
+ <a class="btn {% if status_filter == 'inactive' %}amber{% else %}ghost{% endif %}" href="?status=inactive">Inactive</a>
+</div>
+
 {% if pending_drivers %}
 <div class="card" style="margin-bottom:14px;border-left:4px solid #f0c040">
  <div class="card-h"><h3>Drivers awaiting approval ({{ pending_drivers|length }})</h3></div>

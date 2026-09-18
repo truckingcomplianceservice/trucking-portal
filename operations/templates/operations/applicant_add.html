@@ -1,0 +1,35 @@
+{% extends "operations/app_base.html" %}
+{% block title %}Add driver application{% endblock %}
+{% block page_title %}Add driver application (on driver's behalf){% endblock %}
+{% block content %}
+<div style="margin-bottom:12px"><a href="/app/hiring/" class="sub" style="color:var(--blue)">&larr; Back to Hiring</a></div>
+{% if messages %}{% for m in messages %}<div style="margin:8px 0;padding:10px 14px;border-radius:8px;font-size:13px;background:#e4f4ec;color:#137a51">{{ m }}</div>{% endfor %}{% endif %}
+
+<div class="card" style="max-width:760px"><div class="card-h"><h3>Driver application</h3></div>
+ <div style="padding:16px 18px">
+  <div class="sub" style="font-size:13px;margin-bottom:14px">Fill this out for a driver who can't complete it themselves. It creates the same application record as the driver's own link — you can then convert them to a driver and build their DQF.</div>
+  <form method="post" enctype="multipart/form-data">{% csrf_token %}
+   {% if companies|length > 1 %}
+   <div style="margin-bottom:12px"><label class="sub">Company</label>
+    <select name="company" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px">{% for c in companies %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}</select></div>
+   {% endif %}
+   {% for field in form %}
+   <div style="margin-bottom:12px">
+    {% if field.name == "consent" %}
+     <label style="display:flex;align-items:center;gap:8px;font-size:13px">{{ field }} {{ field.label }} <span class="sub" style="font-size:11px">(optional when staff-entered)</span></label>
+    {% else %}
+     <label class="sub">{{ field.label }}</label>
+     {{ field }}
+     {% if field.help_text %}<div class="sub" style="font-size:11px;margin-top:3px">{{ field.help_text }}</div>{% endif %}
+    {% endif %}
+    {% if field.errors %}<div style="color:#c0392b;font-size:12px">{{ field.errors|join:", " }}</div>{% endif %}
+   </div>
+   {% endfor %}
+   <button class="btn amber" type="submit">Save application</button>
+  </form>
+ </div>
+</div>
+<style>
+ .card form input[type=text],.card form input[type=email],.card form input[type=date],.card form input:not([type]),.card form select,.card form textarea{width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;font-size:14px}
+</style>
+{% endblock %}

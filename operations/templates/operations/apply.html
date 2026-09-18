@@ -47,6 +47,16 @@
        <div class="fld">
          <label>{{ field.label }}</label>
          {{ field }}
+         {% if field.name == "email" %}
+         <div style="display:flex;gap:8px;margin-top:6px">
+          <button type="button" id="ev_send" onclick="evSendApply()" style="padding:8px 14px;border:1px solid #b39a6d;background:#fff;color:#b39a6d;border-radius:8px;font-weight:600;cursor:pointer">Send verification code</button>
+         </div>
+         <div id="ev_row" style="display:none;margin-top:6px;display:flex;gap:8px">
+          <input id="ev_code" inputmode="numeric" placeholder="6-digit code" style="flex:1;padding:9px 11px;border:1px solid #e2e6ee;border-radius:8px">
+          <button type="button" onclick="evCheckApply()" style="padding:8px 14px;border:none;background:#1e2d45;color:#fff;border-radius:8px;font-weight:600;cursor:pointer">Verify</button>
+         </div>
+         <div id="ev_msg" style="font-size:13px;margin-top:5px"></div>
+         {% endif %}
          {% if field.help_text %}<div class="help">{{ field.help_text }}</div>{% endif %}
          {% if field.errors %}<div class="errors">{{ field.errors|join:", " }}</div>{% endif %}
        </div>
@@ -54,4 +64,26 @@
    {% endfor %}
    <button type="submit">Submit application</button>
  </form>
+<script>
+function getCookie(n){var v=document.cookie.match('(^|;)\\s*'+n+'\\s*=\\s*([^;]+)');return v?v.pop():'';}
+function evEmail(){var e=document.querySelector('[name=email]');return e?e.value.trim():'';}
+function evSendApply(){
+ var email=evEmail();if(!email){document.getElementById('ev_msg').textContent='Enter your email first.';return;}
+ var fd=new FormData();fd.append('email',email);fd.append('purpose','apply');fd.append('csrfmiddlewaretoken',getCookie('csrftoken'));
+ fetch('/verify/send-code/',{method:'POST',body:fd}).then(function(r){return r.json();}).then(function(j){
+  var m=document.getElementById('ev_msg');
+  if(j.ok){document.getElementById('ev_row').style.display='flex';m.style.color='#137a51';m.textContent='Code sent — check your email.';}
+  else{m.style.color='#c0392b';m.textContent=j.error||'Could not send code.';}
+ });
+}
+function evCheckApply(){
+ var email=evEmail();var code=document.getElementById('ev_code').value.trim();
+ var fd=new FormData();fd.append('email',email);fd.append('code',code);fd.append('purpose','apply');fd.append('csrfmiddlewaretoken',getCookie('csrftoken'));
+ fetch('/verify/check-code/',{method:'POST',body:fd}).then(function(r){return r.json();}).then(function(j){
+  var m=document.getElementById('ev_msg');
+  if(j.ok){m.style.color='#137a51';m.textContent='✓ Email verified. You can now submit your application.';document.getElementById('ev_send').textContent='Verified ✓';}
+  else{m.style.color='#c0392b';m.textContent=j.error||'Wrong code.';}
+ });
+}
+</script>
 </div></body></html>

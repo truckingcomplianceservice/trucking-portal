@@ -5,6 +5,7 @@ from django.contrib.auth.decorators import login_required
 from django.db.models import Sum, Q
 from django.shortcuts import render, get_object_or_404, redirect
 from django.views.static import serve
+from django.views.decorators.http import require_POST
 from django.conf import settings
 from .models import (DriverLocation, LoadStatusEvent, Partner, PartnerPayback,
     TeamMessage, ShiftHandoff, Notification, TaskComment, IftaStateEntry, TeamInvite, BrokerAgent, Company, Load, Expense, Settlement, Driver, Vehicle, Applicant, ApplicantStatusHistory, SignatureRecord, AuditorLink,
@@ -127,6 +128,13 @@ def apply_view(request, token):
     company = get_object_or_404(Company, apply_token=token, active=True)
     if request.method == "POST":
         form = ApplicantForm(request.POST, request.FILES)
+        applicant_email = (request.POST.get("email") or "").strip()
+        if not applicant_email or "@" not in applicant_email:
+            form.add_error("email", "A valid email is required.")
+        elif not _email_verified(request, applicant_email, "apply"):
+            form.add_error("email", "Please verify your email — click 'Send code', enter the code we email you, then submit.")
+        if form.errors:
+            return render(request, "operations/apply.html", {"form": form, "company": company})
         if form.is_valid():
             applicant = form.save(commit=False)
             applicant.company = company
@@ -542,9 +550,25 @@ def load_photo_remove(request, pk, photo_pk):
 def app_drivers(request):
     cs = _companies(request)
     drivers = Driver.objects.filter(company__in=cs).select_related("company")
+    # filter by status
+    status_filter = request.GET.get("status", "all")
+    if status_filter == "active":
+        drivers = drivers.filter(status="active")
+    elif status_filter == "inactive":
+        drivers = drivers.filter(status="inactive")
     rows = [{"o": d, "cdl": _exp_chip(d.cdl_expiry), "med": _exp_chip(d.medical_expiry),
              "dqf": _dqf_overall(d),
              "initials": (d.first_name[:1] + d.last_name[:1]).upper()} for d in drivers]
+    # active/inactive counts per company (all drivers, unfiltered)
+    all_drivers = Driver.objects.filter(company__in=cs)
+    total_active = all_drivers.filter(status="active").count()
+    total_inactive = all_drivers.filter(status="inactive").count()
+    company_counts = []
+    for co in cs:
+        a = all_drivers.filter(company=co, status="active").count()
+        i = all_drivers.filter(company=co, status="inactive").count()
+        if a or i:
+            company_counts.append({"company": co.name, "active": a, "inactive": i, "total": a + i})
     # open + pending driver invites
     pend = (TeamInvite.objects.filter(company__in=cs, role="driver", status="submitted")
             .select_related("user"))
@@ -553,7 +577,9 @@ def app_drivers(request):
                   for i in TeamInvite.objects.filter(company__in=cs, role="driver", status="pending")]
     return render(request, "operations/app_drivers.html", {
         "rows": rows, "can_manage": _is_manager(request.user),
-        "pending_drivers": pend, "open_driver_links": open_links})
+        "pending_drivers": pend, "open_driver_links": open_links,
+        "total_active": total_active, "total_inactive": total_inactive,
+        "company_counts": company_counts, "status_filter": status_filter})
 
 
 @require_section("drivers")
@@ -568,6 +594,7 @@ def app_driver_detail(request, pk):
                    "can_manage": _is_manager(request.user),
                    "can_delete": _can_delete(request.user),
                    "has_login": bool(d.user),
+                   "employment_events": d.employment_events.all()[:10],
                    "login_username": d.user.username if d.user else ""})
 
 
@@ -757,13 +784,42 @@ def applicant_detail(request, pk):
                 d = Driver.objects.create(
                     company=a.company, first_name=a.first_name, last_name=a.last_name,
                     phone=a.phone, email=a.email, address=a.current_address,
-                    cdl_number=a.cdl_number, cdl_class=a.cdl_class or "", status="active")
+                    cdl_number=a.cdl_number, cdl_class=a.cdl_class or "",
+                    cdl_expiry=getattr(a, "cdl_expiry", None),
+                    status="active")
+                # carry the FMCSA application details into the driver's record + notes
+                summary = []
+                if getattr(a, "date_of_birth", None): summary.append(f"DOB: {a.date_of_birth}")
+                if a.cdl_state: summary.append(f"CDL state: {a.cdl_state}")
+                if getattr(a, "years_experience", None) is not None: summary.append(f"Experience: {a.years_experience} yrs")
+                if getattr(a, "emergency_contact", ""): summary.append(f"Emergency: {a.emergency_contact}")
+                app_record = "\n".join([
+                    "--- Application record (converted) ---",
+                    " | ".join(summary) if summary else "",
+                    f"Address history:\n{a.address_history}" if a.address_history else "",
+                    f"Employment history (10yr):\n{a.employment_history}" if a.employment_history else "",
+                    f"Convictions (12mo): {getattr(a,'convictions_12mo','') or a.accidents}" ,
+                    f"Accidents (3yr): {getattr(a,'accidents_3yr','')}" if getattr(a,'accidents_3yr','') else "",
+                    f"Other licenses (3yr): {getattr(a,'other_licenses','')}" if getattr(a,'other_licenses','') else "",
+                ]).strip()
+                d.notes = (getattr(d, "notes", "") + "\n\n" + app_record).strip() if hasattr(d, "notes") else d.notes
+                if hasattr(d, "notes"):
+                    d.save(update_fields=["notes"])
+                # move the applicant's uploaded files into the driver's compliance docs
+                filemap = [("cdl_file", "cdl"), ("medical_file", "medical"), ("other_file", "other")]
+                for field, dt in filemap:
+                    f = getattr(a, field, None)
+                    if f:
+                        ComplianceDocument.objects.create(company=a.company, driver=d,
+                            doc_type=dt, file=f, verified=False, review_status="pending")
+                # link the applicant's e-signatures to the new driver
+                SignatureRecord.objects.filter(applicant=a).update(driver=d)
                 a.converted_driver = d
                 ApplicantStatusHistory.objects.create(
                     applicant=a, from_stage=a.stage, to_stage="active",
                     reason="Converted to active driver", changed_by=request.user)
                 a.stage = "active"; a.save()
-                _messages.success(request, f"{a.full_name} is now an active driver.")
+                _messages.success(request, f"{a.full_name} is now an active driver — application, documents, and signatures carried into their record.")
                 return redirect("applicant_detail", pk=a.pk)
         return redirect("applicant_detail", pk=a.pk)
     recruiters = _User.objects.filter(is_active=True).order_by("username")
@@ -5528,6 +5584,8 @@ def signup(request):
             error = "Passwords don't match."
         elif len(pw) < 8:
             error = "Password must be at least 8 characters."
+        elif not _email_verified(request, email, "signup"):
+            error = "Please verify your email first — click 'Send code', enter the code we email you, then submit."
         elif _User.objects.filter(username__iexact=username).exists():
             error = "That username is taken — pick another."
         else:
@@ -5889,3 +5947,155 @@ def consent_pdf(request, pk):
     resp = HttpResponse(pdf, content_type="application/pdf")
     resp["Content-Disposition"] = f'inline; filename="consent_{con.driver}_{con.kind}.pdf"'
     return resp
+
+
+@login_required
+def driver_terminate(request, pk):
+    """Mark a driver as terminated / left (inactive), keeping their full record."""
+    if not _is_manager(request.user):
+        _messages.error(request, "Only managers or admins can do this.")
+        return redirect("app_driver_detail", pk=pk)
+    from .models import DriverEmploymentEvent
+    d = _get(Driver, pk=pk, company__in=_companies_all(request))
+    if request.method == "POST":
+        date = _parse_date(request.POST.get("date", "")) or _dt.date.today()
+        d.status = "inactive"
+        d.termination_date = date
+        d.save(update_fields=["status", "termination_date"])
+        DriverEmploymentEvent.objects.create(driver=d, company=d.company, kind="terminate",
+            date=date, reason=request.POST.get("reason", "").strip()[:200], by_user=request.user)
+        _messages.success(request, f"{d} marked as terminated/left on {date}. Their record is kept.")
+    return redirect("app_driver_detail", pk=pk)
+
+
+# FMCSA items that must be re-done on rehire (fresh MVR, drug test, Clearinghouse)
+REHIRE_RESET_DOCS = ["mvr", "drug_test", "clearinghouse", "annual_review", "safety_history"]
+
+
+@login_required
+def driver_rehire(request, pk):
+    """Rehire a driver: reactivate, keep history, and flag the fresh FMCSA items
+    that must be redone (new MVR, drug test, Clearinghouse query, etc.)."""
+    if not _is_manager(request.user):
+        _messages.error(request, "Only managers or admins can do this.")
+        return redirect("app_driver_detail", pk=pk)
+    from .models import DriverEmploymentEvent
+    d = _get(Driver, pk=pk, company__in=_companies_all(request))
+    if request.method == "POST":
+        date = _parse_date(request.POST.get("date", "")) or _dt.date.today()
+        d.status = "active"
+        d.rehire_date = date
+        d.save(update_fields=["status", "rehire_date"])
+        # Reset the FMCSA items that must be current for a rehire: mark those
+        # compliance docs unverified so the DQF shows them as needing action again.
+        reset = ComplianceDocument.objects.filter(driver=d, doc_type__in=REHIRE_RESET_DOCS)
+        n = reset.update(verified=False, review_status="pending")
+        DriverEmploymentEvent.objects.create(driver=d, company=d.company, kind="rehire",
+            date=date, reason=request.POST.get("reason", "").strip()[:200], by_user=request.user)
+        _messages.success(request,
+            f"{d} rehired on {date}. Their full record is intact. FMCSA requires fresh "
+            f"MVR, pre-employment drug test, and Clearinghouse query on rehire — those "
+            f"DQF items are now flagged for action ({n} reset).")
+    return redirect("app_driver_dqf", pk=pk)
+
+
+# ================= Email verification (for signup + application) =================
+def _send_email_code(request, email, purpose):
+    """Generate a 6-digit code, store it in session keyed by purpose, and email it."""
+    import random
+    from django.utils import timezone as _tz
+    code = f"{random.randint(0, 999999):06d}"
+    request.session[f"evcode_{purpose}"] = code
+    request.session[f"evemail_{purpose}"] = email
+    request.session[f"evexp_{purpose}"] = (_tz.now() + _dt.timedelta(minutes=15)).isoformat()
+    request.session.modified = True
+    try:
+        from django.core.mail import EmailMessage
+        EmailMessage(subject=f"Your verification code: {code}",
+            body=f"Your email verification code is: {code}\n\nEnter this to continue. It expires in 15 minutes.",
+            from_email=settings.DEFAULT_FROM_EMAIL, to=[email]).send(fail_silently=False)
+        return True, ""
+    except Exception as e:
+        return False, str(e)
+
+
+def _check_email_code(request, email, code, purpose):
+    """Return True if the code matches the one we sent to this email and isn't expired."""
+    from django.utils import timezone as _tz
+    saved = request.session.get(f"evcode_{purpose}")
+    saved_email = request.session.get(f"evemail_{purpose}")
+    exp = request.session.get(f"evexp_{purpose}")
+    if not (saved and saved_email and exp):
+        return False
+    try:
+        expired = _tz.now() > _dt.datetime.fromisoformat(exp)
+    except Exception:
+        expired = True
+    return (not expired) and (email.strip().lower() == saved_email.strip().lower()) and (code.strip() == saved)
+
+
+def _email_verified(request, email, purpose):
+    return request.session.get(f"evok_{purpose}") == (email or "").strip().lower()
+
+
+def _mark_verified(request, email, purpose):
+    request.session[f"evok_{purpose}"] = (email or "").strip().lower()
+    request.session.modified = True
+
+
+@require_POST
+def send_email_code(request):
+    """AJAX-ish endpoint: send a verification code to an email for a given purpose."""
+    from django.http import JsonResponse
+    email = (request.POST.get("email") or "").strip()
+    purpose = request.POST.get("purpose", "signup")
+    if "@" not in email or "." not in email:
+        return JsonResponse({"ok": False, "error": "Enter a valid email."})
+    ok, err = _send_email_code(request, email, purpose)
+    return JsonResponse({"ok": ok, "error": err})
+
+
+@require_POST
+def verify_email_code(request):
+    from django.http import JsonResponse
+    email = (request.POST.get("email") or "").strip()
+    code = (request.POST.get("code") or "").strip()
+    purpose = request.POST.get("purpose", "signup")
+    if _check_email_code(request, email, code, purpose):
+        _mark_verified(request, email, purpose)
+        return JsonResponse({"ok": True})
+    return JsonResponse({"ok": False, "error": "Wrong or expired code."})
+
+
+@login_required
+def applicant_add(request):
+    """A team member fills out a driver application on the driver's behalf (internal)."""
+    if not _is_manager(request.user) and not (hasattr(request.user, "profile") and request.user.profile.role in ["dispatcher", "safety", "compliance"]):
+        _messages.error(request, "You don't have access to add applications.")
+        return redirect("app_hiring")
+    cs = _companies(request)
+    company = cs.first()
+    if request.method == "POST":
+        form = ApplicantForm(request.POST, request.FILES)
+        # staff entering it -> no email verification required, and consent is on their behalf
+        form.fields["consent"].required = False
+        if form.is_valid():
+            a = form.save(commit=False)
+            # company: allow choosing if multiple
+            cid = request.POST.get("company")
+            a.company = Company.objects.filter(pk=cid, pk__in=[c.pk for c in cs]).first() or company
+            a.stage = "applied"
+            a.notes = (a.notes + f"\n[Entered by {request.user.get_full_name() or request.user.username} on {_dt.date.today()}]").strip()
+            a.save()
+            if a.signature:
+                _record_signature(request, company=a.company, applicant=a,
+                    form_name="Driver Employment Application (staff-entered)", form_version="1.0",
+                    signer_name=a.signature,
+                    consent_text="Application entered by carrier staff on the applicant's behalf.",
+                    content=f"{a.id}|{a.first_name}|{a.last_name}|{a.signature}")
+            _messages.success(request, f"Application for {a.first_name} {a.last_name} added.")
+            return redirect("applicant_detail", pk=a.pk)
+    else:
+        form = ApplicantForm()
+        form.fields["consent"].required = False
+    return render(request, "operations/applicant_add.html", {"form": form, "companies": cs})

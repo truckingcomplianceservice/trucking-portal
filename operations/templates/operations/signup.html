@@ -34,7 +34,18 @@
   <form method="post" style="margin-top:6px">{% csrf_token %}
    <label>Company name</label><input name="company_name" required placeholder="e.g. Pure 99 Inc" value="{{ request.POST.company_name }}">
    <label>Your name</label><input name="full_name" placeholder="First Last" value="{{ request.POST.full_name }}">
-   <label>Email</label><input name="email" type="email" required placeholder="you@company.com" value="{{ request.POST.email }}">
+   <label>Email</label>
+   <div style="display:flex;gap:8px">
+    <input name="email" id="ev_email" type="email" required placeholder="you@company.com" value="{{ request.POST.email }}" style="flex:1">
+    <button type="button" id="ev_send" onclick="evSend('signup')" style="white-space:nowrap;padding:0 14px;border:1px solid var(--gold);background:#fff;color:var(--gold);border-radius:9px;font-weight:600;cursor:pointer">Send code</button>
+   </div>
+   <div id="ev_row" style="display:none;margin-top:8px">
+    <div style="display:flex;gap:8px">
+     <input id="ev_code" inputmode="numeric" placeholder="6-digit code from email" style="flex:1">
+     <button type="button" onclick="evCheck('signup')" style="white-space:nowrap;padding:0 14px;border:none;background:var(--navy);color:#fff;border-radius:9px;font-weight:600;cursor:pointer">Verify</button>
+    </div>
+   </div>
+   <div id="ev_msg" style="font-size:13px;margin-top:6px"></div>
    <label>Choose a username</label><input name="username" required autocapitalize="none" value="{{ request.POST.username }}">
    <label>Password (min 8 characters)</label><input name="password" type="password" required>
    <label>Confirm password</label><input name="password2" type="password" required>
@@ -64,4 +75,26 @@
 
 </div>
 <div class="foot">Trucking Compliance Services — built for carriers of every size. Questions? Contact us before you sign up.</div>
+<script>
+function getCookie(n){var v=document.cookie.match('(^|;)\\s*'+n+'\\s*=\\s*([^;]+)');return v?v.pop():'';}
+var evVerified=false;
+function evSend(purpose){
+ var email=document.getElementById('ev_email').value.trim();
+ if(!email){document.getElementById('ev_msg').textContent='Enter your email first.';return;}
+ var fd=new FormData();fd.append('email',email);fd.append('purpose',purpose);fd.append('csrfmiddlewaretoken',getCookie('csrftoken'));
+ fetch('/verify/send-code/',{method:'POST',body:fd}).then(function(r){return r.json();}).then(function(j){
+  if(j.ok){document.getElementById('ev_row').style.display='block';document.getElementById('ev_msg').style.color='#137a51';document.getElementById('ev_msg').textContent='Code sent — check your email.';}
+  else{document.getElementById('ev_msg').style.color='#c0392b';document.getElementById('ev_msg').textContent=j.error||'Could not send code.';}
+ });
+}
+function evCheck(purpose){
+ var email=document.getElementById('ev_email').value.trim();
+ var code=document.getElementById('ev_code').value.trim();
+ var fd=new FormData();fd.append('email',email);fd.append('code',code);fd.append('purpose',purpose);fd.append('csrfmiddlewaretoken',getCookie('csrftoken'));
+ fetch('/verify/check-code/',{method:'POST',body:fd}).then(function(r){return r.json();}).then(function(j){
+  if(j.ok){evVerified=true;document.getElementById('ev_msg').style.color='#137a51';document.getElementById('ev_msg').textContent='✓ Email verified. You can now submit.';document.getElementById('ev_send').textContent='Verified ✓';}
+  else{document.getElementById('ev_msg').style.color='#c0392b';document.getElementById('ev_msg').textContent=j.error||'Wrong code.';}
+ });
+}
+</script>
 </body></html>

@@ -186,6 +186,8 @@ class Driver(models.Model):
     medical_expiry = models.DateField("Medical card expiry", null=True, blank=True)
 
     hire_date = models.DateField(null=True, blank=True)
+    termination_date = models.DateField("Last termination/leave date", null=True, blank=True)
+    rehire_date = models.DateField("Most recent rehire date", null=True, blank=True)
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default="active")
 
     driver_type = models.CharField(max_length=15, choices=TYPE_CHOICES, default="company",
@@ -943,6 +945,22 @@ class DriverConsent(models.Model):
 
     def __str__(self):
         return f"{self.get_kind_display()} — {self.driver}"
+
+
+class DriverEmploymentEvent(models.Model):
+    """Log of hire / terminate / rehire events for a driver (audit trail)."""
+    KIND = [("hire","Hired"),("terminate","Terminated / left"),("rehire","Rehired")]
+    driver = models.ForeignKey("Driver", on_delete=models.CASCADE, related_name="employment_events")
+    company = models.ForeignKey(Company, on_delete=models.CASCADE)
+    kind = models.CharField(max_length=10, choices=KIND)
+    date = models.DateField()
+    reason = models.CharField(max_length=200, blank=True)
+    by_user = models.ForeignKey("auth.User", on_delete=models.SET_NULL, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    class Meta:
+        ordering = ["-date","-id"]
+    def __str__(self):
+        return f"{self.get_kind_display()} — {self.driver} ({self.date})"
 
 
 class DriverLocation(models.Model):

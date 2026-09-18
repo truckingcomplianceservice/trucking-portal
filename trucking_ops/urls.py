@@ -7,6 +7,8 @@ from django.views.generic import RedirectView
 from operations import views
 
 urlpatterns = [
+    path("verify/send-code/", views.send_email_code, name="send_email_code"),
+    path("verify/check-code/", views.verify_email_code, name="verify_email_code"),
     path("consent/<str:token>/", views.consent_sign, name="consent_sign"),
     path("app/drivers/<int:pk>/consent/", views.consent_create, name="consent_create"),
     path("app/consent/<int:pk>/pdf/", views.consent_pdf, name="consent_pdf"),
@@ -85,6 +87,8 @@ urlpatterns = [
     path("app/loads/<int:pk>/doc/", views.load_doc_upload, name="load_doc_upload"),
     path("app/drivers/", views.app_drivers, name="app_drivers"),
     path("app/drivers/<int:pk>/", views.app_driver_detail, name="app_driver_detail"),
+    path("app/drivers/<int:pk>/terminate/", views.driver_terminate, name="driver_terminate"),
+    path("app/drivers/<int:pk>/rehire/", views.driver_rehire, name="driver_rehire"),
     path("app/drivers/<int:pk>/create-login/", views.driver_create_login, name="driver_create_login"),
     path("app/drivers/<int:pk>/pay-to/", views.driver_pay_to_save, name="driver_pay_to_save"),
     path("app/drivers/invite/", views.driver_invite_create, name="driver_invite_general"),
@@ -112,6 +116,7 @@ urlpatterns = [
     path("app/vehicles/<int:pk>/report/", views.vehicle_report_pdf, name="vehicle_report_pdf"),
     path("app/vehicles/<int:pk>/report/email/", views.email_vehicle_report, name="email_vehicle_report"),
     path("app/hiring/", views.app_hiring, name="app_hiring"),
+    path("app/hiring/add/", views.applicant_add, name="applicant_add"),
     path("app/hiring/<int:pk>/", views.applicant_detail, name="applicant_detail"),
     path("app/dqf/", views.dqf_list, name="dqf_list"),
     path("app/dqf/<int:pk>/", views.dqf_detail, name="dqf_detail"),
