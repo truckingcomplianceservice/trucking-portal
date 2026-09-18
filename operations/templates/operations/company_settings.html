@@ -1,0 +1,42 @@
+{% extends "operations/app_base.html" %}
+{% block title %}Company settings{% endblock %}
+{% block page_title %}Company settings{% endblock %}
+{% block content %}
+{% if messages %}{% for m in messages %}<div style="margin:8px 0;padding:10px 14px;border-radius:8px;font-size:13px;background:{% if m.tags == 'error' %}#fbe7e5;color:#b02b24{% else %}#e4f4ec;color:#137a51{% endif %}">{{ m }}</div>{% endfor %}{% endif %}
+
+<div class="card" style="max-width:680px"><div class="card-h"><h3>Your company — logo &amp; info</h3></div>
+ <div style="padding:16px 18px">
+  <p class="sub" style="font-size:13px;margin-bottom:14px">This logo and information appear on your invoices, settlements, 1099s, IFTA, and every report — so your documents look like your own company.</p>
+  <form method="post" enctype="multipart/form-data">{% csrf_token %}
+
+   <div style="display:flex;gap:18px;align-items:flex-start;flex-wrap:wrap;margin-bottom:18px">
+    <div>
+     <label class="sub">Company logo</label>
+     <div style="margin-top:6px;width:180px;height:90px;border:1px dashed var(--line);border-radius:10px;display:flex;align-items:center;justify-content:center;background:#fafbfc;overflow:hidden">
+      {% if company.logo %}<img src="{{ company.logo.url }}" alt="logo" style="max-width:100%;max-height:100%;object-fit:contain">{% else %}<span class="sub" style="font-size:12px">No logo yet</span>{% endif %}
+     </div>
+     <input type="file" name="logo" accept="image/*" style="margin-top:8px;font-size:13px">
+     {% if company.logo %}<label style="display:block;font-size:12px;margin-top:6px"><input type="checkbox" name="remove_logo" value="1" style="width:auto"> Remove current logo</label>{% endif %}
+     <div class="sub" style="font-size:11px;margin-top:4px">PNG or JPG. A wide logo (with your name) works best. Transparent PNG looks cleanest.</div>
+    </div>
+    <div style="flex:1;min-width:220px">
+     <label class="sub">Company name</label>
+     <input name="name" value="{{ company.name }}" required style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;margin-bottom:10px">
+     <label class="sub">Mailing address</label>
+     <input name="address" value="{{ company.address }}" placeholder="Street, City, State ZIP" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;margin-bottom:10px">
+     <label class="sub">Phone</label>
+     <input name="phone" value="{{ company.phone }}" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px">
+    </div>
+   </div>
+
+   <div style="display:flex;gap:12px;flex-wrap:wrap">
+    <div style="flex:1;min-width:120px"><label class="sub">MC number</label><input name="mc_number" value="{{ company.mc_number }}" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px"></div>
+    <div style="flex:1;min-width:120px"><label class="sub">DOT number</label><input name="dot_number" value="{{ company.dot_number }}" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px"></div>
+    <div style="flex:1;min-width:120px"><label class="sub">EIN (tax ID)</label><input name="ein" value="{{ company.ein }}" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px"></div>
+   </div>
+
+   <div style="margin-top:16px"><button class="btn amber" type="submit">Save company settings</button></div>
+  </form>
+ </div>
+</div>
+{% endblock %}

@@ -48,7 +48,8 @@
   <div class="card" style="margin-top:14px"><div class="card-h"><h3>Loads covered ({{ settle_loads.count }})</h3>
    <div style="display:flex;gap:6px">
     <form method="post" style="display:inline">{% csrf_token %}<input type="hidden" name="action" value="toggle_hide_amounts"><button class="btn ghost" style="padding:5px 10px;font-size:12px" type="submit">{% if s.hide_load_amounts %}Show $ amounts{% else %}Hide $ amounts{% endif %}</button></form>
-    <form method="post" style="display:inline">{% csrf_token %}<input type="hidden" name="action" value="use_loads_total"><button class="btn ghost" style="padding:5px 10px;font-size:12px" type="submit">Use loads total{% if not hide_amounts %} (${{ loads_total|floatformat:2|intcomma }}){% endif %} as gross</button></form></div></div>
+    <form method="post" style="display:inline">{% csrf_token %}<input type="hidden" name="action" value="use_loads_total"><button class="btn ghost" style="padding:5px 10px;font-size:12px" type="submit">Use loads total{% if not hide_amounts %} (${{ loads_total|floatformat:2|intcomma }}){% endif %} as gross</button></form>
+    <form method="post" style="display:inline">{% csrf_token %}<input type="hidden" name="action" value="team_split"><button class="btn ghost" style="padding:5px 10px;font-size:12px" type="submit" title="Split loads total 50/50 for team drivers">Team split 50/50{% if not hide_amounts %} (${{ loads_total|floatformat:2|intcomma }} ÷ 2){% endif %}</button></form></div></div>
    <div style="padding:14px 16px">
     {% if settle_loads %}<table><thead><tr><th>Pickup</th><th>Ref</th><th>Route</th>{% if not hide_amounts %}<th class="n">Rate</th>{% endif %}<th></th></tr></thead><tbody>
     {% for l in settle_loads %}<tr>

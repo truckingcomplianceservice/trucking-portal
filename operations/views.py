@@ -417,13 +417,39 @@ def dashboard(request):
         u = prof.user
         team_rows.append({"name": (u.get_full_name() or u.username), "role": prof.get_role_display()})
 
+    # ---- Onboarding checklist (for new companies) ----
+    active_co = None
+    av = _active(request)
+    if av and av != "all":
+        active_co = companies.filter(pk=av).first()
+    if active_co is None:
+        active_co = companies.first()
+    onboarding = None
+    if active_co:
+        steps = [
+            {"key": "logo", "label": "Upload your company logo", "url": "/app/company-settings/",
+             "done": bool(active_co.logo)},
+            {"key": "truck", "label": "Add your first truck", "url": "/admin/operations/vehicle/add/",
+             "done": Vehicle.objects.filter(company=active_co).exists()},
+            {"key": "driver", "label": "Add a driver", "url": "/admin/operations/driver/add/",
+             "done": Driver.objects.filter(company=active_co).exists()},
+            {"key": "load", "label": "Create your first load", "url": "/app/loads/",
+             "done": Load.objects.filter(company=active_co).exists()},
+            {"key": "broker", "label": "Add a broker/customer", "url": "/app/brokers/",
+             "done": Broker.objects.filter(loads__company=active_co).exists()},
+        ]
+        done_n = sum(1 for s in steps if s["done"])
+        # only show the checklist until everything is done
+        if done_n < len(steps):
+            onboarding = {"steps": steps, "done": done_n, "total": len(steps),
+                          "pct": int(done_n * 100 / len(steps))}
     return render(request, "operations/dashboard.html", {
         "active_loads": active_loads, "driver_count": driver_count,
         "outstanding": outstanding, "alert_count": len(alerts),
         "alerts": alerts[:6], "recent_loads": recent_loads,
         "recent_activity": recent_activity, "company_count": companies.count(),
         "kpi": kpi, "driver_rows": driver_rows[:8], "truck_rows": truck_rows[:8],
-        "team_rows": team_rows, "kpi_year": today.year,
+        "team_rows": team_rows, "kpi_year": today.year, "onboarding": onboarding,
     })
 
 
@@ -1077,6 +1103,7 @@ def fuel_add(request):
                 date=_parse_date(request.POST.get("date", "")) or _dt.date.today(),
                 vehicle=Vehicle.objects.filter(pk=request.POST.get("vehicle"), company__in=cs).first(),
                 driver=Driver.objects.filter(pk=request.POST.get("driver"), company__in=cs).first(),
+                co_driver=Driver.objects.filter(pk=request.POST.get("co_driver"), company__in=cs).first() if request.POST.get("co_driver") else None,
                 location=request.POST.get("location", "").strip()[:160],
                 ifta_state=request.POST.get("ifta_state", "").strip().upper()[:2],
                 gallons=round(_num(request.POST.get("gallons", "0")), 2),
@@ -2884,6 +2911,11 @@ def driver_pay_detail(request, pk):
         elif action == "use_loads_total":
             s.gross_pay = s.loads.aggregate(x=Sum("rate"))["x"] or 0
             s.save(); _messages.success(request, "Gross pay set from the attached loads.")
+        elif action == "team_split":
+            # 50/50 team split: this driver gets half of the attached loads' total
+            total = float(s.loads.aggregate(x=Sum("rate"))["x"] or 0)
+            s.gross_pay = round(total / 2, 2)
+            s.save(); _messages.success(request, f"Team 50/50 split applied — this driver's gross set to ${s.gross_pay} (half of ${total:.2f} loads total).")
         elif action == "use_percent":
             pct = _num(request.POST.get("percent", "0"))
             total = float(s.loads.aggregate(x=Sum("rate"))["x"] or 0)
@@ -3669,6 +3701,7 @@ def app_load_new(request):
                 pickup_date=_parse_date(request.POST.get("pickup_date", "")) or None,
                 delivery_date=_parse_date(request.POST.get("delivery_date", "")) or None,
                 driver=Driver.objects.filter(pk=request.POST.get("driver"), company__in=cs).first(),
+                co_driver=Driver.objects.filter(pk=request.POST.get("co_driver"), company__in=cs).first() if request.POST.get("co_driver") else None,
                 vehicle=Vehicle.objects.filter(pk=request.POST.get("vehicle"), company__in=cs).first(),
                 status=request.POST.get("status", "booked"),
                 payment_status=request.POST.get("payment_status", "unpaid"))
@@ -4686,7 +4719,7 @@ def _driver_required(view):
 @_driver_required
 def driver_portal(request, drv):
     """Driver home: their loads summary, pay summary, quick actions."""
-    loads = Load.objects.filter(driver=drv).select_related("broker", "vehicle").order_by("-pickup_date", "-id")
+    loads = Load.objects.filter(Q(driver=drv) | Q(co_driver=drv)).select_related("broker", "vehicle").order_by("-pickup_date", "-id")
     active = loads.exclude(status__in=["delivered", "invoiced", "paid"])[:10]
     recent = loads[:10]
     setts = Settlement.objects.filter(driver=drv).order_by("-period_end")
@@ -4705,7 +4738,7 @@ def driver_portal(request, drv):
 @_driver_required
 def driver_portal_loads(request, drv):
     """Full load history for the driver."""
-    loads = Load.objects.filter(driver=drv).select_related("broker", "vehicle").order_by("-pickup_date", "-id")
+    loads = Load.objects.filter(Q(driver=drv) | Q(co_driver=drv)).select_related("broker", "vehicle").order_by("-pickup_date", "-id")
     return render(request, "operations/driver_loads.html", {
         "drv": drv, "loads": loads, "see_rate": drv.company.drivers_see_rate,
         "company": drv.company, "track": drv.company.track_drivers,
@@ -6229,3 +6262,39 @@ def ifta_per_truck(request):
     return render(request, "operations/ifta_per_truck.html", {
         "company": company, "year": year, "quarter": quarter, "rows": rows,
         "t_mi": round(t_mi), "t_gal": round(t_gal, 1), "fleet_mpg": fleet_mpg})
+
+
+@login_required
+def company_settings(request):
+    """Self-service: a client uploads their logo and edits their company info,
+    which then appears on all their invoices and reports (white-label)."""
+    if not _is_manager(request.user):
+        _messages.error(request, "Only admins/managers can edit company settings.")
+        return redirect("dashboard")
+    cs = _companies(request)
+    # active company or first
+    active_val = _active(request)
+    company = None
+    if active_val and active_val != "all":
+        company = cs.filter(pk=active_val).first()
+    if company is None:
+        company = cs.first()
+    if not company:
+        return redirect("dashboard")
+    if request.method == "POST":
+        company.name = (request.POST.get("name") or company.name).strip()[:120]
+        company.mc_number = (request.POST.get("mc_number") or "").strip()[:30]
+        company.dot_number = (request.POST.get("dot_number") or "").strip()[:30]
+        company.ein = (request.POST.get("ein") or "").strip()[:20]
+        company.address = (request.POST.get("address") or "").strip()[:250]
+        company.phone = (request.POST.get("phone") or "").strip()[:30]
+        if request.POST.get("email") is not None and hasattr(company, "billing_email"):
+            company.billing_email = (request.POST.get("email") or "").strip()[:254]
+        if request.FILES.get("logo"):
+            company.logo = request.FILES["logo"]
+        if request.POST.get("remove_logo") == "1":
+            company.logo = None
+        company.save()
+        _messages.success(request, "Company settings saved. Your logo and info now appear on your invoices and reports.")
+        return redirect("company_settings")
+    return render(request, "operations/company_settings.html", {"company": company})

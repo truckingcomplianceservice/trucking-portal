@@ -300,6 +300,8 @@ class Load(models.Model):
     status = models.CharField(max_length=12, choices=STATUS_CHOICES, default="booked")
     payment_status = models.CharField(max_length=18, choices=PAYMENT_CHOICES, default="unpaid")
     driver = models.ForeignKey(Driver, on_delete=models.SET_NULL, null=True, blank=True)
+    co_driver = models.ForeignKey(Driver, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="co_driver_loads", help_text="Second (team) driver on this load, if any.")
     vehicle = models.ForeignKey(Vehicle, on_delete=models.SET_NULL, null=True, blank=True)
     settlement = models.ForeignKey("Settlement", on_delete=models.SET_NULL, null=True, blank=True, related_name="loads")
     invoice_number = models.CharField(max_length=40, blank=True)
