@@ -1,0 +1,23 @@
+{% extends "operations/app_base.html" %}
+{% load humanize %}
+{% block title %}IFTA per truck — Q{{ quarter }} {{ year }}{% endblock %}
+{% block page_title %}IFTA per truck — Q{{ quarter }} {{ year }}{% endblock %}
+{% block content %}
+<div style="margin-bottom:12px"><a href="/app/ifta/?year={{ year }}&quarter={{ quarter }}" class="sub" style="color:var(--blue)">&larr; Back to IFTA worksheet</a></div>
+
+<div class="card"><div class="card-h"><h3>{{ company.name }} — miles &amp; gallons by truck</h3><button class="btn ghost" onclick="window.print()">🖨 Print</button></div>
+ {% if rows %}
+ <table><thead><tr><th>Truck</th><th class="n">Miles (from loads)</th><th class="n">Gallons (from fuel)</th><th class="n">MPG</th></tr></thead><tbody>
+ {% for r in rows %}<tr>
+  <td><b>Unit {{ r.unit }}</b></td>
+  <td class="n">{{ r.miles|intcomma }}</td>
+  <td class="n">{{ r.gallons|floatformat:1|intcomma }}</td>
+  <td class="n">{{ r.mpg }}</td>
+ </tr>{% endfor %}
+ </tbody><tfoot><tr><td><b>Fleet total</b></td><td class="n"><b>{{ t_mi|intcomma }}</b></td><td class="n"><b>{{ t_gal|floatformat:1|intcomma }}</b></td><td class="n"><b>{{ fleet_mpg }}</b></td></tr></tfoot></table>
+ <div class="sub" style="padding:8px 4px;font-size:12px">Miles come from loads (loaded + deadhead) assigned to each truck this quarter. Gallons come from fuel transactions for each truck. Fleet MPG = total miles ÷ total gallons, used to calculate taxable gallons on the IFTA worksheet.</div>
+ {% else %}
+ <div class="empty" style="padding:20px">No truck miles or fuel found for this quarter yet. Assign loads to trucks and record fuel with a truck + state to see per-truck IFTA numbers.</div>
+ {% endif %}
+</div>
+{% endblock %}

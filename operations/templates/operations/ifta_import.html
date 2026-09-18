@@ -38,21 +38,32 @@
 {% endif %}
 
 {% if preview %}
-<div class="card"><div class="card-h"><h3>Import preview</h3><span class="sub">Total {{ total_miles|intcomma }} miles</span></div>
+<div class="card"><div class="card-h"><h3>Import preview{% if has_current %} — compared to your current miles{% endif %}</h3><span class="sub">Total {{ total_miles|intcomma }} ELD miles</span></div>
  <div style="padding:8px 18px 16px">
   {% if unknown %}<div style="background:#fff7e6;border:1px solid #f0c040;border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:13px">
-   ⚠ Some rows had a state we couldn't recognize and were skipped: {% for u in unknown %}<span style="margin-right:8px">"{{ u.0 }}" ({{ u.1|floatformat:0 }} mi)</span>{% endfor %}. Fix those in the CSV, or add the miles manually on the worksheet.
+   ⚠ Some rows had a state we couldn't recognize and were skipped: {% for u in unknown %}<span style="margin-right:8px">"{{ u.0 }}" ({{ u.1|floatformat:0 }} mi)</span>{% endfor %}.
   </div>{% endif %}
-  <table><thead><tr><th>State</th><th class="n">Miles (from CSV)</th><th class="n">Gallons (from fuel)</th></tr></thead><tbody>
-  {% for r in preview %}<tr>
+  {% if has_current %}
+   <div style="background:#eef4fb;border:1px solid #b9d3ef;border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:13px">
+    {% if n_changed %}<b>{{ n_changed }} state(s) differ</b> between your current miles (estimated from loads) and the ELD report. The ELD values will be used for those states (highlighted below). States the ELD doesn't cover keep their current miles — nothing is lost.{% else %}Your current miles already match the ELD report. Nothing will change.{% endif %}
+   </div>
+  {% endif %}
+  <table><thead><tr><th>State</th>{% if has_current %}<th class="n">Current (from loads)</th><th class="n">ELD report</th><th class="n">Difference</th>{% else %}<th class="n">Miles (from ELD)</th>{% endif %}<th class="n">Gallons (fuel)</th></tr></thead><tbody>
+  {% for r in preview %}<tr {% if r.changed %}style="background:#fff7e6"{% endif %}>
    <td><b>{{ r.state }}</b></td>
-   <td class="n">{{ r.miles|floatformat:0|intcomma }}</td>
+   {% if has_current %}
+     <td class="n">{{ r.current_miles|floatformat:0|intcomma }}</td>
+     <td class="n">{% if r.has_eld %}<b>{{ r.eld_miles|floatformat:0|intcomma }}</b>{% else %}<span class="sub">— not in ELD —</span>{% endif %}</td>
+     <td class="n">{% if r.changed %}<b style="color:{% if r.diff > 0 %}#137a51{% else %}#b0281a{% endif %}">{{ r.diff|floatformat:0 }}</b>{% elif r.has_eld %}<span class="sub">match</span>{% endif %}</td>
+   {% else %}
+     <td class="n">{{ r.eld_miles|floatformat:0|intcomma }}</td>
+   {% endif %}
    <td class="n">{% if r.gallons %}{{ r.gallons|floatformat:0|intcomma }}{% else %}<span class="sub">0</span>{% endif %}</td>
   </tr>{% endfor %}
   </tbody></table>
-  <div class="sub" style="font-size:12px;margin-top:8px">Miles come from your CSV; gallons come from the Fuel transactions already in the portal for this quarter. You'll be able to review and edit miles on the worksheet before Save &amp; Recalculate.</div>
+  <div class="sub" style="font-size:12px;margin-top:8px">Highlighted rows will be updated to the ELD value (ELD is the accurate source). States without ELD data keep their current loads-estimated miles. Gallons come from your fuel records.</div>
   <form method="post" style="margin-top:12px"><input type="hidden" name="action" value="confirm">{% csrf_token %}
-   <button class="btn amber" type="submit">✓ Import these miles to the worksheet</button>
+   <button class="btn amber" type="submit">✓ Reconcile to ELD miles</button>
    <a href="/app/ifta/import/?year={{ year }}&quarter={{ quarter }}" class="btn ghost" style="margin-left:8px">Cancel / upload different file</a>
   </form>
  </div>

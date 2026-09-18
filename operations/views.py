@@ -2060,6 +2060,8 @@ def _ratecon_ai(text):
                   "reference, origin, destination, pickup_date (YYYY-MM-DD or ''), "
                   "delivery_date (YYYY-MM-DD or ''), rate (number). "
                   "broker_name is the BROKER/3PL company arranging the load (not the carrier). "
+                  "origin is the FULL pickup address (street, city, state, ZIP if shown). "
+                  "destination is the FULL delivery address (street, city, state, ZIP if shown). "
                   "agent_name is the individual rep/representative who booked it, with their "
                   "direct phone and extension if shown. Use '' if unknown.\n\n" + text[:6000])
         model = _os.environ.get("ANTHROPIC_MODEL", "claude-haiku-4-5-20251001")
@@ -2190,7 +2192,7 @@ def load_from_ratecon(request):
         load = Load.objects.create(
             company=company, reference=str(data.get("reference") or "")[:40],
             customer=bname[:120], broker=broker, broker_agent=broker_agent,
-            origin=str(data.get("origin") or "")[:120], destination=str(data.get("destination") or "")[:120],
+            origin=str(data.get("origin") or "")[:255], destination=str(data.get("destination") or "")[:255],
             pickup_date=date(data.get("pickup_date")), delivery_date=date(data.get("delivery_date")),
             rate=rate(), rate_confirmation=f, status="booked", ratecon_hash=file_hash)
         ActivityLog.objects.create(category="load", user=request.user, company=company,
@@ -5522,17 +5524,32 @@ def ifta_import(request):
         fuel = (FuelTransaction.objects.filter(company=company, date__gte=start, date__lte=end)
                 .exclude(ifta_state="").values("ifta_state").annotate(g=_Sum("gallons")))
         gallons_by_state = {f["ifta_state"].upper(): round(float(f["g"] or 0), 1) for f in fuel}
+        # COMPARE the ELD miles to whatever is currently on the worksheet
+        # (e.g. the auto-calculated-from-loads estimate). Show both + the difference.
+        current = {e.state: float(e.miles or 0) for e in IftaStateEntry.objects.filter(
+            company=company, year=year, quarter=quarter)}
         preview = []
-        for st in sorted(set(by_state) | set(gallons_by_state)):
-            preview.append({"state": st, "miles": round(by_state.get(st, 0), 1),
+        n_changed = 0
+        for st in sorted(set(by_state) | set(gallons_by_state) | set(current)):
+            eld = round(by_state.get(st, 0), 1)
+            cur = round(current.get(st, 0), 1)
+            has_eld = st in by_state
+            diff = round(eld - cur, 1) if has_eld else 0
+            changed = has_eld and abs(diff) >= 1
+            if changed:
+                n_changed += 1
+            preview.append({"state": st, "eld_miles": eld, "current_miles": cur,
+                            "diff": diff, "has_eld": has_eld, "changed": changed,
                             "gallons": gallons_by_state.get(st, 0)})
         return render(request, "operations/ifta_import.html", {
             "company": company, "year": year, "quarter": quarter,
-            "preview": preview, "unknown": unknown,
+            "preview": preview, "unknown": unknown, "n_changed": n_changed,
+            "has_current": bool(current),
             "total_miles": round(sum(by_state.values()), 1),
         })
 
-    # confirm step: write the imported miles into IftaStateEntry
+    # confirm step: write the ELD miles into IftaStateEntry — only for states the
+    # ELD covers. States NOT in the ELD keep their existing (loads-estimated) miles.
     if request.method == "POST" and request.POST.get("action") == "confirm":
         result = request.session.get("ifta_import_result")
         if result:
@@ -5540,7 +5557,7 @@ def ifta_import(request):
                 IftaStateEntry.objects.update_or_create(
                     company=company, year=result["year"], quarter=result["quarter"], state=st,
                     defaults={"miles": miles})
-            _messages.success(request, "Imported miles saved to the worksheet. Review and add tax rates, then Save & Recalculate.")
+            _messages.success(request, "ELD miles reconciled into the worksheet. States the ELD didn't cover kept their existing miles. Review, add tax rates, then Save & Recalculate.")
             request.session.pop("ifta_import_result", None)
         return redirect(f"/app/ifta/?year={year}&quarter={quarter}")
 
@@ -6106,3 +6123,109 @@ def landing(request):
     if request.user.is_authenticated:
         return redirect("dashboard")
     return render(request, "operations/landing.html", {})
+
+
+def _state_from_location(text):
+    """Best-effort: pull a 2-letter state code from a city/location string like
+    'Dallas TX' or 'Miami, FL'."""
+    if not text:
+        return None
+    import re as _re
+    # look for a standalone 2-letter uppercase token
+    toks = _re.findall(r"\b([A-Z]{2})\b", text.upper())
+    for t in toks:
+        if t in _STATE_ABBRS:
+            return t
+    # try full state name
+    return _normalize_state(text)
+
+
+@login_required
+def ifta_auto(request):
+    """Auto-calculate IFTA miles-by-state (from loads) and gallons-by-state (from
+    fuel) for the active company + quarter, then populate the worksheet."""
+    if not _can_delete(request.user):
+        _messages.error(request, "IFTA is available to administrators only.")
+        return redirect("dashboard")
+    cs = _companies(request)
+    company = cs.first()
+    today = _dt.date.today()
+    year = int(request.GET.get("year", today.year))
+    quarter = int(request.GET.get("quarter", (today.month - 1)//3 + 1))
+    m1, m2 = IFTA_QUARTERS[quarter]
+    start = _dt.date(year, m1, 1)
+    end = (_dt.date(year, m2, 28) + _dt.timedelta(days=4)).replace(day=1) - _dt.timedelta(days=1)
+
+    from django.db.models import Sum as _Sum
+    # MILES by state from loads in this quarter (best-effort: split each load's
+    # miles between its origin state and destination state).
+    miles_by_state = {}
+    loads = Load.objects.filter(company=company).filter(
+        Q(pickup_date__gte=start, pickup_date__lte=end) | Q(delivery_date__gte=start, delivery_date__lte=end))
+    for ld in loads:
+        total = (ld.miles or 0) + (ld.deadhead_miles or 0)
+        if not total:
+            continue
+        o_st = _state_from_location(ld.origin)
+        d_st = _state_from_location(ld.destination)
+        if o_st and d_st and o_st != d_st:
+            miles_by_state[o_st] = miles_by_state.get(o_st, 0) + total/2
+            miles_by_state[d_st] = miles_by_state.get(d_st, 0) + total/2
+        elif o_st or d_st:
+            st = o_st or d_st
+            miles_by_state[st] = miles_by_state.get(st, 0) + total
+
+    # GALLONS by state from fuel in this quarter (exact — fuel has the state)
+    fuel = (FuelTransaction.objects.filter(company=company, date__gte=start, date__lte=end)
+            .exclude(ifta_state="").values("ifta_state").annotate(g=_Sum("gallons")))
+    gallons_by_state = {f["ifta_state"].upper(): float(f["g"] or 0) for f in fuel}
+
+    # write miles into the worksheet (gallons come from fuel automatically on the
+    # worksheet view, so we only need to store miles; keep existing tax rates)
+    for st, mi in miles_by_state.items():
+        entry, _ = IftaStateEntry.objects.get_or_create(
+            company=company, year=year, quarter=quarter, state=st)
+        entry.miles = round(mi)
+        entry.save()
+
+    n_states = len(set(miles_by_state) | set(gallons_by_state))
+    _messages.success(request,
+        f"Auto-calculated from your loads and fuel: {len(miles_by_state)} state(s) with miles, "
+        f"{len(gallons_by_state)} with gallons ({n_states} total). Review the miles below — they're "
+        f"estimated from load origin/destination — add each state's tax rate, then Save & recalculate.")
+    return redirect(f"/app/ifta/?year={year}&quarter={quarter}")
+
+
+@login_required
+def ifta_per_truck(request):
+    """Per-truck IFTA summary: miles (from loads) and gallons (from fuel) for each
+    truck in the active company, for the quarter."""
+    if not _can_delete(request.user):
+        _messages.error(request, "IFTA is available to administrators only.")
+        return redirect("dashboard")
+    cs = _companies(request)
+    company = cs.first()
+    today = _dt.date.today()
+    year = int(request.GET.get("year", today.year))
+    quarter = int(request.GET.get("quarter", (today.month - 1)//3 + 1))
+    m1, m2 = IFTA_QUARTERS[quarter]
+    start = _dt.date(year, m1, 1)
+    end = (_dt.date(year, m2, 28) + _dt.timedelta(days=4)).replace(day=1) - _dt.timedelta(days=1)
+    from django.db.models import Sum as _Sum
+
+    rows = []
+    t_mi = t_gal = 0.0
+    for v in Vehicle.objects.filter(company=company).exclude(status="retired").order_by("unit_number"):
+        lo = Load.objects.filter(company=company, vehicle=v).filter(
+            Q(pickup_date__gte=start, pickup_date__lte=end) | Q(delivery_date__gte=start, delivery_date__lte=end))
+        mi = sum((ld.miles or 0) + (ld.deadhead_miles or 0) for ld in lo)
+        gal = float(FuelTransaction.objects.filter(company=company, vehicle=v, date__gte=start, date__lte=end
+                    ).aggregate(g=_Sum("gallons"))["g"] or 0)
+        if mi or gal:
+            rows.append({"unit": v.unit_number, "miles": mi, "gallons": round(gal, 1),
+                         "mpg": round(mi/gal, 2) if gal else 0})
+            t_mi += mi; t_gal += gal
+    fleet_mpg = round(t_mi/t_gal, 2) if t_gal else 0
+    return render(request, "operations/ifta_per_truck.html", {
+        "company": company, "year": year, "quarter": quarter, "rows": rows,
+        "t_mi": round(t_mi), "t_gal": round(t_gal, 1), "fleet_mpg": fleet_mpg})

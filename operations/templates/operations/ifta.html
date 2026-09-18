@@ -15,7 +15,9 @@
   </select>
   <span class="sub">{{ start }} → {{ end }}{% if company %} · {{ company.name }}{% endif %}</span>
  </form>
- <a class="btn amber" href="/app/ifta/import/?year={{ year }}&quarter={{ quarter }}" style="margin-left:auto;padding:7px 14px;text-decoration:none">⬆ Upload CSV / import mileage</a>
+ <a class="btn amber" href="/app/ifta/auto/?year={{ year }}&quarter={{ quarter }}" style="margin-left:auto;padding:7px 14px;text-decoration:none" onclick="return confirm('Auto-calculate miles from your loads and gallons from your fuel for this quarter? This fills the miles below (you can still edit them).')">⚡ Auto-calculate from loads &amp; fuel</a>
+ <a class="btn ghost" href="/app/ifta/per-truck/?year={{ year }}&quarter={{ quarter }}" style="padding:7px 14px;text-decoration:none">🚚 Per-truck view</a>
+ <a class="btn ghost" href="/app/ifta/import/?year={{ year }}&quarter={{ quarter }}" style="padding:7px 14px;text-decoration:none">⬆ Upload CSV</a>
  <button class="btn ghost" onclick="window.print()" style="padding:7px 14px">🖨 Print</button>
 </div>
 
