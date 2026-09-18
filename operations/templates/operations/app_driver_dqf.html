@@ -70,6 +70,24 @@
     <button class="btn ghost" type="submit" style="font-size:13px">🔔 Send expiration reminders to drivers</button>
     <div class="sub" style="font-size:11px;margin-top:4px">Notifies any driver (in-app + email) with a document expiring in the next 30 days.</div>
    </form>
+   <div style="margin-top:12px;border-top:1px solid var(--line);padding-top:12px">
+    <a class="btn navy block" href="/app/drivers/{{ d.id }}/road-test/" style="display:block;text-align:center">🚛 Conduct / record road test (§391.31)</a>
+    <div class="sub" style="font-size:11px;margin-top:4px">Fill out the FMCSA road test form; when passed it completes the DQF road-test item and gives you a printable certificate.</div>
+   </div>
+   <div style="margin-top:12px;border-top:1px solid var(--line);padding-top:12px">
+    <b style="font-size:13px">Send a consent for the driver to e-sign:</b>
+    <div class="sub" style="font-size:11px;margin:4px 0 8px">Driver verifies by email code + last-4 SSN, signs electronically, and a signed PDF is kept on file. (Set the driver's "Last 4 of SSN" in Admin for identity match.)</div>
+    <form method="post" action="/app/drivers/{{ d.id }}/consent/">{% csrf_token %}
+     <select name="kind" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;margin-bottom:6px">
+      <option value="clearinghouse">FMCSA Clearinghouse full-query consent</option>
+      <option value="clearinghouse_limited">Clearinghouse limited-query consent (annual)</option>
+      <option value="background">MVR / PSP / background &amp; drug-alcohol consent</option>
+      <option value="general">General application certification &amp; consent</option>
+     </select>
+     <input name="email" type="email" value="{{ d.email }}" placeholder="driver email" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;margin-bottom:6px">
+     <button class="btn amber block" type="submit">✍ Email consent to sign</button>
+    </form>
+   </div>
   </div>
  </div>
 </div>

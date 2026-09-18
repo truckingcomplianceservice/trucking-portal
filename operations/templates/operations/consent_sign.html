@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sign consent — {{ con.company.name }}</title>
+<style>
+ :root{--navy:#1e2d45;--gold:#b39a6d;--line:#e2e6ee;--muted:#6b7385;--green:#137a51}
+ *{box-sizing:border-box;margin:0;padding:0}
+ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#f4f6f9;color:var(--navy)}
+ .top{background:var(--navy);color:#fff;padding:14px 18px;font-weight:700}
+ .wrap{max-width:640px;margin:0 auto;padding:22px 16px}
+ .card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:22px;margin-bottom:16px}
+ h1{font-size:20px;margin-bottom:6px}
+ .consent{background:#f7f8fa;border:1px solid var(--line);border-radius:10px;padding:14px;font-size:13px;white-space:pre-line;line-height:1.5;max-height:280px;overflow:auto;margin:12px 0}
+ label{display:block;font-size:13px;font-weight:600;margin:12px 0 5px}
+ input{width:100%;padding:11px 13px;border:1px solid var(--line);border-radius:9px;font-size:15px}
+ .btn{width:100%;background:var(--gold);color:#fff;border:none;border-radius:10px;padding:13px;font-size:16px;font-weight:700;cursor:pointer;margin-top:16px}
+ .btn.navy{background:var(--navy)}
+ .err{background:#fdecea;color:#c0392b;border-radius:9px;padding:10px 13px;font-size:14px;margin-bottom:10px}
+ .ok{background:#e4f4ec;color:var(--green);border-radius:9px;padding:14px;font-size:15px;text-align:center;font-weight:600}
+ .sub{color:var(--muted);font-size:13px}
+</style></head><body>
+<div class="top">{{ con.company.name }} — Electronic Consent</div>
+<div class="wrap">
+{% if done %}
+ <div class="card">
+  <div class="ok">✓ Thank you, {{ con.signer_name }}. Your consent has been signed and recorded.</div>
+  <div class="sub" style="margin-top:14px;text-align:center">{{ con.get_kind_display }}<br>Signed {{ con.signed_at|date:"M d, Y g:i A" }}{% if con.email_verified %} · email verified{% endif %}{% if con.ssn_last4_matched %} · identity confirmed{% endif %}</div>
+ </div>
+{% else %}
+ <div class="card">
+  <h1>{{ con.get_kind_display }}</h1>
+  <div class="sub">Please read carefully, verify your identity, and sign electronically.</div>
+  <div class="consent">{{ con.consent_text }}</div>
+
+  {% if error %}<div class="err">{{ error }}</div>{% endif %}
+
+  {% if step == "verify" %}
+  <form method="post">{% csrf_token %}<input type="hidden" name="action" value="sign">
+   <div class="sub">We sent a 6-digit code to <b>{{ con.code_sent_to }}</b>.</div>
+   <label>Verification code</label><input name="code" inputmode="numeric" placeholder="6-digit code" required>
+   <label>Last 4 digits of your SSN</label><input name="ssn_last4" inputmode="numeric" maxlength="4" placeholder="••••" required>
+   <label>Type your full legal name to sign</label><input name="signer_name" value="{{ d.first_name }} {{ d.last_name }}" required>
+   <button class="btn" type="submit">Sign &amp; submit</button>
+  </form>
+  <form method="post" style="margin-top:10px">{% csrf_token %}<input type="hidden" name="action" value="send_code"><input type="hidden" name="email" value="{{ con.code_sent_to }}"><button class="btn navy" type="submit" style="margin-top:8px">Resend code</button></form>
+  {% else %}
+  <form method="post">{% csrf_token %}<input type="hidden" name="action" value="send_code">
+   <label>Your email (we'll send a verification code)</label>
+   <input name="email" type="email" value="{{ d.email }}" required>
+   <button class="btn navy" type="submit">Send me a verification code</button>
+  </form>
+  {% endif %}
+  <div class="sub" style="margin-top:14px;font-size:12px">By signing, you agree this electronic signature is legally binding. Your IP, device, email verification, and identity match are recorded with a tamper-evident hash.</div>
+ </div>
+{% endif %}
+</div></body></html>

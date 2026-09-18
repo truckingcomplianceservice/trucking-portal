@@ -7,6 +7,9 @@ from django.views.generic import RedirectView
 from operations import views
 
 urlpatterns = [
+    path("consent/<str:token>/", views.consent_sign, name="consent_sign"),
+    path("app/drivers/<int:pk>/consent/", views.consent_create, name="consent_create"),
+    path("app/consent/<int:pk>/pdf/", views.consent_pdf, name="consent_pdf"),
     path("signup/", views.signup, name="signup"),
     path("app/billing-status/", views.billing_status, name="billing_status"),
     path("app/partners/", views.partner_ledger, name="partner_ledger"),
@@ -88,6 +91,8 @@ urlpatterns = [
     path("app/drivers/<int:pk>/invite/", views.driver_invite_create, name="driver_invite_create"),
     path("app/drivers/<int:pk>/remove-login/", views.driver_remove_login, name="driver_remove_login"),
     path("app/drivers/<int:pk>/dqf/", views.app_driver_dqf, name="app_driver_dqf"),
+    path("app/drivers/<int:pk>/road-test/", views.road_test_form, name="road_test_form"),
+    path("app/drivers/<int:pk>/road-test/certificate/", views.road_test_certificate, name="road_test_certificate"),
     path("app/drivers/<int:pk>/dqf/email-link/", views.dqf_email_link, name="dqf_email_link"),
     path("app/drivers/notify-expiring/", views.dqf_notify_expiring, name="dqf_notify_expiring"),
     path("dqf/<int:doc_id>/approve/", views.dqf_approve, name="dqf_approve"),

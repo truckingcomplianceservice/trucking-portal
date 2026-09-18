@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>Signed Consent — {{ d.first_name }} {{ d.last_name }}</title>
+<style>
+ body{font-family:Arial,sans-serif;color:#111;max-width:720px;margin:24px auto;padding:0 20px;font-size:13px}
+ h1{font-size:19px;color:#1e2d45;margin-bottom:2px}
+ .sub{color:#666;font-size:12px}
+ .consent{border:1px solid #999;border-radius:6px;padding:14px 16px;margin-top:14px;white-space:pre-line;line-height:1.5}
+ .audit{border:1px solid #ccc;border-radius:6px;padding:12px 14px;margin-top:14px;background:#fafafa;font-size:12px}
+ .audit td{padding:3px 6px}
+ .sig{margin-top:22px;border-top:1px solid #333;padding-top:5px;font-size:13px}
+ .badge{color:#137a51;font-weight:bold}
+ .print{margin:12px 0}@media print{.print{display:none}}
+</style></head><body>
+<div class="print"><button onclick="window.print()">🖨 Print</button></div>
+<h1>Electronically Signed Consent</h1>
+<div class="sub">{{ company.name }}{% if company.mc_number %} · MC {{ company.mc_number }}{% endif %} · {{ con.get_kind_display }}</div>
+
+<div class="consent">{{ con.consent_text }}</div>
+
+<div class="sig">
+ <b>Signed by:</b> {{ con.signer_name }} &nbsp;&nbsp; <b>Driver:</b> {{ d.first_name }} {{ d.last_name }}
+</div>
+
+<div class="audit">
+ <b>Electronic signature audit record</b>
+ <table>
+  <tr><td><b>Signed at</b></td><td>{{ con.signed_at|date:"M d, Y g:i A" }} (server time)</td></tr>
+  <tr><td><b>Email verified</b></td><td>{% if con.email_verified %}<span class="badge">YES</span> — {{ con.verified_email }}{% else %}No{% endif %}</td></tr>
+  <tr><td><b>Identity (last-4 SSN)</b></td><td>{% if con.ssn_last4_matched %}<span class="badge">MATCHED</span>{% else %}Not matched{% endif %}</td></tr>
+  <tr><td><b>IP address</b></td><td>{{ con.ip_address|default:"—" }}</td></tr>
+  <tr><td><b>Device</b></td><td style="font-size:10px">{{ con.user_agent|default:"—" }}</td></tr>
+  <tr><td><b>Content hash (SHA-256)</b></td><td style="font-size:10px;word-break:break-all">{{ con.content_hash }}</td></tr>
+ </table>
+ <div style="margin-top:6px;color:#666;font-size:11px">This record evidences the signer's identity verification and intent to sign electronically. The content hash detects tampering.</div>
+</div>
+</body></html>

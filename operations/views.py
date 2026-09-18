@@ -5670,3 +5670,222 @@ def dqf_notify_expiring(request):
     n = _notify_driver_expirations(30)
     _messages.success(request, f"Sent expiration reminders to {n} driver(s) with documents expiring in the next 30 days.")
     return redirect(request.META.get("HTTP_REFERER", "/app/drivers/"))
+
+
+ROAD_TEST_SKILLS = [
+    ("pretrip", "Pre-trip inspection"),
+    ("coupling", "Coupling & uncoupling"),
+    ("placing", "Placing equipment in operation"),
+    ("controls", "Use of vehicle controls & equipment"),
+    ("braking", "Operating in traffic, passing, braking"),
+    ("turning", "Turning the vehicle"),
+    ("backing", "Backing & parking"),
+    ("slowing", "Slowing/stopping by proper use of brakes"),
+]
+
+
+@login_required
+def road_test_form(request, pk):
+    """Conduct/record an FMCSA §391.31 road test for a driver."""
+    if not _is_manager(request.user):
+        _messages.error(request, "Only managers or admins can record a road test.")
+        return redirect("app_driver_dqf", pk=pk)
+    from .models import RoadTest
+    d = _get(Driver, pk=pk, company__in=_companies_all(request))
+    existing = RoadTest.objects.filter(driver=d).first()
+    if request.method == "POST":
+        rt = existing or RoadTest(driver=d, company=d.company)
+        rt.date = _parse_date(request.POST.get("date", "")) or _dt.date.today()
+        rt.examiner_name = (request.POST.get("examiner_name") or "").strip()[:120]
+        rt.vehicle_type = (request.POST.get("vehicle_type") or "").strip()[:120]
+        for key, _label in ROAD_TEST_SKILLS:
+            setattr(rt, key, request.POST.get(key) == "on")
+        rt.used_cdl_in_lieu = request.POST.get("used_cdl_in_lieu") == "on"
+        rt.passed = request.POST.get("passed") == "on"
+        rt.notes = (request.POST.get("notes") or "").strip()
+        rt.save()
+        # if passed (or CDL in lieu), create the DQF road_test document so the
+        # checklist item shows Complete
+        if rt.passed or rt.used_cdl_in_lieu:
+            doc, _ = ComplianceDocument.objects.get_or_create(
+                driver=d, doc_type="road_test",
+                defaults={"company": d.company})
+            doc.company = d.company
+            doc.verified = True
+            doc.save()
+        # signature audit record
+        if rt.examiner_name:
+            _record_signature(request, company=d.company,
+                form_name="FMCSA §391.31 Road Test Certificate", form_version="1.0",
+                signer_name=rt.examiner_name,
+                consent_text="Examiner certifies the above road test was conducted per 49 CFR 391.31.",
+                content=f"roadtest|{d.id}|{rt.date}|{rt.passed}")
+        _messages.success(request, "Road test saved. The DQF road-test item is now complete." if (rt.passed or rt.used_cdl_in_lieu) else "Road test saved.")
+        return redirect("app_driver_dqf", pk=pk)
+    skills = [(k, l, getattr(existing, k) if existing else False) for k, l in ROAD_TEST_SKILLS]
+    return render(request, "operations/road_test.html", {
+        "d": d, "rt": existing, "skills": skills})
+
+
+@login_required
+def road_test_certificate(request, pk):
+    """Printable §391.31 road test certificate."""
+    from .models import RoadTest
+    d = _get(Driver, pk=pk, company__in=_companies_all(request))
+    rt = RoadTest.objects.filter(driver=d).first()
+    if not rt:
+        _messages.error(request, "No road test recorded yet.")
+        return redirect("road_test_form", pk=pk)
+    skills = [(l, getattr(rt, k)) for k, l in ROAD_TEST_SKILLS]
+    return render(request, "operations/road_test_certificate.html", {
+        "d": d, "rt": rt, "skills": skills, "company": d.company})
+
+
+# ================= Verified driver consent / e-signature =================
+CONSENT_TEXTS = {
+    "clearinghouse": (
+        "FMCSA DRUG & ALCOHOL CLEARINGHOUSE — FULL QUERY CONSENT\n\n"
+        "I, the undersigned driver, hereby provide consent to {company} to conduct a "
+        "FULL QUERY of the FMCSA Commercial Driver's License Drug and Alcohol "
+        "Clearinghouse to determine whether drug or alcohol violation information about "
+        "me exists in the Clearinghouse. I understand that if the query shows a "
+        "violation, {company} may not permit me to perform safety-sensitive functions "
+        "until I have completed the return-to-duty process. This consent is required by "
+        "49 CFR 382.701. NOTE: A full query also requires my electronic consent within "
+        "the FMCSA Clearinghouse system (login.gov)."),
+    "clearinghouse_limited": (
+        "FMCSA CLEARINGHOUSE — LIMITED QUERY CONSENT (ANNUAL)\n\n"
+        "I authorize {company} to conduct LIMITED QUERIES of the FMCSA Drug and Alcohol "
+        "Clearinghouse to determine whether drug or alcohol violation information about "
+        "me exists, at least annually, for the duration of my employment. (49 CFR 382.701)"),
+    "background": (
+        "CONSENT — DRIVING RECORD, PSP, BACKGROUND & DRUG/ALCOHOL RECORDS\n\n"
+        "I authorize {company} to obtain my Motor Vehicle Record (MVR), Pre-Employment "
+        "Screening Program (PSP) report, safety performance history from previous DOT "
+        "employers (including drug and alcohol testing records under 49 CFR 40.25), and "
+        "to conduct background checks as part of my application and employment. I certify "
+        "the information I have provided is true and complete."),
+    "general": (
+        "APPLICATION CERTIFICATION & CONSENT\n\n"
+        "I certify that all information in my driver application is true and complete to "
+        "the best of my knowledge, and I authorize investigation of all statements herein. "
+        "I understand that false information may disqualify me from consideration or be "
+        "grounds for termination."),
+}
+
+
+@login_required
+def consent_create(request, pk):
+    """Create a consent for a driver and email them a signing link."""
+    if not _is_manager(request.user):
+        _messages.error(request, "Only managers or admins can send consents.")
+        return redirect("app_driver_dqf", pk=pk)
+    from .models import DriverConsent
+    d = _get(Driver, pk=pk, company__in=_companies_all(request))
+    kind = request.POST.get("kind", "clearinghouse")
+    text = CONSENT_TEXTS.get(kind, CONSENT_TEXTS["general"]).format(company=d.company.name)
+    con = DriverConsent.objects.create(company=d.company, driver=d, kind=kind, consent_text=text)
+    to = (request.POST.get("email") or getattr(d, "email", "") or "").strip()
+    if to and hasattr(d, "email") and not d.email:
+        d.email = to[:254]; d.save(update_fields=["email"])
+    link = request.build_absolute_uri(f"/consent/{con.token}/")
+    if to:
+        try:
+            from django.core.mail import EmailMessage
+            body = (f"Hi {d.first_name},\n\n{d.company.name} needs your signed consent: "
+                    f"{con.get_kind_display()}.\n\nPlease open this secure link, verify your "
+                    f"identity, and sign:\n\n{link}\n\nThank you.\n{d.company.name}")
+            EmailMessage(subject=f"Please sign: {con.get_kind_display()}",
+                         body=body, from_email=settings.DEFAULT_FROM_EMAIL, to=[to]).send(fail_silently=False)
+            _messages.success(request, f"Consent emailed to {to} for signing.")
+        except Exception as e:
+            _messages.error(request, f"Consent created but email failed: {e}. Link: {link}")
+    else:
+        _messages.success(request, f"Consent created. Share this link: {link}")
+    return redirect("app_driver_dqf", pk=pk)
+
+
+def consent_sign(request, token):
+    """Public page where the driver verifies identity (email code + last-4 SSN) and signs."""
+    from .models import DriverConsent
+    from django.utils import timezone as _tz
+    con = get_object_or_404(DriverConsent, token=token)
+    d = con.driver
+    step = request.GET.get("step", "start")
+    error = ""
+    if con.signed:
+        return render(request, "operations/consent_sign.html", {"con": con, "d": d, "done": True})
+
+    if request.method == "POST":
+        action = request.POST.get("action")
+        if action == "send_code":
+            email = (request.POST.get("email") or getattr(d, "email", "") or "").strip()
+            if not email:
+                error = "Please enter your email."
+            else:
+                import random
+                code = f"{random.randint(0, 999999):06d}"
+                con.email_code = code
+                con.code_sent_to = email
+                con.code_expires = _tz.now() + _dt.timedelta(minutes=15)
+                con.save()
+                try:
+                    from django.core.mail import EmailMessage
+                    EmailMessage(subject=f"Your signing code: {code}",
+                        body=f"Your verification code to sign the {con.get_kind_display()} is: {code}\n\nIt expires in 15 minutes.",
+                        from_email=settings.DEFAULT_FROM_EMAIL, to=[email]).send(fail_silently=False)
+                    step = "verify"
+                except Exception as e:
+                    error = f"Could not send code: {e}"
+        elif action == "sign":
+            code = (request.POST.get("code") or "").strip()
+            ssn4 = (request.POST.get("ssn_last4") or "").strip()
+            signer = (request.POST.get("signer_name") or "").strip()
+            code_ok = (con.email_code and code == con.email_code and con.code_expires and _tz.now() <= con.code_expires)
+            ssn_ok = bool(d.ssn_last4) and (ssn4 == d.ssn_last4)
+            if not code_ok:
+                error = "The code is wrong or expired. Request a new code."; step = "verify"
+            elif d.ssn_last4 and not ssn_ok:
+                error = "The last 4 of SSN doesn't match our records."; step = "verify"
+            elif not signer:
+                error = "Please type your full name to sign."; step = "verify"
+            else:
+                import hashlib
+                xff = request.META.get("HTTP_X_FORWARDED_FOR", "")
+                ip = (xff.split(",")[0].strip() if xff else request.META.get("REMOTE_ADDR", "")) or ""
+                con.signer_name = signer[:120]
+                con.signed = True
+                con.signed_at = _tz.now()
+                con.email_verified = True
+                con.ssn_last4_matched = ssn_ok
+                con.verified_email = con.code_sent_to
+                con.ip_address = ip
+                con.user_agent = request.META.get("HTTP_USER_AGENT", "")[:300]
+                con.content_hash = hashlib.sha256(
+                    f"{con.id}|{con.consent_text}|{signer}|{con.signed_at.isoformat()}|{ip}".encode()).hexdigest()
+                con.email_code = ""  # clear the used code
+                con.save()
+                # also record on the driver's DQF as the relevant compliance doc
+                dt_map = {"clearinghouse": "clearinghouse", "clearinghouse_limited": "clearinghouse_annual",
+                          "background": "safety_history", "general": "application"}
+                if con.kind in dt_map:
+                    doc, _ = ComplianceDocument.objects.get_or_create(
+                        driver=d, doc_type=dt_map[con.kind],
+                        defaults={"company": d.company})
+                    doc.company = d.company; doc.verified = True; doc.save()
+                return render(request, "operations/consent_sign.html", {"con": con, "d": d, "done": True})
+    return render(request, "operations/consent_sign.html", {"con": con, "d": d, "step": step, "error": error})
+
+
+@login_required
+def consent_pdf(request, pk):
+    """Signed consent PDF for the file."""
+    from .models import DriverConsent
+    con = _get(DriverConsent, pk=pk, company__in=_companies_all(request))
+    if request.GET.get("html") == "1":
+        return render(request, "operations/consent_pdf.html", {"con": con, "d": con.driver, "company": con.company})
+    pdf = _render_pdf("operations/consent_pdf.html", {"con": con, "d": con.driver, "company": con.company})
+    from django.http import HttpResponse
+    resp = HttpResponse(pdf, content_type="application/pdf")
+    resp["Content-Disposition"] = f'inline; filename="consent_{con.driver}_{con.kind}.pdf"'
+    return resp

@@ -197,6 +197,8 @@ class Driver(models.Model):
     pay_rate = models.DecimalField(max_digits=10, decimal_places=2, default=0,
         help_text="Cents per mile, percent (e.g. 25), or weekly salary amount.")
     tax_id = models.CharField("Tax ID (SSN/EIN, for 1099)", max_length=20, blank=True)
+    ssn_last4 = models.CharField("Last 4 of SSN (for e-signature identity match)", max_length=4, blank=True,
+        help_text="Only the last 4 digits are stored, for verifying the driver's identity when they e-sign.")
     business_ein = models.CharField("Business EIN (if paid as a company)", max_length=20, blank=True,
         help_text="If you pay this driver as their company, put the company's EIN here. The 1099 uses the business name + this EIN.")
     hide_load_amounts_on_check = models.BooleanField("Hide load $ amounts on this driver's checks", default=False,
@@ -534,6 +536,10 @@ class SignatureRecord(models.Model):
     signed_at = models.DateTimeField(auto_now_add=True)
     ip_address = models.CharField(max_length=45, blank=True)
     user_agent = models.CharField(max_length=300, blank=True)
+    driver = models.ForeignKey("Driver", on_delete=models.SET_NULL, null=True, blank=True, related_name="signature_records")
+    email_verified = models.BooleanField("Verified by email code", default=False)
+    ssn_last4_matched = models.BooleanField("Last-4 SSN matched", default=False)
+    verified_email = models.CharField(max_length=254, blank=True)
     content_hash = models.CharField(max_length=64, blank=True)  # SHA-256 of signed content
 
     class Meta:
@@ -869,6 +875,74 @@ class PartnerPayback(models.Model):
 
     def __str__(self):
         return f"Payback ${self.amount} to {self.partner}"
+
+
+class RoadTest(models.Model):
+    """FMCSA §391.31 road test record + certificate. Examiner scores each required
+    skill area; a passed test produces the certificate the DQF requires."""
+    driver = models.ForeignKey("Driver", on_delete=models.CASCADE, related_name="road_tests")
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name="road_tests")
+    date = models.DateField(null=True, blank=True)
+    examiner_name = models.CharField(max_length=120, blank=True)
+    vehicle_type = models.CharField("Type of equipment tested (e.g. tractor-trailer)", max_length=120, blank=True)
+    # §391.31 required skill areas — each pass/fail/na
+    pretrip = models.BooleanField("Pre-trip inspection", default=False)
+    coupling = models.BooleanField("Coupling & uncoupling", default=False)
+    placing = models.BooleanField("Placing equipment in operation", default=False)
+    controls = models.BooleanField("Use of vehicle controls & equipment", default=False)
+    braking = models.BooleanField("Operating in traffic, passing, braking", default=False)
+    turning = models.BooleanField("Turning the vehicle", default=False)
+    backing = models.BooleanField("Backing & parking", default=False)
+    slowing = models.BooleanField("Slowing/stopping by proper use of brakes", default=False)
+    passed = models.BooleanField("Test passed", default=False)
+    used_cdl_in_lieu = models.BooleanField("CDL accepted in lieu of road test (§391.33)", default=False)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-date", "-id"]
+
+    def __str__(self):
+        return f"Road test — {self.driver} ({self.date})"
+
+
+class DriverConsent(models.Model):
+    """A specific consent a driver e-signs (Clearinghouse, MVR/PSP/background, etc.),
+    with email-code + last-4-SSN verification and an audit trail. Legally sensitive."""
+    KIND = [
+        ("clearinghouse", "FMCSA Clearinghouse full-query consent"),
+        ("clearinghouse_limited", "FMCSA Clearinghouse limited-query consent (annual)"),
+        ("background", "MVR / PSP / background & drug-alcohol records consent"),
+        ("general", "General application certification & consent"),
+    ]
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name="consents")
+    driver = models.ForeignKey("Driver", on_delete=models.CASCADE, related_name="consents")
+    kind = models.CharField(max_length=24, choices=KIND)
+    consent_text = models.TextField()
+    signer_name = models.CharField(max_length=120, blank=True)
+    signed = models.BooleanField(default=False)
+    signed_at = models.DateTimeField(null=True, blank=True)
+    email_verified = models.BooleanField(default=False)
+    ssn_last4_matched = models.BooleanField(default=False)
+    verified_email = models.CharField(max_length=254, blank=True)
+    ip_address = models.CharField(max_length=45, blank=True)
+    user_agent = models.CharField(max_length=300, blank=True)
+    content_hash = models.CharField(max_length=64, blank=True)
+    # short-lived email verification code
+    email_code = models.CharField(max_length=8, blank=True)
+    code_sent_to = models.CharField(max_length=254, blank=True)
+    code_expires = models.DateTimeField(null=True, blank=True)
+    token = models.CharField(max_length=40, blank=True, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def save(self, *args, **kwargs):
+        if not self.token:
+            import secrets
+            self.token = secrets.token_urlsafe(16)
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.get_kind_display()} — {self.driver}"
 
 
 class DriverLocation(models.Model):

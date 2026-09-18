@@ -1,0 +1,32 @@
+{% extends "operations/app_base.html" %}
+{% block title %}Road test — {{ d.first_name }} {{ d.last_name }}{% endblock %}
+{% block page_title %}Road test — {{ d.first_name }} {{ d.last_name }}{% endblock %}
+{% block content %}
+<div style="margin-bottom:12px"><a href="/app/drivers/{{ d.id }}/dqf/" class="sub" style="color:var(--blue)">&larr; Back to DQF file</a></div>
+{% if messages %}{% for m in messages %}<div style="margin:8px 0;padding:10px 14px;border-radius:8px;font-size:13px;background:#e4f4ec;color:#137a51">{{ m }}</div>{% endfor %}{% endif %}
+
+<div class="card" style="max-width:720px"><div class="card-h"><h3>FMCSA §391.31 Road Test</h3>{% if rt %}<a href="/app/drivers/{{ d.id }}/road-test/certificate/" target="_blank">Print certificate</a>{% endif %}</div>
+ <form method="post" style="padding:16px 18px">{% csrf_token %}
+  <div style="display:flex;gap:12px;flex-wrap:wrap">
+   <div style="flex:1;min-width:150px"><label class="sub">Test date</label><input type="date" name="date" value="{{ rt.date|date:'Y-m-d' }}" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px"></div>
+   <div style="flex:1;min-width:150px"><label class="sub">Examiner name</label><input name="examiner_name" value="{{ rt.examiner_name }}" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px"></div>
+  </div>
+  <div style="margin-top:10px"><label class="sub">Type of equipment tested</label><input name="vehicle_type" value="{{ rt.vehicle_type }}" placeholder="e.g. Tractor-trailer, straight truck" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px"></div>
+
+  <div class="sub" style="margin-top:16px;font-weight:700;color:var(--navy)">Required skill areas (§391.31) — check each satisfactorily performed:</div>
+  <div style="margin-top:8px">
+   {% for key, label, checked in skills %}
+   <label style="display:flex;align-items:center;gap:9px;padding:7px 0;border-bottom:1px solid var(--line);font-size:14px"><input type="checkbox" name="{{ key }}" {% if checked %}checked{% endif %} style="width:auto"> {{ label }}</label>
+   {% endfor %}
+  </div>
+
+  <label style="display:flex;align-items:center;gap:9px;margin-top:14px;font-size:14px;font-weight:600"><input type="checkbox" name="passed" {% if rt.passed %}checked{% endif %} style="width:auto"> Road test PASSED — driver is qualified</label>
+  <label style="display:flex;align-items:center;gap:9px;margin-top:8px;font-size:13px"><input type="checkbox" name="used_cdl_in_lieu" {% if rt.used_cdl_in_lieu %}checked{% endif %} style="width:auto"> Accepting a copy of the driver's CDL in lieu of a road test (§391.33)</label>
+
+  <div style="margin-top:12px"><label class="sub">Notes</label><textarea name="notes" rows="2" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px">{{ rt.notes }}</textarea></div>
+
+  <div style="margin-top:16px"><button class="btn amber" type="submit">Save road test</button></div>
+  <div class="sub" style="font-size:12px;margin-top:10px">When you mark it passed (or accept CDL in lieu), the DQF "Road test" item shows Complete and a printable certificate is available. Not legal advice — confirm requirements with a DOT compliance professional.</div>
+ </form>
+</div>
+{% endblock %}

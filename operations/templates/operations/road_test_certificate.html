@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>Road Test Certificate — {{ d.first_name }} {{ d.last_name }}</title>
+<style>
+ body{font-family:Arial,sans-serif;color:#111;max-width:720px;margin:24px auto;padding:0 20px;font-size:13px}
+ h1{font-size:20px;color:#1e2d45;margin-bottom:2px}
+ .sub{color:#666;font-size:12px}
+ .box{border:1px solid #999;border-radius:6px;padding:14px 16px;margin-top:14px}
+ table{width:100%;border-collapse:collapse;margin-top:8px}
+ td{padding:5px 4px;border-bottom:1px solid #eee}
+ .yes{color:#137a51;font-weight:bold}.no{color:#b0281a}
+ .sig{margin-top:26px;display:flex;justify-content:space-between;gap:20px}
+ .sig div{flex:1;border-top:1px solid #333;padding-top:4px;font-size:12px;color:#555}
+ .print{margin:14px 0}
+ @media print{.print{display:none}}
+</style></head><body>
+<div class="print"><button onclick="window.print()">🖨 Print</button> <a href="/app/drivers/{{ d.id }}/road-test/">← Back</a></div>
+
+<h1>Road Test Certificate</h1>
+<div class="sub">FMCSA 49 CFR §391.31 · {{ company.name }}{% if company.mc_number %} · MC {{ company.mc_number }}{% endif %}</div>
+
+<div class="box">
+ <table>
+  <tr><td><b>Driver</b></td><td>{{ d.first_name }} {{ d.last_name }}</td><td><b>Test date</b></td><td>{{ rt.date|date:"M d, Y" }}</td></tr>
+  <tr><td><b>Equipment tested</b></td><td>{{ rt.vehicle_type|default:"—" }}</td><td><b>Examiner</b></td><td>{{ rt.examiner_name|default:"—" }}</td></tr>
+ </table>
+</div>
+
+<div class="box">
+ <b>Skill areas evaluated (§391.31):</b>
+ <table>
+ {% for label, ok in skills %}
+  <tr><td>{{ label }}</td><td style="text-align:right;width:80px">{% if ok %}<span class="yes">Satisfactory</span>{% else %}<span class="no">Not satisfactory</span>{% endif %}</td></tr>
+ {% endfor %}
+ </table>
+</div>
+
+<div class="box">
+ <b>Result:</b>
+ {% if rt.used_cdl_in_lieu %}
+   A copy of the driver's valid Commercial Driver's License was accepted in lieu of the road test, as permitted by 49 CFR §391.33.
+ {% elif rt.passed %}
+   <span class="yes">PASSED.</span> This is to certify that the above-named driver was given a road test under my supervision on the date shown, consisting of the events required by §391.31, and that in my opinion the driver possesses sufficient driving skill to operate safely the type of commercial motor vehicle listed above.
+ {% else %}
+   <span class="no">NOT PASSED / INCOMPLETE.</span>
+ {% endif %}
+ {% if rt.notes %}<div style="margin-top:8px;color:#555"><b>Notes:</b> {{ rt.notes }}</div>{% endif %}
+</div>
+
+<div class="sig">
+ <div>Examiner signature — {{ rt.examiner_name }}</div>
+ <div>Date — {{ rt.date|date:"M d, Y" }}</div>
+</div>
+</body></html>
