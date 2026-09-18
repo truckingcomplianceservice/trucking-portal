@@ -33,6 +33,13 @@
  <form method="post" enctype="multipart/form-data">
    {% csrf_token %}
    {% for field in form %}
+     {% if field.name == "first_name" %}<div class="sec">Personal information</div>{% endif %}
+     {% if field.name == "cdl_number" %}<div class="sec">License information (§391.21)</div>{% endif %}
+     {% if field.name == "ever_denied_license" %}<div class="sec">License history — required by FMCSA</div>{% endif %}
+     {% if field.name == "years_experience" %}<div class="sec">Employment history — last 10 years (§391.21)</div>{% endif %}
+     {% if field.name == "convictions_12mo" %}<div class="sec">Driving record — required by FMCSA</div>{% endif %}
+     {% if field.name == "cdl_file" %}<div class="sec">Documents</div>{% endif %}
+     {% if field.name == "consent" %}<div class="sec">Certification &amp; consent</div>{% endif %}
      {% if field.name == "consent" %}
        <div class="fld"><div class="consent">{{ field }} <label style="margin:0;font-weight:500">{{ field.label }}</label></div>
        {% if field.errors %}<div class="errors">{{ field.errors|join:", " }}</div>{% endif %}</div>

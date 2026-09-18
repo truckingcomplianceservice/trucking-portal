@@ -103,14 +103,23 @@ class ApplicantForm(forms.ModelForm):
 
     class Meta:
         model = Applicant
-        fields = ["first_name", "last_name", "phone", "email", "current_address",
-                  "address_history", "cdl_number", "cdl_class", "cdl_state",
-                  "years_experience", "employment_history", "accidents",
+        fields = ["first_name", "last_name", "date_of_birth", "phone", "email",
+                  "emergency_contact", "current_address", "address_history",
+                  "cdl_number", "cdl_class", "cdl_state", "cdl_expiry",
+                  "other_licenses", "hazmat", "twic",
+                  "ever_denied_license", "ever_suspended", "denied_suspended_details",
+                  "years_experience", "employment_history",
+                  "convictions_12mo", "accidents_3yr",
                   "cdl_file", "medical_file", "other_file", "consent", "signature"]
         widgets = {
+            "date_of_birth": forms.DateInput(attrs={"type": "date"}),
+            "cdl_expiry": forms.DateInput(attrs={"type": "date"}),
             "address_history": forms.Textarea(attrs={"rows": 3}),
-            "employment_history": forms.Textarea(attrs={"rows": 4}),
-            "accidents": forms.Textarea(attrs={"rows": 2}),
+            "employment_history": forms.Textarea(attrs={"rows": 5}),
+            "convictions_12mo": forms.Textarea(attrs={"rows": 2}),
+            "accidents_3yr": forms.Textarea(attrs={"rows": 2}),
+            "other_licenses": forms.Textarea(attrs={"rows": 2}),
+            "denied_suspended_details": forms.Textarea(attrs={"rows": 2}),
         }
 
 

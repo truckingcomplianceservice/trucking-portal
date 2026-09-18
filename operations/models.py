@@ -436,6 +436,18 @@ class Applicant(models.Model):
     years_experience = models.PositiveIntegerField("Years of experience", null=True, blank=True)
     employment_history = models.TextField("Employment history (last 10 years)", blank=True)
     accidents = models.TextField("Accident / violation history", blank=True)
+    # ---- FMCSA §391.21 required fields ----
+    date_of_birth = models.DateField("Date of birth", null=True, blank=True)
+    cdl_expiry = models.DateField("CDL expiration date", null=True, blank=True)
+    ever_denied_license = models.BooleanField("Ever denied a license/permit/privilege?", default=False)
+    ever_suspended = models.BooleanField("Ever had a license suspended or revoked?", default=False)
+    denied_suspended_details = models.TextField("If yes, explain (denied/suspended/revoked)", blank=True)
+    convictions_12mo = models.TextField("Traffic convictions/forfeitures in the past 12 months (or 'None')", blank=True)
+    accidents_3yr = models.TextField("Accidents in the past 3 years — date, nature, injuries/fatalities (or 'None')", blank=True)
+    other_licenses = models.TextField("All other licenses held in past 3 years (state, number) or 'None'", blank=True)
+    emergency_contact = models.CharField("Emergency contact name & phone", max_length=200, blank=True)
+    twic = models.BooleanField("Has TWIC card?", default=False)
+    hazmat = models.BooleanField("Hazmat endorsement?", default=False)
 
     cdl_file = models.FileField("CDL (front & back)", upload_to="applicants/cdl/", blank=True)
     medical_file = models.FileField("Medical certificate", upload_to="applicants/medical/", blank=True)
