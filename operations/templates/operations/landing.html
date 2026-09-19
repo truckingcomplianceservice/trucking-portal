@@ -146,4 +146,15 @@
  <a href="/login/">Log in</a> · <a href="/signup/">Start free trial</a>
  <div style="margin-top:8px;color:#9aa7b8">© 2026 Trucking Compliance Services. All rights reserved.</div>
 </div></footer>
+{% if TAWK_ID %}
+<!-- Tawk.to live chat -->
+<script type="text/javascript">
+var Tawk_API=Tawk_API||{}, Tawk_LoadStart=new Date();
+(function(){
+var s1=document.createElement("script"),s0=document.getElementsByTagName("script")[0];
+s1.async=true; s1.src='https://embed.tawk.to/{{ TAWK_ID }}'; s1.charset='UTF-8';
+s1.setAttribute('crossorigin','*'); s0.parentNode.insertBefore(s1,s0);
+})();
+</script>
+{% endif %}
 </body></html>

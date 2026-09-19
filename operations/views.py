@@ -6174,7 +6174,8 @@ def landing(request):
     """Public marketing landing page. Logged-in users go to their dashboard."""
     if request.user.is_authenticated:
         return redirect("dashboard")
-    return render(request, "operations/landing.html", {})
+    return render(request, "operations/landing.html", {
+        "TAWK_ID": _os.environ.get("TAWK_ID", "")})
 
 
 def _state_from_location(text):
@@ -6343,19 +6344,79 @@ WHAT THE APP DOES (help users find features):
 
 HOW TO ANSWER:
 - Give step-by-step directions using the sidebar names above (e.g. "Go to Dispatch -> Add load").
-- For account/billing changes, refunds, bugs, or anything you can't directly do, tell the user
-  you'll connect them to a human: say "I can connect you with our support team — click 'Talk to a
-  human' below and we'll follow up by email." Do NOT invent account details or make promises.
-- Never make up features that don't exist. If unsure, offer to escalate to a human.
+- You are given the user's OWN company data below — use it to answer real questions like "how many
+  active loads do I have", "which documents are expiring", "how many unpaid invoices". Only ever use
+  the data you're given (it's already scoped to their company). Never mention other companies.
+- For account/billing changes, refunds, bugs, specific records you don't have, or anything you can't
+  do, offer to connect them to a human: say "I can connect you with our team — use 'Live chat with an
+  agent' to chat now, or 'Talk to a human' to reach us by email." Do NOT invent details or make promises.
+- Never make up features or data that don't exist. If unsure, offer to escalate to a human.
 - Keep answers short and friendly. This is not legal or tax advice; for compliance/tax specifics,
   suggest confirming with a DOT compliance professional or accountant.
 """
 
 
+def _support_data_summary(request):
+    """Build a SHORT summary of ONLY the logged-in user's own company data, so the
+    AI can answer real questions. Strictly scoped — never other companies' data."""
+    try:
+        cs = _companies(request)  # user's own companies only
+        # active company if chosen, else first
+        av = _active(request)
+        company = None
+        if av and av != "all":
+            company = cs.filter(pk=av).first()
+        if company is None:
+            company = cs.first()
+        if not company:
+            return "USER DATA: (no company data available)."
+        today = _dt.date.today()
+        month_start = _dt.date(today.year, today.month, 1)
+        soon = today + _dt.timedelta(days=30)
+        loads_month = Load.objects.filter(company=company, pickup_date__gte=month_start).count()
+        active_loads = Load.objects.filter(company=company).exclude(status__in=["delivered", "invoiced", "paid"]).count()
+        drivers = Driver.objects.filter(company=company, status="active").count()
+        trucks = Vehicle.objects.filter(company=company).exclude(status="retired").count()
+        unpaid = 0
+        try:
+            from .models import Invoice as _Inv
+            # unpaid = invoices with no recorded payment
+            for inv in _Inv.objects.filter(company=company):
+                paid_amt = sum(float(p.amount or 0) for p in inv.payments.all()) if hasattr(inv, "payments") else 0
+                sub = float(getattr(inv, "subtotal", 0) or 0)
+                if paid_amt < sub:
+                    unpaid += 1
+        except Exception:
+            unpaid = 0
+        # expiring driver docs (medical/CDL) in next 30 days
+        exp = []
+        for d in Driver.objects.filter(company=company, status="active"):
+            if d.medical_expiry and today <= d.medical_expiry <= soon:
+                exp.append(f"{d.first_name} {d.last_name} medical expires {d.medical_expiry}")
+            if d.cdl_expiry and today <= d.cdl_expiry <= soon:
+                exp.append(f"{d.first_name} {d.last_name} CDL expires {d.cdl_expiry}")
+        lines = [
+            "USER'S OWN COMPANY DATA (only this company — use to answer their questions; never mention other companies):",
+            f"- Company: {company.name}",
+            f"- Active trucks: {trucks}; Active drivers: {drivers}",
+            f"- Loads this month: {loads_month}; Active/in-progress loads: {active_loads}",
+            f"- Unpaid invoices: {unpaid}",
+        ]
+        if exp:
+            lines.append("- Documents expiring within 30 days: " + "; ".join(exp[:8]))
+        else:
+            lines.append("- No driver documents expiring in the next 30 days.")
+        lines.append("If the user asks about specific records you don't have here (a particular load's details, "
+                     "a specific settlement amount, etc.), tell them where to find it in the app, or offer a human.")
+        return "\n".join(lines)
+    except Exception:
+        return "USER DATA: (unavailable right now)."
+
+
 @login_required
 @require_POST
 def support_ai(request):
-    """AI support answer using the app knowledge base."""
+    """AI support answer using the app knowledge base + the user's OWN company data."""
     from django.http import JsonResponse
     import json as _json
     question = (request.POST.get("message") or "").strip()
@@ -6366,6 +6427,8 @@ def support_ai(request):
     if not key:
         return JsonResponse({"ok": True, "answer": "Our AI assistant isn't available right now. "
             "Please click 'Talk to a human' and our team will help you by email.", "escalate": True})
+    # Build a SCOPED data summary — ONLY the logged-in user's own companies. Never global.
+    data_summary = _support_data_summary(request)
     try:
         import urllib.request as _u
         msgs = []
@@ -6377,7 +6440,8 @@ def support_ai(request):
             pass
         msgs.append({"role": "user", "content": question[:2000]})
         model = _os.environ.get("ANTHROPIC_MODEL", "claude-haiku-4-5-20251001")
-        body = _json.dumps({"model": model, "max_tokens": 500, "system": SUPPORT_KNOWLEDGE,
+        body = _json.dumps({"model": model, "max_tokens": 500,
+                            "system": SUPPORT_KNOWLEDGE + "\n\n" + data_summary,
                             "messages": msgs}).encode()
         req = _u.Request("https://api.anthropic.com/v1/messages", data=body, headers={
             "x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json"})
