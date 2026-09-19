@@ -352,3 +352,13 @@ class PartnerPaybackAdmin(admin.ModelAdmin):
     list_display = ("partner", "company", "date", "amount", "vehicle", "method")
     list_filter = ("company", "partner")
     date_hierarchy = "date"
+
+
+from .models import SupportTicket
+
+@admin.register(SupportTicket)
+class SupportTicketAdmin(admin.ModelAdmin):
+    list_display = ("id", "subject", "name", "company", "status", "created_at")
+    list_filter = ("status", "company")
+    search_fields = ("subject", "message", "name", "email")
+    readonly_fields = ("ai_transcript", "created_at")

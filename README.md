@@ -1,29 +1,35 @@
-# CarrierConnect360 — multi-stop with date/time/appointment per stop
+# CarrierConnect360 — live agent chat (Tawk.to) + AI support
 
 ## Deploy
 1. Download this zip, then in Terminal:
    cd ~/Documents/GitHub/trucking-portal && rm -rf operations trucking_ops templates manage.py requirements.txt Procfile README.md static && unzip -o ~/Downloads/<THIS-FILE>.zip -d . && echo DONE
 2. GitHub Desktop -> Commit -> Push.
 
-## New: each stop has its own date, time & appointment number
-The add-load form's Stops section is upgraded. Each stop is now its own card with:
-- Location (city/state or full address)
-- Date
-- Time / time window (e.g. "8am-12pm")
-- Appointment / PO number
-"+ Add another stop" adds more; first = Pickup, last = Delivery, middle = Stop.
+## Set up Tawk.to (free live chat) -- 5 minutes:
+1. Go to tawk.to and create a free account.
+2. It gives you a "Property ID" and "Widget ID" -- your embed URL looks like:
+   https://embed.tawk.to/XXXXXXXXXXXX/YYYYY
+   Copy the part after embed.tawk.to/  -> "XXXXXXXXXXXX/YYYYY"
+3. In Railway -> Variables, add:  TAWK_ID = XXXXXXXXXXXX/YYYYY
+4. Save (Railway redeploys). Done -- live chat is now on your app.
+5. Install the Tawk.to mobile app so you can answer clients from your phone.
 
-The load detail page shows a clean Stops table: #, type, location, date, time,
-and appointment/PO -- so dispatchers and drivers see each stop's appointment.
-(Old text-only stops on existing loads still display; new loads use the
-structured stops.)
+## How support now works (AI + live agent)
+The "💬 Help" button opens the support panel with:
+- AI assistant (instant answers) -- as before.
+- "Talk to a human (email)" -- creates a ticket + emails your team.
+- "Live chat with an agent" -- opens Tawk.to real-time chat with you/your agents.
+  (This button only appears when TAWK_ID is set.)
+So: AI handles most questions instantly; live chat connects clients to a real
+person in real time; email ticket is the fallback when agents are offline.
 
-## Also (already in AUG22y): co-driver on the add-load form + team 50/50 pay.
+If TAWK_ID is NOT set, the app works exactly as before (AI + email) with no live
+chat button -- so it's safe to deploy now and add the ID whenever you're ready.
 
 ## Includes everything to date
-Structured multi-stop (date/time/appt), team driver support, onboarding checklist +
-password reset, white-label company logo on reports, rate con full-address fix,
-IFTA ELD reconciliation, automatic IFTA + per-truck, logo squish fix, adaptive
+Live agent (Tawk.to) + AI support, logo sizing fix, structured multi-stop, team
+driver, onboarding + password reset, white-label logo on reports, rate con
+full-address fix, IFTA ELD reconciliation, automatic IFTA + per-truck, adaptive
 logo, light landing page, multi-domain, staff-entered application, email
 verification, terminate/rehire, driver counts + complete-record-on-hire, verified
 e-consent, FMCSA road test, FMCSA application form, driver email login, DQF EPN +

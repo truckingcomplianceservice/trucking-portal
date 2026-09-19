@@ -984,6 +984,26 @@ class LoadStop(models.Model):
         return f"{self.get_kind_display()}: {self.location}"
 
 
+class SupportTicket(models.Model):
+    """A support request escalated from the AI chat to a human agent."""
+    STATUS = [("open","Open"),("in_progress","In progress"),("closed","Closed")]
+    company = models.ForeignKey(Company, on_delete=models.SET_NULL, null=True, blank=True, related_name="support_tickets")
+    user = models.ForeignKey("auth.User", on_delete=models.SET_NULL, null=True, blank=True)
+    name = models.CharField(max_length=120, blank=True)
+    email = models.CharField(max_length=254, blank=True)
+    subject = models.CharField(max_length=200, blank=True)
+    message = models.TextField()
+    ai_transcript = models.TextField(blank=True)
+    status = models.CharField(max_length=12, choices=STATUS, default="open")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"Ticket #{self.id}: {self.subject or self.message[:40]}"
+
+
 class DriverLocation(models.Model):
     """Latest known GPS location for a driver, sent from the driver app (with the
     driver's permission) while the app is open. Not 24/7 background tracking."""

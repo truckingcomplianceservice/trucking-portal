@@ -7,6 +7,8 @@ from django.views.generic import RedirectView
 from operations import views
 
 urlpatterns = [
+    path("support/ai/", views.support_ai, name="support_ai"),
+    path("support/ticket/", views.support_ticket, name="support_ticket"),
     path("app/company-settings/", views.company_settings, name="company_settings"),
     path("verify/send-code/", views.send_email_code, name="send_email_code"),
     path("verify/check-code/", views.verify_email_code, name="verify_email_code"),

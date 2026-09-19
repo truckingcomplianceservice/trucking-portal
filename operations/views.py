@@ -6317,3 +6317,108 @@ def company_settings(request):
         _messages.success(request, "Company settings saved. Your logo and info now appear on your invoices and reports.")
         return redirect("company_settings")
     return render(request, "operations/company_settings.html", {"company": company})
+
+
+# ================= AI Support system =================
+SUPPORT_KNOWLEDGE = """You are the friendly, professional support assistant for CarrierConnect360,
+an all-in-one trucking management system (TMS) for carriers. Help users with how to use the app,
+general trucking/compliance questions, and reporting issues. Be concise, warm, and clear.
+
+WHAT THE APP DOES (help users find features):
+- Dispatch/Loads: add loads (with multi-stop + appointment #, co-driver for team driving),
+  auto-miles, assign driver + truck, upload rate con (AI reads it), store BOL/POD + photos.
+- Driver mobile app: drivers log in (email/username/phone), see loads, navigate, mark
+  arrived/loaded/delivered, scan documents, add expenses, view pay. Install to phone home screen.
+- Driver pay/Settlements: weekly/daily/per-load, % or per-mile or per-load, team 50/50 split,
+  itemized reimbursements/deductions, print checks, pay owner-operators as a company.
+- Invoicing: create from a load, email PDF to broker, track paid/unpaid.
+- Accounting: expenses with "Paid by" (company/partner/driver), Partner ledger + profit split.
+- Reports: Profit & Loss, per-truck P&L, $/mile, driver reports.
+- IFTA: auto-calculate miles from loads + gallons from fuel, upload ELD CSV to reconcile,
+  fleet MPG, tax by state.
+- Compliance/Hiring: FMCSA Driver Qualification File (DQF), driver application, road test,
+  verified e-consents (Clearinghouse etc.), expiration reminders, terminate/rehire.
+- Company settings: upload your own logo -> appears on all your invoices and reports.
+- Billing: $100/month for 1-5 trucks, then $20/month per extra truck. 7-day free trial.
+
+HOW TO ANSWER:
+- Give step-by-step directions using the sidebar names above (e.g. "Go to Dispatch -> Add load").
+- For account/billing changes, refunds, bugs, or anything you can't directly do, tell the user
+  you'll connect them to a human: say "I can connect you with our support team — click 'Talk to a
+  human' below and we'll follow up by email." Do NOT invent account details or make promises.
+- Never make up features that don't exist. If unsure, offer to escalate to a human.
+- Keep answers short and friendly. This is not legal or tax advice; for compliance/tax specifics,
+  suggest confirming with a DOT compliance professional or accountant.
+"""
+
+
+@login_required
+@require_POST
+def support_ai(request):
+    """AI support answer using the app knowledge base."""
+    from django.http import JsonResponse
+    import json as _json
+    question = (request.POST.get("message") or "").strip()
+    history = request.POST.get("history", "[]")
+    if not question:
+        return JsonResponse({"ok": False, "error": "Please type a question."})
+    key = _os.environ.get("ANTHROPIC_API_KEY", "")
+    if not key:
+        return JsonResponse({"ok": True, "answer": "Our AI assistant isn't available right now. "
+            "Please click 'Talk to a human' and our team will help you by email.", "escalate": True})
+    try:
+        import urllib.request as _u
+        msgs = []
+        try:
+            for h in _json.loads(history)[-6:]:
+                if h.get("role") in ("user", "assistant") and h.get("content"):
+                    msgs.append({"role": h["role"], "content": str(h["content"])[:2000]})
+        except Exception:
+            pass
+        msgs.append({"role": "user", "content": question[:2000]})
+        model = _os.environ.get("ANTHROPIC_MODEL", "claude-haiku-4-5-20251001")
+        body = _json.dumps({"model": model, "max_tokens": 500, "system": SUPPORT_KNOWLEDGE,
+                            "messages": msgs}).encode()
+        req = _u.Request("https://api.anthropic.com/v1/messages", data=body, headers={
+            "x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json"})
+        with _u.urlopen(req, timeout=30) as resp:
+            data = _json.loads(resp.read().decode())
+        answer = "".join(b.get("text", "") for b in data.get("content", []) if b.get("type") == "text")
+        escalate = "talk to a human" in answer.lower() or "support team" in answer.lower()
+        return JsonResponse({"ok": True, "answer": answer or "Sorry, I couldn't generate an answer. Try 'Talk to a human'.", "escalate": escalate})
+    except Exception as e:
+        return JsonResponse({"ok": True, "answer": "I'm having trouble right now. Please click 'Talk to a human' and our team will follow up by email.", "escalate": True})
+
+
+@login_required
+@require_POST
+def support_ticket(request):
+    """Escalate to a human: save a ticket + email the support team."""
+    from django.http import JsonResponse
+    from .models import SupportTicket
+    msg = (request.POST.get("message") or "").strip()
+    transcript = (request.POST.get("transcript") or "")[:5000]
+    if not msg:
+        return JsonResponse({"ok": False, "error": "Please describe your issue."})
+    cs = _companies(request)
+    company = cs.first()
+    t = SupportTicket.objects.create(
+        company=company, user=request.user,
+        name=(request.user.get_full_name() or request.user.username)[:120],
+        email=(request.user.email or "")[:254],
+        subject=(request.POST.get("subject") or "Support request")[:200],
+        message=msg[:5000], ai_transcript=transcript)
+    # email the support team
+    support_to = _os.environ.get("SUPPORT_EMAIL", "") or _os.environ.get("DEFAULT_FROM_EMAIL", "")
+    if support_to:
+        try:
+            from django.core.mail import EmailMessage
+            EmailMessage(
+                subject=f"[Support #{t.id}] {t.subject} — {t.name}",
+                body=(f"From: {t.name} <{t.email}>\nCompany: {company.name if company else '—'}\n\n"
+                      f"Message:\n{msg}\n\n--- AI chat transcript ---\n{transcript}"),
+                from_email=_os.environ.get("DEFAULT_FROM_EMAIL", support_to),
+                to=[support_to], reply_to=[t.email] if t.email else None).send(fail_silently=True)
+        except Exception:
+            pass
+    return JsonResponse({"ok": True, "ticket": t.id})

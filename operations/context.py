@@ -17,4 +17,5 @@ def nav(request):
             "active_company_obj": active_company_obj,
             "active_company_id": request.session.get("active_company", "all"),
             "multi_company": companies.count() > 1,
-            "nav_allowed": sections_for(request.user)}
+            "nav_allowed": sections_for(request.user),
+            "TAWK_ID": __import__("os").environ.get("TAWK_ID", "")}
