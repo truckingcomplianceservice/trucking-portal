@@ -1,1 +1,1 @@
-web: python manage.py migrate && python manage.py collectstatic --noinput && python manage.py ensure_admin && gunicorn trucking_ops.wsgi
+web: python manage.py migrate && python manage.py collectstatic --noinput && python manage.py ensure_admin && gunicorn trucking_ops.wsgi --workers 3 --threads 2 --timeout 90 --max-requests 1000 --max-requests-jitter 100

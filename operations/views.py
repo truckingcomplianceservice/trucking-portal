@@ -6255,6 +6255,27 @@ def sitemap_xml(request):
     return HttpResponse(xml, content_type="application/xml")
 
 
+def android_asset_links(request):
+    """Digital Asset Links file — proves this domain and the CarrierConnect360
+    Driver Android app (Trusted Web Activity) are the same entity, so Android
+    opens the app without a browser address bar. SHA256 fingerprint is from
+    the app's release signing keystore."""
+    from django.http import JsonResponse
+    data = [
+        {
+            "relation": ["delegate_permission/common.handle_all_urls"],
+            "target": {
+                "namespace": "android_app",
+                "package_name": "com.truckingcomplianceservices.cc360driver",
+                "sha256_cert_fingerprints": [
+                    "2C:8E:72:C6:04:5D:E3:30:A8:89:C6:ED:A5:A2:A3:94:87:D5:EA:40:F7:B0:EB:A8:41:67:4D:4D:7E:B2:F5:51"
+                ],
+            },
+        }
+    ]
+    return JsonResponse(data, safe=False)
+
+
 def llms_txt(request):
     """llms.txt — plain-language context file for AI systems (llmstxt.org convention)."""
     from django.http import HttpResponse

@@ -25,6 +25,7 @@ urlpatterns = [
     path("robots.txt", views.robots_txt, name="robots_txt"),
     path("sitemap.xml", views.sitemap_xml, name="sitemap_xml"),
     path("llms.txt", views.llms_txt, name="llms_txt"),
+    path(".well-known/assetlinks.json", views.android_asset_links, name="android_asset_links"),
     path("pricing.md", views.pricing_md, name="pricing_md"),
     path("app/billing-status/", views.billing_status, name="billing_status"),
     path("app/partners/", views.partner_ledger, name="partner_ledger"),
