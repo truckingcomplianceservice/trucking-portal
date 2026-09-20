@@ -3,7 +3,97 @@
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>CarrierConnect360 — All-in-one trucking software</title>
 <meta name="description" content="Run your entire trucking business in one place: dispatch, driver pay, invoicing, IFTA, and FMCSA compliance. Start a 7-day free trial.">
+<link rel="canonical" href="https://carrierconnect360.com/">
 <link rel="icon" type="image/png" href="{% static 'img/icon.png' %}">
+
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="CarrierConnect360">
+<meta property="og:title" content="CarrierConnect360 — All-in-one trucking software">
+<meta property="og:description" content="Run your entire trucking business in one place: dispatch, driver pay, invoicing, IFTA, and FMCSA compliance. Start a 7-day free trial.">
+<meta property="og:url" content="https://carrierconnect360.com/">
+<meta property="og:image" content="https://carrierconnect360.com{% static 'img/logo_full.png' %}">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="CarrierConnect360 — All-in-one trucking software">
+<meta name="twitter:description" content="Run your entire trucking business in one place: dispatch, driver pay, invoicing, IFTA, and FMCSA compliance. Start a 7-day free trial.">
+<meta name="twitter:image" content="https://carrierconnect360.com{% static 'img/logo_full.png' %}">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "CarrierConnect360",
+  "url": "https://carrierconnect360.com/",
+  "applicationCategory": "BusinessApplication",
+  "operatingSystem": "Web",
+  "description": "All-in-one fleet management software for trucking companies: dispatch, driver pay, invoicing, IFTA fuel-tax reporting, and FMCSA compliance recordkeeping.",
+  "offers": {
+    "@type": "Offer",
+    "price": "100.00",
+    "priceCurrency": "USD",
+    "priceSpecification": {
+      "@type": "UnitPriceSpecification",
+      "price": "100.00",
+      "priceCurrency": "USD",
+      "billingIncrement": 1,
+      "unitText": "MONTH"
+    },
+    "description": "1-5 trucks included; +$20/month per additional truck. 7-day free trial."
+  },
+  "provider": {
+    "@type": "Organization",
+    "name": "Trucking Compliance Services",
+    "url": "https://carrierconnect360.com/"
+  }
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "How much does CarrierConnect360 cost?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "CarrierConnect360 is $100/month for 1-5 trucks, plus $20/month for each additional truck. All features are included at every size — nothing is locked behind a higher tier. A 7-day free trial is available with no credit card required."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What does CarrierConnect360 include?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Dispatch and load management, a driver mobile app, driver pay and check printing, broker invoicing, accounting and partner ledgers, IFTA fuel-tax worksheets, FMCSA driver qualification file tracking, and 1099 contractor tax generation — all in one multi-tenant platform."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Is CarrierConnect360 suitable for owner-operators and small fleets?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. Pricing scales from a single truck up through larger fleets, and every company's data is kept separate and private. Owner-operators can be paid as a business (with EIN) directly from the platform."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Does CarrierConnect360 help with FMCSA compliance?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "CarrierConnect360 organizes driver qualification files, road test records, and consent workflows aligned to 49 CFR Part 391. It is a recordkeeping tool, not legal or compliance advice — carriers should still have a qualified DOT compliance professional review their program."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can I try CarrierConnect360 before paying?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. New accounts include a 7-day free trial with full access to every feature, and no credit card is required to start."
+      }
+    }
+  ]
+}
+</script>
 <style>
  :root{--navy:#16273f;--gold:#f5b62c;--gold-d:#e0982a;--ink:#16273f;--body:#5a6b80;--line:#eef0f4;--cream:#fbfaf7}
  *{box-sizing:border-box;margin:0;padding:0}
@@ -69,6 +159,13 @@
  .finalcta{background:var(--navy);color:#fff;text-align:center}
  .finalcta h2{color:#fff}
  .finalcta .lead{color:#c3d0e0}
+ .faq{max-width:760px;margin:0 auto}
+ .faq details{border-bottom:1px solid var(--line);padding:18px 4px}
+ .faq summary{font-weight:700;color:var(--navy);cursor:pointer;font-size:16px;list-style:none;display:flex;justify-content:space-between;align-items:center;gap:12px}
+ .faq summary::-webkit-details-marker{display:none}
+ .faq summary::after{content:'+';color:var(--gold-d);font-size:22px;font-weight:400;flex-shrink:0}
+ .faq details[open] summary::after{content:'−'}
+ .faq p{color:var(--body);font-size:14.5px;margin-top:10px;line-height:1.6}
  footer{background:#f7f8fb;color:#5a6b80;padding:24px 0;text-align:center;font-size:13px;border-top:1px solid var(--line)}
  footer a{color:var(--gold-d)}
 </style></head><body>
@@ -78,6 +175,7 @@
   <a href="#features" class="hidem">Features</a>
   <a href="#how" class="hidem">How it works</a>
   <a href="#pricing" class="hidem">Pricing</a>
+  <a href="#faq" class="hidem">FAQ</a>
   <a href="/login/" class="login">Log in</a>
   <a href="/signup/" class="btn-gold" style="padding:9px 18px;font-size:14px">Start free trial</a>
  </div>
@@ -134,6 +232,32 @@
    <div class="li"><span class="c">✓</span> 7-day free trial, cancel anytime</div>
   </div>
   <div><a href="/signup/" class="btn-gold" style="display:block;text-align:center">Start free trial</a></div>
+ </div>
+</div></section>
+<section id="faq"><div class="wrap">
+ <div class="eyebrow">Questions</div>
+ <h2>Frequently asked questions</h2>
+ <div class="faq" style="margin-top:34px">
+  <details open>
+   <summary>How much does CarrierConnect360 cost?</summary>
+   <p>$100/month for 1&ndash;5 trucks, plus $20/month for each additional truck. All features are included at every size &mdash; nothing is locked behind a higher tier. A 7-day free trial is available with no credit card required.</p>
+  </details>
+  <details>
+   <summary>What does CarrierConnect360 include?</summary>
+   <p>Dispatch and load management, a driver mobile app, driver pay and check printing, broker invoicing, accounting and partner ledgers, IFTA fuel-tax worksheets, FMCSA driver qualification file tracking, and 1099 contractor tax generation &mdash; all in one multi-tenant platform.</p>
+  </details>
+  <details>
+   <summary>Is CarrierConnect360 suitable for owner-operators and small fleets?</summary>
+   <p>Yes. Pricing scales from a single truck up through larger fleets, and every company's data is kept separate and private. Owner-operators can be paid as a business (with EIN) directly from the platform.</p>
+  </details>
+  <details>
+   <summary>Does CarrierConnect360 help with FMCSA compliance?</summary>
+   <p>CarrierConnect360 organizes driver qualification files, road test records, and consent workflows aligned to 49 CFR Part 391. It's a recordkeeping tool, not legal or compliance advice &mdash; carriers should still have a qualified DOT compliance professional review their program.</p>
+  </details>
+  <details>
+   <summary>Can I try CarrierConnect360 before paying?</summary>
+   <p>Yes. New accounts include a 7-day free trial with full access to every feature, and no credit card is required to start.</p>
+  </details>
  </div>
 </div></section>
 <section class="finalcta"><div class="wrap">

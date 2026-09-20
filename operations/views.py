@@ -6187,6 +6187,117 @@ def applicant_add(request):
     return render(request, "operations/applicant_add.html", {"form": form, "companies": cs})
 
 
+_CANONICAL_DOMAIN = "https://carrierconnect360.com"
+
+
+def robots_txt(request):
+    """robots.txt — explicitly allows major AI-answer crawlers (GPTBot, ClaudeBot,
+    PerplexityBot, Google-Extended) so CarrierConnect360 can be cited in AI answers,
+    while keeping tenant/private app areas out of any index."""
+    from django.http import HttpResponse
+    lines = [
+        "User-agent: *",
+        "Allow: /$",
+        "Allow: /signup/",
+        "Allow: /terms/",
+        "Allow: /privacy/",
+        "Allow: /login/",
+        "Disallow: /app/",
+        "Disallow: /driver/",
+        "Disallow: /admin/",
+        "Disallow: /reports/",
+        "Disallow: /dashboard/",
+        "Disallow: /c/",
+        "Disallow: /media/",
+        "Disallow: /join/",
+        "Disallow: /consent/",
+        "Disallow: /apply/",
+        "Disallow: /audit/",
+        "",
+        "# AI answer engines — explicitly allowed so CarrierConnect360 can be cited",
+        "User-agent: GPTBot",
+        "Allow: /",
+        "User-agent: ChatGPT-User",
+        "Allow: /",
+        "User-agent: ClaudeBot",
+        "Allow: /",
+        "User-agent: anthropic-ai",
+        "Allow: /",
+        "User-agent: PerplexityBot",
+        "Allow: /",
+        "User-agent: Google-Extended",
+        "Allow: /",
+        "",
+        f"Sitemap: {_CANONICAL_DOMAIN}/sitemap.xml",
+    ]
+    return HttpResponse("\n".join(lines), content_type="text/plain")
+
+
+def sitemap_xml(request):
+    """Minimal, hand-maintained sitemap of public marketing pages only."""
+    from django.http import HttpResponse
+    import datetime as _dt
+    today = _dt.date.today().isoformat()
+    pages = [
+        ("/", "1.0", "weekly"),
+        ("/signup/", "0.9", "weekly"),
+        ("/terms/", "0.3", "monthly"),
+        ("/privacy/", "0.3", "monthly"),
+    ]
+    urls = "".join(
+        f"<url><loc>{_CANONICAL_DOMAIN}{path}</loc><lastmod>{today}</lastmod>"
+        f"<changefreq>{freq}</changefreq><priority>{pri}</priority></url>"
+        for path, pri, freq in pages
+    )
+    xml = ('<?xml version="1.0" encoding="UTF-8"?>'
+           '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+           f'{urls}</urlset>')
+    return HttpResponse(xml, content_type="application/xml")
+
+
+def llms_txt(request):
+    """llms.txt — plain-language context file for AI systems (llmstxt.org convention)."""
+    from django.http import HttpResponse
+    content = f"""# CarrierConnect360
+
+> All-in-one fleet management software for trucking companies. Dispatch, driver pay, invoicing, IFTA fuel-tax reporting, and FMCSA compliance recordkeeping in one multi-tenant platform.
+
+CarrierConnect360 is built and operated by Trucking Compliance Services for small and mid-size trucking carriers (owner-operators through multi-truck fleets) who want to replace spreadsheets and multiple point tools with one system.
+
+## Key facts
+- Pricing: $100/month for 1-5 trucks, then $20/month per additional truck. 7-day free trial, no credit card required to start.
+- Core features: load/dispatch management, AI-assisted rate confirmation reading, driver mobile app (PWA), driver pay and settlements with check printing, broker invoicing, IFTA worksheets with ELD reconciliation, FMCSA driver qualification file (DQF) tracking under 49 CFR Part 391, 1099-NEC contractor tax generation, white-label client branding on invoices/reports.
+- Not legal, tax, or compliance advice — organizational/recordkeeping tooling only. See /terms/ for the full disclaimer.
+
+## Key pages
+- Homepage & features: {_CANONICAL_DOMAIN}/
+- Start a free trial: {_CANONICAL_DOMAIN}/signup/
+- Pricing (machine-readable): {_CANONICAL_DOMAIN}/pricing.md
+- Terms of Service: {_CANONICAL_DOMAIN}/terms/
+- Privacy Policy: {_CANONICAL_DOMAIN}/privacy/
+"""
+    return HttpResponse(content, content_type="text/plain")
+
+
+def pricing_md(request):
+    """/pricing.md — structured, machine-readable pricing for AI shopping agents."""
+    from django.http import HttpResponse
+    content = f"""# Pricing — CarrierConnect360
+
+## Standard Plan
+- Price: $100/month for 1-5 trucks
+- Additional trucks: +$20/month per truck above 5
+- Trial: 7 days free, no credit card required
+- Billing: monthly, cancel anytime
+- Includes: all features — dispatch, driver mobile app, driver pay & check printing, invoicing, accounting, IFTA, FMCSA compliance/DQF tracking, 1099 generation, white-label branding. Nothing is feature-gated by tier.
+
+## Contact
+- Start trial: {_CANONICAL_DOMAIN}/signup/
+- Questions: info@carrierconnect360.com
+"""
+    return HttpResponse(content, content_type="text/markdown")
+
+
 def landing(request):
     """Public marketing landing page. Logged-in users go to their dashboard."""
     if request.user.is_authenticated:
