@@ -1,34 +1,26 @@
-# CarrierConnect360 — dedicated Sales Dashboard for your sales team
+# CarrierConnect360 — fuller logo (with "Fleet Management System" tagline)
 
 ## Deploy
 1. Download this zip, then in Terminal:
    cd ~/Documents/GitHub/trucking-portal && rm -rf operations trucking_ops templates manage.py requirements.txt Procfile README.md static && unzip -o ~/Downloads/<THIS-FILE>.zip -d . && echo DONE
-2. GitHub Desktop -> Commit -> Push.
+2. GitHub Desktop -> Commit -> Push. HARD REFRESH (Cmd+Shift+R) in incognito.
 
-## New: sales team gets their own workspace (same app, no extra cost)
-You can now give a sales/marketing team member a login that lands them on the
-SALES dashboard (leads pipeline), NOT the trucking TMS.
+## What changed
+The header logo now shows MORE of your logo: shield + "CarrierConnect360" + the
+"FLEET MANAGEMENT SYSTEM" tagline, sized a bit taller (48px) so the tagline is
+readable. This shows across the website header, app sidebar, login, etc.
 
-HOW TO SET UP A SALES PERSON:
-1. Create their user (Admin -> Users -> add), or an existing staff user.
-2. Admin -> Profiles -> their profile -> check "Sales/marketing team" -> save.
-3. When they log in, they go straight to Sales / Leads and work leads/follow-ups.
-   They see the sales system; they do NOT run the trucking side.
+Only the 4 tiny feature icons (Dispatch/Compliance/Accounting/Reporting) at the very
+bottom of your original logo are left off the HEADER -- they'd be too small to read
+in a header strip. The FULL logo with those icons is still saved as logo_full.png if
+you want it for a big banner spot.
 
-WHO SEES WHAT NOW:
-- YOU (platform owner / superuser): everything -- TMS + Sales.
-- SALES TEAM (is_sales_team on): the Sales dashboard (leads, follow-ups, ad
-  tracking). Land there on login.
-- CLIENTS (the carriers you sell to): only their TMS -- never the sales system.
-- DRIVERS: only their driver app.
-
-So it's like a separate sales portal in EXPERIENCE, but it's one app -- no second
-deployment, no double maintenance, no extra Railway cost. When you hire sales, just
-flip the "Sales team" checkbox on their profile.
+If it looks too big/tall after deploying, tell me and I'll reduce the height by a few
+pixels -- easy tweak.
 
 ## Includes everything to date
-Dedicated sales dashboard for sales team, sales hidden from clients, Lead/CRM + ad
-(UTM) tracking, homepage live chat, smart AI support, logo sizing fix, structured
+Fuller logo with tagline, dedicated sales dashboard, sales hidden from clients,
+Lead/CRM + ad tracking, homepage live chat, smart AI support, structured
 multi-stop, team driver, onboarding + password reset, white-label logo on reports,
 rate con full-address fix, IFTA ELD reconciliation, automatic IFTA + per-truck,
 adaptive logo, light landing page, multi-domain, staff-entered application, email
