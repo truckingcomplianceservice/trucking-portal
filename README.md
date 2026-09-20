@@ -1,4 +1,4 @@
-# CarrierConnect360 — fuller logo (with "Fleet Management System" tagline)
+# CarrierConnect360 — taller logo (fully visible)
 
 ## Deploy
 1. Download this zip, then in Terminal:
@@ -6,21 +6,15 @@
 2. GitHub Desktop -> Commit -> Push. HARD REFRESH (Cmd+Shift+R) in incognito.
 
 ## What changed
-The header logo now shows MORE of your logo: shield + "CarrierConnect360" + the
-"FLEET MANAGEMENT SYSTEM" tagline, sized a bit taller (48px) so the tagline is
-readable. This shows across the website header, app sidebar, login, etc.
+Increased the header logo height (48px -> 62px) so the full logo (shield +
+CarrierConnect360 + Fleet Management System tagline) appears completely and clearly.
 
-Only the 4 tiny feature icons (Dispatch/Compliance/Accounting/Reporting) at the very
-bottom of your original logo are left off the HEADER -- they'd be too small to read
-in a header strip. The FULL logo with those icons is still saved as logo_full.png if
-you want it for a big banner spot.
-
-If it looks too big/tall after deploying, tell me and I'll reduce the height by a few
-pixels -- easy tweak.
+If it's now slightly too big, tell me a number to nudge (e.g. "make it 54px") and
+I'll set it exactly. Easy one-line change.
 
 ## Includes everything to date
-Fuller logo with tagline, dedicated sales dashboard, sales hidden from clients,
-Lead/CRM + ad tracking, homepage live chat, smart AI support, structured
+Taller logo, fuller logo with tagline, dedicated sales dashboard, sales hidden from
+clients, Lead/CRM + ad tracking, homepage live chat, smart AI support, structured
 multi-stop, team driver, onboarding + password reset, white-label logo on reports,
 rate con full-address fix, IFTA ELD reconciliation, automatic IFTA + per-truck,
 adaptive logo, light landing page, multi-domain, staff-entered application, email
