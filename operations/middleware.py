@@ -21,14 +21,17 @@ class CurrentUserMiddleware:
 
 
 # --- SEO: canonical-domain redirect --------------------------------------
-# carrierconnect360.com is the canonical domain (set in <link rel="canonical">
-# across the site). www.carrierconnect360.com and the legacy app.pure99inc.com
-# serve the identical app, which splits SEO signal across three domains.
-# This 301-redirects those aliases to the canonical domain, path and query
-# string preserved. Railway's internal *.railway.app host (used for health
-# checks) and localhost are deliberately excluded so deploys never break.
-CANONICAL_HOST = "carrierconnect360.com"
-REDIRECT_ALIAS_HOSTS = {"www.carrierconnect360.com", "app.pure99inc.com"}
+# carrierconnect360.com (bare/apex) is the intended long-term canonical domain,
+# but its DNS is not fully set up yet — it does not resolve. Until that's fixed,
+# www.carrierconnect360.com is canonical instead, since it's the one that
+# actually works. IMPORTANT: do not point CANONICAL_HOST at a domain that
+# doesn't resolve — every alias host gets redirected here, so a broken
+# canonical host takes the whole site down for anyone hitting an alias.
+# Once the bare domain's DNS is confirmed working, flip these back:
+#   CANONICAL_HOST = "carrierconnect360.com"
+#   REDIRECT_ALIAS_HOSTS = {"www.carrierconnect360.com", "app.pure99inc.com"}
+CANONICAL_HOST = "www.carrierconnect360.com"
+REDIRECT_ALIAS_HOSTS = {"carrierconnect360.com", "app.pure99inc.com"}
 
 
 class CanonicalDomainRedirectMiddleware:

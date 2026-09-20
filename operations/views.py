@@ -6187,7 +6187,7 @@ def applicant_add(request):
     return render(request, "operations/applicant_add.html", {"form": form, "companies": cs})
 
 
-_CANONICAL_DOMAIN = "https://carrierconnect360.com"
+_CANONICAL_DOMAIN = "https://www.carrierconnect360.com"
 
 
 def robots_txt(request):
