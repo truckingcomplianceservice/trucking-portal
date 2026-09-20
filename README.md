@@ -1,41 +1,15 @@
-# CarrierConnect360 — taller logo (fully visible)
+# CarrierConnect360 — logo bigger (74px)
 
 ## Deploy
-1. Download this zip, then in Terminal:
-   cd ~/Documents/GitHub/trucking-portal && rm -rf operations trucking_ops templates manage.py requirements.txt Procfile README.md static && unzip -o ~/Downloads/<THIS-FILE>.zip -d . && echo DONE
-2. GitHub Desktop -> Commit -> Push. HARD REFRESH (Cmd+Shift+R) in incognito.
+cd ~/Documents/GitHub/trucking-portal && rm -rf operations trucking_ops templates manage.py requirements.txt Procfile README.md static && unzip -o ~/Downloads/<THIS-FILE>.zip -d . && echo DONE
+Then GitHub Desktop -> Commit -> Push. HARD REFRESH (Cmd+Shift+R) in incognito.
 
-## What changed
-Increased the header logo height (48px -> 62px) so the full logo (shield +
-CarrierConnect360 + Fleet Management System tagline) appears completely and clearly.
-
-If it's now slightly too big, tell me a number to nudge (e.g. "make it 54px") and
-I'll set it exactly. Easy one-line change.
+Increased header logo to 74px (from 62) and gave it a bit more width room so the
+full logo with tagline shows completely. If it needs a final nudge, tell me a
+number (e.g. 68px or 80px).
 
 ## Includes everything to date
-Taller logo, fuller logo with tagline, dedicated sales dashboard, sales hidden from
-clients, Lead/CRM + ad tracking, homepage live chat, smart AI support, structured
-multi-stop, team driver, onboarding + password reset, white-label logo on reports,
-rate con full-address fix, IFTA ELD reconciliation, automatic IFTA + per-truck,
-adaptive logo, light landing page, multi-domain, staff-entered application, email
-verification, terminate/rehire, driver counts + complete-record-on-hire, verified
-e-consent, FMCSA road test, FMCSA application form, driver email login, DQF EPN +
-email app link + expiration reminders, FMCSA DQF, settlement search, check amount
-nudge, self-serve signup + trial, hide-load-amounts, owner-operator EIN/1099,
-driver pay-to business name, IFTA CSV import, P&L partner breakdown, partner
-statement, expense Paid-by, partner ledger, loads on check stub, LMP100 check
-layout, load photos, driver check printing, invoice load search + auto-fill, P&L
-miles + $/mi, auto loaded-miles, invoice unpaid-until-paid, invoice line items +
-email, searchable load picker, wage calculator, settlements basis options,
-driver-only load picker, settlement PDF itemized, itemized lines, driver settlement
-detail, settlement layout fix, easy wage creation, rental truck swap, photo viewer
-fix, truck photo gallery, office PWA + mobile, phone tap-to-call + phone login +
-SMS-ready, driver nav + status + scanner, location notice, driver map, driver
-tracking, driver PWA, driver load detail, driver login fix, driver invite links,
-create-driver-login, driver portal, IFTA print, broker detail, driver wages
-detail, per-truck wages, team invite, per-truck P&L fix, rate-con auto-add,
-vehicle cost %, vehicle-expense fix, IFTA worksheet, company switcher fix, deadhead
-fix, chat + task files, notifications, chat mentions, team tools, rate-con
-protection, brokers + agents, admin delete, vehicle fix, unified load form, auto
-miles, vehicle photos, email doc, hiring 1-6, dashboard KPIs, 1099, R2 backup,
-tests, factoring, company docs, company logins, FMCSA lookup.
+Logo 74px + all prior features (sales dashboard, Lead/CRM + ad tracking, live chat,
+AI support, multi-stop, team driver, onboarding, white-label logo, IFTA auto +
+ELD reconcile, FMCSA compliance suite, checks, invoicing, driver app, and the full
+TMS).
