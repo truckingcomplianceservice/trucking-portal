@@ -6202,6 +6202,16 @@ def landing(request):
         "TAWK_ID": _os.environ.get("TAWK_ID", "")})
 
 
+def terms_of_service(request):
+    """Public Terms of Service page."""
+    return render(request, "operations/terms.html", {})
+
+
+def privacy_policy(request):
+    """Public Privacy Policy page."""
+    return render(request, "operations/privacy.html", {})
+
+
 def _state_from_location(text):
     """Best-effort: pull a 2-letter state code from a city/location string like
     'Dallas TX' or 'Miami, FL'."""
