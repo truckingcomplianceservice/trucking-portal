@@ -57,7 +57,7 @@
  a.load{color:var(--navy);text-decoration:none}
 </style></head><body>
 <div class="top">
- <img src="{% static 'img/logo.png' %}" alt="logo" style="height:26px;width:auto;vertical-align:middle;margin-right:8px;background:#fff;border-radius:5px;padding:2px 5px">
+ <img src="{% static 'img/logo.png' %}" alt="logo" style="height:34px;width:auto;vertical-align:middle;margin-right:8px;background:#fff;border-radius:5px;padding:2px 5px">
  <b>{{ company.name }}</b>
  <span style="font-size:13px;opacity:.8">Driver</span>
  <a class="bell" href="#" onclick="alert('You have {{ unread|default:0 }} unread notification(s). Full notifications coming soon.');return false;">🔔{% if unread %}<span class="cnt">{{ unread }}</span>{% endif %}</a>
