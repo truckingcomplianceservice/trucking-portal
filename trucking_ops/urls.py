@@ -7,6 +7,10 @@ from django.views.generic import RedirectView
 from operations import views
 
 urlpatterns = [
+    path("app/leads/", views.leads_board, name="leads_board"),
+    path("app/leads/add/", views.lead_add, name="lead_add"),
+    path("app/leads/<int:pk>/", views.lead_detail, name="lead_detail"),
+    path("demo-request/", views.lead_demo, name="lead_demo"),
     path("support/ai/", views.support_ai, name="support_ai"),
     path("support/ticket/", views.support_ticket, name="support_ticket"),
     path("app/company-settings/", views.company_settings, name="company_settings"),

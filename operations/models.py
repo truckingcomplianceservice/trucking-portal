@@ -141,6 +141,7 @@ class Profile(models.Model):
     ]
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default="dispatcher")
+    is_sales_team = models.BooleanField("Sales/marketing team (platform side)", default=False)
     phone = models.CharField(max_length=30, blank=True)
     companies = models.ManyToManyField(
         Company, blank=True,
@@ -1002,6 +1003,54 @@ class SupportTicket(models.Model):
 
     def __str__(self):
         return f"Ticket #{self.id}: {self.subject or self.message[:40]}"
+
+
+class Lead(models.Model):
+    """A sales lead — someone who signed up or inquired. Your sales team works these
+    daily through the pipeline until they onboard (become a paying customer)."""
+    STAGE = [("new","New"),("contacted","Contacted"),("demo","Demo scheduled"),
+             ("trial","Trialing"),("won","Won / Onboarded"),("lost","Lost")]
+    name = models.CharField(max_length=140, blank=True)
+    company_name = models.CharField(max_length=160, blank=True)
+    email = models.CharField(max_length=254, blank=True)
+    phone = models.CharField(max_length=40, blank=True)
+    fleet_size = models.CharField(max_length=40, blank=True)
+    message = models.TextField(blank=True)
+    stage = models.CharField(max_length=12, choices=STAGE, default="new")
+    # attribution — which ad/campaign brought them (UTM)
+    source = models.CharField("Source (utm_source)", max_length=80, blank=True)     # e.g. facebook, google
+    medium = models.CharField("Medium (utm_medium)", max_length=80, blank=True)     # e.g. cpc, paid
+    campaign = models.CharField("Campaign (utm_campaign)", max_length=120, blank=True)
+    ad_content = models.CharField("Ad (utm_content)", max_length=120, blank=True)
+    term = models.CharField("Keyword (utm_term)", max_length=120, blank=True)
+    landing_page = models.CharField(max_length=200, blank=True)
+    # sales follow-up
+    owner = models.ForeignKey("auth.User", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="owned_leads", help_text="Sales person responsible")
+    next_follow_up = models.DateField(null=True, blank=True)
+    converted_company = models.ForeignKey(Company, on_delete=models.SET_NULL, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.name or self.company_name or self.email} ({self.get_stage_display()})"
+
+
+class LeadNote(models.Model):
+    """A logged call/note/activity on a lead by a sales person."""
+    lead = models.ForeignKey("Lead", on_delete=models.CASCADE, related_name="notes")
+    author = models.ForeignKey("auth.User", on_delete=models.SET_NULL, null=True, blank=True)
+    text = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"Note on {self.lead_id}"
 
 
 class DriverLocation(models.Model):

@@ -1,0 +1,78 @@
+{% extends "operations/app_base.html" %}
+{% load humanize %}
+{% block title %}Leads — CRM{% endblock %}
+{% block page_title %}Sales &amp; Leads{% endblock %}
+{% block content %}
+{% if messages %}{% for m in messages %}<div style="margin:8px 0;padding:10px 14px;border-radius:8px;font-size:13px;background:#e4f4ec;color:#137a51">{{ m }}</div>{% endfor %}{% endif %}
+
+<div class="toolbar">
+ <form method="get" style="display:flex;gap:8px;align-items:center">
+  <input name="q" value="{{ q }}" placeholder="Search leads, company, campaign…" style="padding:8px 11px;border:1px solid var(--line);border-radius:8px;min-width:240px">
+  <button class="btn navy" type="submit">Search</button>
+ </form>
+ <div class="spacer"></div>
+ <span class="sub" style="margin-right:10px">{{ total }} total leads</span>
+ <a class="btn amber" href="/app/leads/add/">+ Add lead</a>
+</div>
+
+<!-- Pipeline stage counts -->
+<div class="kpis" style="grid-template-columns:repeat(6,1fr);margin-bottom:14px">
+ {% for s, label, n in counts %}
+ <a href="?stage={{ s }}" class="kpi" style="text-decoration:none;{% if stage_filter == s %}outline:2px solid var(--amber){% endif %}">
+  <div class="l">{{ label }}</div><div class="n">{{ n }}</div>
+ </a>
+ {% endfor %}
+</div>
+
+<div class="grid2" style="align-items:start">
+ <div>
+  <div class="card"><div class="card-h"><h3>{% if stage_filter %}{{ stage_filter|title }} leads{% else %}All leads{% endif %}</h3>{% if stage_filter %}<a href="/app/leads/" style="font-size:13px">Show all</a>{% endif %}</div>
+   {% if leads %}
+   <table><thead><tr><th>Lead</th><th>Source</th><th>Stage</th><th>Follow-up</th></tr></thead><tbody>
+   {% for l in leads %}<tr onclick="location.href='/app/leads/{{ l.id }}/'" style="cursor:pointer">
+    <td><b>{{ l.company_name|default:l.name|default:l.email }}</b><div class="sub" style="font-size:12px">{{ l.email }}{% if l.phone %} · {{ l.phone }}{% endif %}</div></td>
+    <td><span class="sub" style="font-size:12px">{{ l.source|default:"—" }}{% if l.campaign %}<br>{{ l.campaign }}{% endif %}</span></td>
+    <td><span class="pill open">{{ l.get_stage_display }}</span></td>
+    <td class="sub" style="font-size:12px">{% if l.next_follow_up %}{{ l.next_follow_up|date:"M d" }}{% else %}—{% endif %}</td>
+   </tr>{% endfor %}
+   </tbody></table>
+   {% else %}<div class="empty" style="padding:20px">No leads yet. They'll appear here when people sign up or request a demo from your website — with the ad/campaign they came from.</div>{% endif %}
+  </div>
+ </div>
+
+ <div>
+  <div class="card" style="border-left:4px solid var(--amber)"><div class="card-h"><h3>🔔 Follow up today</h3></div>
+   <div style="padding:6px 16px 14px">
+   {% if due %}{% for l in due %}
+    <a href="/app/leads/{{ l.id }}/" style="display:block;padding:8px 0;border-bottom:1px solid var(--line);text-decoration:none;color:inherit">
+     <b>{{ l.company_name|default:l.name|default:l.email }}</b>
+     <div class="sub" style="font-size:12px">{{ l.get_stage_display }} · due {{ l.next_follow_up|date:"M d" }}{% if l.phone %} · {{ l.phone }}{% endif %}</div>
+    </a>
+   {% endfor %}{% else %}<div class="sub" style="font-size:13px;padding:8px 0">No follow-ups due. 🎉</div>{% endif %}
+   </div>
+  </div>
+
+  <div class="card" style="margin-top:14px"><div class="card-h"><h3>📊 Leads by source</h3></div>
+   <div style="padding:6px 16px 14px">
+   {% if by_source %}<table><tbody>
+    {% for src in by_source %}<tr><td>{{ src.source }}</td><td class="n">{{ src.n }} lead{{ src.n|pluralize }}</td><td class="n" style="color:#137a51">{{ src.won }} won</td></tr>{% endfor %}
+   </tbody></table>{% else %}<div class="sub" style="font-size:13px;padding:8px 0">No source data yet. Add UTM tags to your ad links (see below) to track which ads bring leads.</div>{% endif %}
+   </div>
+  </div>
+ </div>
+</div>
+
+<div class="card" style="margin-top:14px"><div class="card-h"><h3>📣 How to track your Meta &amp; Google ads</h3></div>
+ <div style="padding:12px 18px;font-size:13px;line-height:1.6">
+  Add <b>UTM tags</b> to the link in your ads so every lead records which ad brought them. Point your ads to:
+  <div style="background:#f7f8fb;border-radius:8px;padding:10px 12px;margin:8px 0;font-family:monospace;font-size:12px;word-break:break-all">https://www.carrierconnect360.com/?utm_source=facebook&amp;utm_medium=cpc&amp;utm_campaign=spring_launch&amp;utm_content=ad1</div>
+  <ul style="margin:6px 0 0 18px">
+   <li><b>utm_source</b> = facebook or google (the platform)</li>
+   <li><b>utm_medium</b> = cpc / paid</li>
+   <li><b>utm_campaign</b> = your campaign name</li>
+   <li><b>utm_content</b> = which ad (to compare ads)</li>
+  </ul>
+  When someone signs up or requests a demo, the lead here shows that source/campaign automatically — so you see which ads actually produce customers.
+ </div>
+</div>
+{% endblock %}

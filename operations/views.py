@@ -332,6 +332,9 @@ def dashboard(request):
     # Drivers get their own portal, not the company dashboard
     if Driver.objects.filter(user=request.user).exists() and not request.user.is_staff:
         return redirect("driver_portal")
+    # Sales/marketing team (not the owner) land on the Sales dashboard, not the TMS
+    if _is_sales_team(request.user) and not _is_platform_owner(request.user):
+        return redirect("leads_board")
     companies = _scoped_companies(request)
     today = _dt.date.today()
     ytd_start = _dt.date(today.year, 1, 1)
@@ -5685,6 +5688,20 @@ def signup(request):
             prof.companies.add(company)
             _login(request, u)
             request.session["active_company"] = str(company.id)
+            # create a sales LEAD with the UTM attribution captured on landing
+            try:
+                from .models import Lead
+                Lead.objects.create(
+                    name=full_name or username, company_name=company_name, email=email,
+                    stage="trial", converted_company=company,
+                    source=request.session.get("lead_utm_source", "")[:80],
+                    medium=request.session.get("lead_utm_medium", "")[:80],
+                    campaign=request.session.get("lead_utm_campaign", "")[:120],
+                    ad_content=request.session.get("lead_utm_content", "")[:120],
+                    term=request.session.get("lead_utm_term", "")[:120],
+                    landing_page=request.session.get("lead_landing", "")[:200])
+            except Exception:
+                pass
             return redirect("dashboard")
     return render(request, "operations/signup.html", {"error": error})
 
@@ -6174,6 +6191,13 @@ def landing(request):
     """Public marketing landing page. Logged-in users go to their dashboard."""
     if request.user.is_authenticated:
         return redirect("dashboard")
+    # capture UTM attribution into the session (so it survives to signup)
+    for k in ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term"]:
+        if request.GET.get(k):
+            request.session["lead_" + k] = request.GET.get(k)[:120]
+            request.session.modified = True
+    if not request.session.get("lead_landing"):
+        request.session["lead_landing"] = request.path[:200]
     return render(request, "operations/landing.html", {
         "TAWK_ID": _os.environ.get("TAWK_ID", "")})
 
@@ -6486,3 +6510,145 @@ def support_ticket(request):
         except Exception:
             pass
     return JsonResponse({"ok": True, "ticket": t.id})
+
+
+# ================= Sales CRM / Lead management =================
+def _is_platform_owner(user):
+    """TRUE only for YOU (the platform owner), never for a client's admin.
+    A client company admin is NOT a superuser, so they never see the sales/leads
+    system. Platform owners = Django superusers, OR emails listed in the
+    PLATFORM_ADMINS env var (comma-separated)."""
+    if not user.is_authenticated:
+        return False
+    if user.is_superuser:
+        return True
+    admins = _os.environ.get("PLATFORM_ADMINS", "")
+    if admins and user.email:
+        allowed = [a.strip().lower() for a in admins.split(",") if a.strip()]
+        if user.email.strip().lower() in allowed:
+            return True
+    return False
+
+
+def _is_sales_team(user):
+    """A dedicated sales/marketing team member (works YOUR leads, not a client)."""
+    if not user.is_authenticated:
+        return False
+    return getattr(getattr(user, "profile", None), "is_sales_team", False)
+
+
+def _is_sales(user):
+    """Sales/Leads access = platform owner OR a sales-team member."""
+    return _is_platform_owner(user) or _is_sales_team(user)
+
+
+@login_required
+def leads_board(request):
+    """Sales pipeline: all leads by stage, with daily follow-ups."""
+    if not _is_sales(request.user):
+        _messages.error(request, "Sales access only.")
+        return redirect("dashboard")
+    from .models import Lead
+    stage_filter = request.GET.get("stage", "")
+    q = (request.GET.get("q") or "").strip()
+    leads = Lead.objects.all()
+    if stage_filter:
+        leads = leads.filter(stage=stage_filter)
+    if q:
+        leads = leads.filter(Q(name__icontains=q) | Q(company_name__icontains=q) |
+                             Q(email__icontains=q) | Q(campaign__icontains=q) | Q(source__icontains=q))
+    today = _dt.date.today()
+    # stage counts
+    counts = [(s, label, Lead.objects.filter(stage=s).count()) for s, label in Lead.STAGE]
+    # follow-ups due today or overdue (for the logged-in sales person, or all)
+    due = Lead.objects.filter(next_follow_up__lte=today).exclude(stage__in=["won", "lost"]).order_by("next_follow_up")
+    # source performance (how many leads per source/campaign)
+    from django.db.models import Count
+    by_source = (Lead.objects.exclude(source="").values("source")
+                 .annotate(n=Count("id"), won=Count("id", filter=Q(stage="won"))).order_by("-n")[:10])
+    return render(request, "operations/leads_board.html", {
+        "leads": leads.select_related("owner")[:200], "counts": counts,
+        "stage_filter": stage_filter, "q": q, "due": due[:20],
+        "stages": Lead.STAGE, "by_source": by_source, "today": today,
+        "total": Lead.objects.count()})
+
+
+@login_required
+def lead_detail(request, pk):
+    if not _is_sales(request.user):
+        return redirect("dashboard")
+    from .models import Lead, LeadNote
+    lead = _get(Lead, pk=pk)
+    if request.method == "POST":
+        action = request.POST.get("action")
+        if action == "note" and request.POST.get("text", "").strip():
+            LeadNote.objects.create(lead=lead, author=request.user, text=request.POST["text"].strip()[:2000])
+            _messages.success(request, "Note added.")
+        elif action == "update":
+            lead.stage = request.POST.get("stage", lead.stage)
+            fu = request.POST.get("next_follow_up", "")
+            lead.next_follow_up = _parse_date(fu) if fu else None
+            if request.POST.get("owner"):
+                lead.owner = _User.objects.filter(pk=request.POST.get("owner")).first()
+            lead.phone = request.POST.get("phone", lead.phone)[:40]
+            lead.save()
+            _messages.success(request, "Lead updated.")
+        return redirect("lead_detail", pk=pk)
+    sales_users = _User.objects.filter(is_staff=True).order_by("username")
+    return render(request, "operations/lead_detail.html", {
+        "lead": lead, "notes": lead.notes.select_related("author"),
+        "stages": lead.STAGE, "sales_users": sales_users})
+
+
+@login_required
+def lead_add(request):
+    """Manually add a lead (e.g. from a phone call or referral)."""
+    if not _is_sales(request.user):
+        return redirect("dashboard")
+    from .models import Lead
+    if request.method == "POST":
+        Lead.objects.create(
+            name=request.POST.get("name", "").strip()[:140],
+            company_name=request.POST.get("company_name", "").strip()[:160],
+            email=request.POST.get("email", "").strip()[:254],
+            phone=request.POST.get("phone", "").strip()[:40],
+            fleet_size=request.POST.get("fleet_size", "").strip()[:40],
+            message=request.POST.get("message", "").strip(),
+            source=request.POST.get("source", "manual").strip()[:80],
+            owner=request.user, stage="new")
+        _messages.success(request, "Lead added.")
+        return redirect("leads_board")
+    return render(request, "operations/lead_add.html", {})
+
+
+# Public "Request a demo" endpoint (from the website) — creates a lead
+@require_POST
+def lead_demo(request):
+    from django.http import JsonResponse
+    from .models import Lead
+    email = (request.POST.get("email") or "").strip()
+    if not email:
+        return JsonResponse({"ok": False, "error": "Email required."})
+    Lead.objects.create(
+        name=request.POST.get("name", "").strip()[:140],
+        company_name=request.POST.get("company_name", "").strip()[:160],
+        email=email[:254], phone=request.POST.get("phone", "").strip()[:40],
+        fleet_size=request.POST.get("fleet_size", "").strip()[:40],
+        message=request.POST.get("message", "").strip(),
+        source=request.session.get("lead_utm_source", "website")[:80],
+        medium=request.session.get("lead_utm_medium", "")[:80],
+        campaign=request.session.get("lead_utm_campaign", "")[:120],
+        ad_content=request.session.get("lead_utm_content", "")[:120],
+        term=request.session.get("lead_utm_term", "")[:120],
+        landing_page=request.session.get("lead_landing", "")[:200], stage="new")
+    # notify sales
+    to = _os.environ.get("SALES_EMAIL", "") or _os.environ.get("SUPPORT_EMAIL", "") or _os.environ.get("DEFAULT_FROM_EMAIL", "")
+    if to:
+        try:
+            from django.core.mail import EmailMessage
+            EmailMessage(subject=f"New demo request — {request.POST.get('company_name','')}",
+                body=f"Name: {request.POST.get('name','')}\nCompany: {request.POST.get('company_name','')}\nEmail: {email}\nPhone: {request.POST.get('phone','')}\nFleet: {request.POST.get('fleet_size','')}\nSource: {request.session.get('lead_utm_source','website')}\n\n{request.POST.get('message','')}",
+                from_email=_os.environ.get("DEFAULT_FROM_EMAIL", to), to=[to]).send(fail_silently=True)
+        except Exception:
+            pass
+    return JsonResponse({"ok": True})

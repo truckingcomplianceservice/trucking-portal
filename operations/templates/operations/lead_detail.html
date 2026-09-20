@@ -1,0 +1,54 @@
+{% extends "operations/app_base.html" %}
+{% block title %}Lead — {{ lead.company_name|default:lead.name }}{% endblock %}
+{% block page_title %}Lead: {{ lead.company_name|default:lead.name|default:lead.email }}{% endblock %}
+{% block content %}
+<div style="margin-bottom:12px"><a href="/app/leads/" class="sub" style="color:var(--blue)">&larr; Back to leads</a></div>
+{% if messages %}{% for m in messages %}<div style="margin:8px 0;padding:10px 14px;border-radius:8px;font-size:13px;background:#e4f4ec;color:#137a51">{{ m }}</div>{% endfor %}{% endif %}
+<div class="grid2" style="align-items:start">
+ <div>
+  <div class="card"><div class="card-h"><h3>Contact</h3></div>
+   <div style="padding:12px 18px;font-size:14px;line-height:1.9">
+    <div><b>Company:</b> {{ lead.company_name|default:"—" }}</div>
+    <div><b>Name:</b> {{ lead.name|default:"—" }}</div>
+    <div><b>Email:</b> {{ lead.email|default:"—" }}</div>
+    <div><b>Phone:</b> {% if lead.phone %}<a href="tel:{{ lead.phone }}">{{ lead.phone }}</a>{% else %}—{% endif %}</div>
+    <div><b>Fleet size:</b> {{ lead.fleet_size|default:"—" }}</div>
+    {% if lead.message %}<div><b>Message:</b> {{ lead.message }}</div>{% endif %}
+   </div>
+  </div>
+  <div class="card" style="margin-top:14px"><div class="card-h"><h3>Where they came from</h3></div>
+   <div style="padding:12px 18px;font-size:14px;line-height:1.9">
+    <div><b>Source:</b> {{ lead.source|default:"—" }}</div>
+    <div><b>Medium:</b> {{ lead.medium|default:"—" }}</div>
+    <div><b>Campaign:</b> {{ lead.campaign|default:"—" }}</div>
+    <div><b>Ad:</b> {{ lead.ad_content|default:"—" }}</div>
+    <div><b>Keyword:</b> {{ lead.term|default:"—" }}</div>
+   </div>
+  </div>
+ </div>
+ <div>
+  <div class="card"><div class="card-h"><h3>Update &amp; follow-up</h3></div>
+   <form method="post" style="padding:12px 18px">{% csrf_token %}<input type="hidden" name="action" value="update">
+    <label class="sub">Stage</label>
+    <select name="stage" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;margin-bottom:10px">{% for s, label in stages %}<option value="{{ s }}" {% if lead.stage == s %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+    <label class="sub">Next follow-up date</label>
+    <input type="date" name="next_follow_up" value="{{ lead.next_follow_up|date:'Y-m-d' }}" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;margin-bottom:10px">
+    <label class="sub">Phone</label>
+    <input name="phone" value="{{ lead.phone }}" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;margin-bottom:10px">
+    <label class="sub">Owner (sales person)</label>
+    <select name="owner" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;margin-bottom:12px"><option value="">— unassigned —</option>{% for u in sales_users %}<option value="{{ u.id }}" {% if lead.owner_id == u.id %}selected{% endif %}>{{ u.get_full_name|default:u.username }}</option>{% endfor %}</select>
+    <button class="btn amber" type="submit">Save</button>
+   </form>
+  </div>
+  <div class="card" style="margin-top:14px"><div class="card-h"><h3>Activity / notes</h3></div>
+   <div style="padding:12px 18px">
+    <form method="post" style="margin-bottom:12px">{% csrf_token %}<input type="hidden" name="action" value="note">
+     <textarea name="text" rows="2" placeholder="Log a call, note, or next step…" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px"></textarea>
+     <button class="btn navy" type="submit" style="margin-top:6px">Add note</button>
+    </form>
+    {% for n in notes %}<div style="padding:8px 0;border-bottom:1px solid var(--line)"><div style="font-size:14px">{{ n.text }}</div><div class="sub" style="font-size:11px">{{ n.author.username|default:"—" }} · {{ n.created_at|date:"M d, g:i A" }}</div></div>{% empty %}<div class="sub" style="font-size:13px">No activity yet.</div>{% endfor %}
+   </div>
+  </div>
+ </div>
+</div>
+{% endblock %}

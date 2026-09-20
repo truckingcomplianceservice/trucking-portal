@@ -18,4 +18,21 @@ def nav(request):
             "active_company_id": request.session.get("active_company", "all"),
             "multi_company": companies.count() > 1,
             "nav_allowed": sections_for(request.user),
-            "TAWK_ID": __import__("os").environ.get("TAWK_ID", "")}
+            "TAWK_ID": __import__("os").environ.get("TAWK_ID", ""),
+            "is_platform_owner": _is_platform_owner_ctx(request.user),
+            "is_sales_team": getattr(getattr(request.user, "profile", None), "is_sales_team", False)}
+
+
+def _is_platform_owner_ctx(user):
+    """Same as views._is_platform_owner but usable in the context processor."""
+    import os as _o
+    if not getattr(user, "is_authenticated", False):
+        return False
+    if user.is_superuser:
+        return True
+    admins = _o.environ.get("PLATFORM_ADMINS", "")
+    if admins and getattr(user, "email", ""):
+        allowed = [a.strip().lower() for a in admins.split(",") if a.strip()]
+        if user.email.strip().lower() in allowed:
+            return True
+    return False

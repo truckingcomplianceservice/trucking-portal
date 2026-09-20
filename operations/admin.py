@@ -85,7 +85,8 @@ class CompanyAdmin(admin.ModelAdmin):
 
 @admin.register(Profile)
 class ProfileAdmin(admin.ModelAdmin):
-    list_display = ("user", "role", "phone")
+    list_display = ("user", "role", "is_sales_team", "phone")
+    list_filter = ("role", "is_sales_team")
     list_filter = ("role",)
     search_fields = ("user__username",)
     filter_horizontal = ("companies",)
@@ -362,3 +363,16 @@ class SupportTicketAdmin(admin.ModelAdmin):
     list_filter = ("status", "company")
     search_fields = ("subject", "message", "name", "email")
     readonly_fields = ("ai_transcript", "created_at")
+
+
+from .models import Lead, LeadNote
+
+@admin.register(Lead)
+class LeadAdmin(admin.ModelAdmin):
+    list_display = ("company_name", "name", "email", "stage", "source", "campaign", "owner", "next_follow_up", "created_at")
+    list_filter = ("stage", "source", "owner")
+    search_fields = ("company_name", "name", "email", "campaign")
+
+@admin.register(LeadNote)
+class LeadNoteAdmin(admin.ModelAdmin):
+    list_display = ("lead", "author", "created_at")

@@ -1,0 +1,17 @@
+{% extends "operations/app_base.html" %}
+{% block title %}Add lead{% endblock %}
+{% block page_title %}Add a lead{% endblock %}
+{% block content %}
+<div style="margin-bottom:12px"><a href="/app/leads/" class="sub" style="color:var(--blue)">&larr; Back to leads</a></div>
+<div class="card" style="max-width:560px"><div class="card-h"><h3>New lead</h3></div>
+ <form method="post" style="padding:16px 18px">{% csrf_token %}
+  <label class="sub">Company name</label><input name="company_name" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;margin-bottom:10px">
+  <label class="sub">Contact name</label><input name="name" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;margin-bottom:10px">
+  <div style="display:flex;gap:10px"><div style="flex:1"><label class="sub">Email</label><input name="email" type="email" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;margin-bottom:10px"></div><div style="flex:1"><label class="sub">Phone</label><input name="phone" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;margin-bottom:10px"></div></div>
+  <label class="sub">Fleet size</label><input name="fleet_size" placeholder="e.g. 5 trucks" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;margin-bottom:10px">
+  <label class="sub">Source</label><input name="source" value="manual" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;margin-bottom:10px">
+  <label class="sub">Notes</label><textarea name="message" rows="2" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;margin-bottom:12px"></textarea>
+  <button class="btn amber" type="submit">Add lead</button>
+ </form>
+</div>
+{% endblock %}
