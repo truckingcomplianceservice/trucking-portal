@@ -14,7 +14,7 @@
    Printing it again now would record two different payments under the same check number, which will not reconcile with your bank statement.
   </div>
   <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
-   <a class="btn ghost" href="/app/accounting/expense/{{ e.id }}/check/?no={{ check_no }}&confirm_reuse=1" style="border-color:#c0392b;color:#c0392b">Yes, reuse #{{ check_no }} anyway</a>
+   <a class="btn ghost" href="/app/accounting/vendor-check/?ids={{ ids_csv }}&no={{ check_no }}&confirm_reuse=1" style="border-color:#c0392b;color:#c0392b">Yes, reuse #{{ check_no }} anyway</a>
    <span class="sub" style="align-self:center;font-size:12px">— or pick a different number below</span>
   </div>
  </div>
@@ -24,7 +24,10 @@
   <b>Laser Multi-Purpose check (check top, no lines)</b>
   <div class="sub" style="font-size:13px;margin-top:4px">Matches Costco LMP100 / "Laser Multi-Purpose Check Top Without Lines" (8.5×11, check on top, one stub below). Do a plain-paper test first; nudge X/Y offsets if needed — these are shared with your driver settlement checks, so alignment stays the same everywhere.</div>
 
+  {% if expenses|length > 1 %}<div class="sub" style="font-size:12px;margin-top:8px">Combining {{ expenses|length }} expenses into one check to <b>{{ payee }}</b>, totaling ${{ amount|floatformat:2|intcomma }}.</div>{% endif %}
+
   <form method="get" style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+   <input type="hidden" name="ids" value="{{ ids_csv }}">
    <label class="sub" style="font-size:12px">Check number:</label>
    <input type="text" name="no" value="{{ check_no }}" style="width:100px;padding:6px 8px;border:1px solid #ccc;border-radius:6px">
    <button type="submit" class="btn ghost" style="padding:6px 14px">Use this number</button>
@@ -33,19 +36,19 @@
   {% if not collision %}
   <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
    <button class="btn amber" onclick="window.print()">🖨 Print check</button>
-   <a class="btn ghost" href="/app/accounting/expense/{{ e.id }}/check/?pdf=1&no={{ check_no }}">Download PDF</a>
-   {% if not request.GET.no and not request.GET.assign %}<a class="btn ghost" href="/app/accounting/expense/{{ e.id }}/check/?assign=1">Assign next check # ({{ company.check_next_number }})</a>{% endif %}
+   <a class="btn ghost" href="/app/accounting/vendor-check/?ids={{ ids_csv }}&pdf=1&no={{ check_no }}">Download PDF</a>
+   {% if not request.GET.no and not request.GET.assign %}<a class="btn ghost" href="/app/accounting/vendor-check/?ids={{ ids_csv }}&assign=1">Assign next check # ({{ company.check_next_number }})</a>{% endif %}
   </div>
   {% endif %}
 
   <div style="margin-top:10px;padding:10px 12px;background:#f7f8fa;border-radius:9px">
    <b style="font-size:13px">Line up the $ amount:</b> if it doesn't sit next to the $ sign, nudge it here (saves automatically), then re-print.
    <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;align-items:center">
-    <a class="btn ghost" style="padding:5px 12px" href="/app/accounting/expense/{{ e.id }}/check/nudge/?dir=up">↑ Up</a>
-    <a class="btn ghost" style="padding:5px 12px" href="/app/accounting/expense/{{ e.id }}/check/nudge/?dir=down">↓ Down</a>
-    <a class="btn ghost" style="padding:5px 12px" href="/app/accounting/expense/{{ e.id }}/check/nudge/?dir=left">← Left</a>
-    <a class="btn ghost" style="padding:5px 12px" href="/app/accounting/expense/{{ e.id }}/check/nudge/?dir=right">→ Right</a>
-    <a class="btn ghost" style="padding:5px 12px" href="/app/accounting/expense/{{ e.id }}/check/nudge/?dir=reset">Reset</a>
+    <a class="btn ghost" style="padding:5px 12px" href="/app/accounting/vendor-check/nudge/?ids={{ ids_csv }}&dir=up">↑ Up</a>
+    <a class="btn ghost" style="padding:5px 12px" href="/app/accounting/vendor-check/nudge/?ids={{ ids_csv }}&dir=down">↓ Down</a>
+    <a class="btn ghost" style="padding:5px 12px" href="/app/accounting/vendor-check/nudge/?ids={{ ids_csv }}&dir=left">← Left</a>
+    <a class="btn ghost" style="padding:5px 12px" href="/app/accounting/vendor-check/nudge/?ids={{ ids_csv }}&dir=right">→ Right</a>
+    <a class="btn ghost" style="padding:5px 12px" href="/app/accounting/vendor-check/nudge/?ids={{ ids_csv }}&dir=reset">Reset</a>
     <span class="sub" style="font-size:12px;margin-left:6px">Current amount position: X {{ aox }}, Y {{ aoy }}</span>
    </div>
   </div>
@@ -63,20 +66,23 @@
   <div style="position:absolute;left:0.95in;top:1.5in;font-size:11pt">{{ payee }}</div>
   <div style="position:absolute;left:calc(6.7in + {{ aox }}px);top:calc(1.22in + {{ aoy }}px);font-size:11pt;font-weight:bold">{{ amount|floatformat:2|intcomma }}</div>
   <div style="position:absolute;left:0.35in;top:1.9in;font-size:11pt">{{ amount_words }}************************************</div>
-  <div style="position:absolute;left:0.55in;top:2.95in;font-size:9pt">{{ memo }}</div>
+  <div style="position:absolute;left:0.55in;top:2.95in;font-size:9pt">{{ memo }}{% if expenses|length > 1 %} ({{ expenses|length }} bills){% endif %}</div>
   {% if signature %}<div style="position:absolute;left:5.2in;top:2.72in;font-size:10pt;font-style:italic">{{ signature }}</div>{% endif %}
 
-  <!-- ===== STUB (below the check) — simple vendor payment record ===== -->
+  <!-- ===== STUB (below the check) — itemized vendor payment record ===== -->
   <div style="position:absolute;left:0.5in;top:4.3in;width:7.5in;font-size:9.5pt">
    <div style="display:flex;justify-content:space-between;border-bottom:1px solid #999;padding-bottom:4px;font-weight:bold;font-size:11pt">
     <span>{{ payee }}</span><span>Check #{{ check_no }} · {{ today|date:"m/d/Y" }}</span>
    </div>
    <table style="width:100%;border-collapse:collapse;margin-top:10px">
-    <tr><td style="padding:3px 0;color:#666">Category</td><td style="text-align:right">{{ e.category }}</td></tr>
-    {% if e.vehicle %}<tr><td style="padding:3px 0;color:#666">Vehicle</td><td style="text-align:right">{{ e.vehicle }}</td></tr>{% endif %}
-    <tr><td style="padding:3px 0;color:#666">Expense date</td><td style="text-align:right">{{ e.date|date:"m/d/Y" }}</td></tr>
-    {% if e.notes %}<tr><td style="padding:3px 0;color:#666">Notes</td><td style="text-align:right">{{ e.notes }}</td></tr>{% endif %}
-    <tr style="border-top:2px solid #333;font-weight:bold"><td style="padding:6px 0">AMOUNT PAID</td><td style="text-align:right;padding:6px 0">${{ amount|floatformat:2|intcomma }}</td></tr>
+    <tr style="color:#666;border-bottom:1px solid #ccc;font-size:8.5pt"><td style="padding:2px 0">Date</td><td>Category</td><td>Notes</td><td style="text-align:right">Amount</td></tr>
+    {% for x in expenses %}<tr>
+     <td style="padding:3px 0">{{ x.date|date:"m/d/Y" }}</td>
+     <td>{{ x.category }}{% if x.vehicle %} · {{ x.vehicle }}{% endif %}</td>
+     <td>{{ x.notes|truncatechars:40 }}</td>
+     <td style="text-align:right">${{ x.amount|floatformat:2|intcomma }}</td>
+    </tr>{% endfor %}
+    <tr style="border-top:2px solid #333;font-weight:bold"><td colspan="3" style="padding:6px 0">AMOUNT PAID</td><td style="text-align:right;padding:6px 0">${{ amount|floatformat:2|intcomma }}</td></tr>
    </table>
    <div style="margin-top:6px;color:#666;font-size:8.5pt">This stub is your record of payment to this vendor.</div>
   </div>

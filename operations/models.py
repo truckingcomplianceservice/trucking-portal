@@ -346,6 +346,11 @@ class Expense(models.Model):
         help_text="If a partner paid this out of pocket, who.")
     out_of_pocket = models.BooleanField("Driver paid from own pocket (reimburse)", default=False)
     notes = models.TextField(blank=True)
+    paid_check = models.ForeignKey(
+        "IssuedCheck", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="expenses",
+        help_text="Set once a check has been printed covering this expense (possibly combined with others).",
+    )
 
     class Meta:
         ordering = ["-date"]
@@ -1642,10 +1647,8 @@ class IssuedCheck(models.Model):
         Settlement, on_delete=models.SET_NULL, null=True, blank=True,
         related_name="issued_checks",
     )
-    expense = models.ForeignKey(
-        Expense, on_delete=models.SET_NULL, null=True, blank=True,
-        related_name="issued_checks",
-    )
+    # Expenses paid by this check are linked via Expense.paid_check (reverse: .expenses) —
+    # one check can cover several expenses (e.g. multiple repair bills for one vendor).
 
     class Meta:
         unique_together = [("company", "check_number")]

@@ -30,7 +30,19 @@
 </tbody></table></div>
 <div class="grid2">
  <div class="card"><div class="card-h"><h3>Recent expenses</h3><a href="/admin/operations/expense/">All</a></div>
- {% if expenses %}<table><tbody>{% for e in expenses %}<tr><td>{{ e.category }}<div class="sub">{{ e.company.name }} · {{ e.date }}{% if e.vendor %} · {{ e.vendor }}{% endif %}</div></td><td style="text-align:right;font-weight:600">${{ e.amount|floatformat:2 }}</td><td style="text-align:right">{% if e.vendor and not e.out_of_pocket and not e.paid_by_partner %}<a href="/app/accounting/expense/{{ e.id }}/check/" style="color:var(--blue);font-size:12px">Print check</a>{% endif %}</td><td style="text-align:right">{% if e.receipt %}<a href="{{ e.receipt.url }}" target="_blank" style="color:var(--blue);font-size:12px">View</a>{% else %}<form method="post" action="/app/accounting/expense/{{ e.id }}/receipt/" enctype="multipart/form-data" style="display:inline">{% csrf_token %}<label style="cursor:pointer;color:var(--blue);font-size:12px">Attach<input type="file" name="receipt" onchange="this.form.submit()" style="display:none"></label></form>{% endif %}</td><td style="text-align:right"><form method="post" action="/app/accounting/expense/{{ e.id }}/receipt/" onsubmit="return confirm('Remove this expense?');" style="display:inline">{% csrf_token %}<input type="hidden" name="action" value="delete"><button type="submit" style="background:none;border:0;color:#c0392b;cursor:pointer;font-size:12px">Remove</button></form></td></tr>{% endfor %}</tbody></table>{% else %}<div class="empty">No expenses yet.</div>{% endif %}</div>
+ {% if expenses %}
+ <form method="get" action="/app/accounting/vendor-check/">
+ <table><tbody>{% for e in expenses %}<tr>
+  <td style="width:24px">{% if e.vendor and not e.out_of_pocket and not e.paid_by_partner and not e.paid_check_id %}<input type="checkbox" name="ids" value="{{ e.id }}">{% endif %}</td>
+  <td>{{ e.category }}<div class="sub">{{ e.company.name }} · {{ e.date }}{% if e.vendor %} · {{ e.vendor }}{% endif %}</div></td>
+  <td style="text-align:right;font-weight:600">${{ e.amount|floatformat:2 }}</td>
+  <td style="text-align:right">{% if e.paid_check_id %}<a href="/app/accounting/vendor-check/?ids={{ e.id }}" style="color:#1a9e6f;font-size:12px">Paid: Check #{{ e.paid_check.check_number }}</a>{% endif %}</td>
+  <td style="text-align:right">{% if e.receipt %}<a href="{{ e.receipt.url }}" target="_blank" style="color:var(--blue);font-size:12px">View</a>{% else %}<form method="post" action="/app/accounting/expense/{{ e.id }}/receipt/" enctype="multipart/form-data" style="display:inline">{% csrf_token %}<label style="cursor:pointer;color:var(--blue);font-size:12px">Attach<input type="file" name="receipt" onchange="this.form.submit()" style="display:none"></label></form>{% endif %}</td>
+  <td style="text-align:right"><form method="post" action="/app/accounting/expense/{{ e.id }}/receipt/" onsubmit="return confirm('Remove this expense?');" style="display:inline">{% csrf_token %}<input type="hidden" name="action" value="delete"><button type="submit" style="background:none;border:0;color:#c0392b;cursor:pointer;font-size:12px">Remove</button></form></td>
+ </tr>{% endfor %}</tbody></table>
+ <div style="margin-top:10px"><button type="submit" class="btn ghost" style="padding:6px 14px;font-size:13px">Print check for selected</button> <span class="sub" style="font-size:12px">Select one or more expenses from the <b>same vendor</b> to combine into a single check.</span></div>
+ </form>
+ {% else %}<div class="empty">No expenses yet.</div>{% endif %}</div>
  <div class="card"><div class="card-h"><h3>Recent settlements</h3><a href="/admin/operations/settlement/">All</a></div>
  {% if settlements %}<table><tbody>{% for s in settlements %}<tr><td>{{ s.driver }}<div class="sub">{{ s.company.name }} · {{ s.period_end }}</div></td><td style="text-align:right;font-weight:600">${{ s.net_pay|floatformat:2 }}</td></tr>{% endfor %}</tbody></table>{% else %}<div class="empty">No settlements yet.</div>{% endif %}</div>
 </div>{% endblock %}

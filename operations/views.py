@@ -1334,24 +1334,25 @@ def _apply_role(user, role):
     user.groups.add(group)
 
 
-def _check_collision(company, check_no, settlement=None, expense=None):
+def _check_collision(company, check_no, exclude_check_id=None):
     """Returns the existing IssuedCheck if this number is already claimed by a
-    DIFFERENT settlement/expense than the one being printed right now, else None."""
+    DIFFERENT check than the one currently being printed/edited, else None."""
     existing = IssuedCheck.objects.filter(company=company, check_number=str(check_no)).first()
     if not existing:
         return None
-    if settlement and existing.settlement_id == settlement.id:
-        return None
-    if expense and existing.expense_id == expense.id:
+    if exclude_check_id and existing.id == exclude_check_id:
         return None
     return existing
 
 
-def _record_issued_check(company, check_no, payee, amount, settlement=None, expense=None):
-    IssuedCheck.objects.update_or_create(
+def _record_issued_check(company, check_no, payee, amount, settlement=None):
+    """Create or update the registry row for this check number. Returns the
+    IssuedCheck so callers can link Expenses to it via expense.paid_check."""
+    obj, _created = IssuedCheck.objects.update_or_create(
         company=company, check_number=str(check_no),
-        defaults={"payee": payee, "amount": amount, "settlement": settlement, "expense": expense},
+        defaults={"payee": payee, "amount": amount, "settlement": settlement},
     )
+    return obj
 
 
 def _is_manager(user):
@@ -5267,20 +5268,47 @@ def _amount_to_words(amount):
 
 
 @login_required
-def expense_check(request, pk):
-    """Print a company check for a vendor expense (e.g. a truck repair shop) —
-    same physical check-stock layout as driver settlement checks, but with a
-    simple stub instead of a pay breakdown. Only makes sense when the company
-    itself is paying (not a driver's out-of-pocket expense or a partner's)."""
-    e = _get(Expense, pk=pk, company__in=_companies_all(request))
+def expense_check(request):
+    """Print ONE company check covering one or more selected vendor expenses
+    (e.g. several repair bills from the same shop) — same physical check-stock
+    layout as driver settlement checks, with a stub itemizing every expense
+    included and the combined total. All selected expenses must belong to the
+    same company and the same vendor (a check has exactly one payee)."""
+    raw_ids = request.GET.getlist("ids")
+    ids = []
+    for r in raw_ids:
+        ids += [i for i in r.split(",") if i.strip().isdigit()]
+    if not ids:
+        _messages.error(request, "Select at least one expense to print a check.")
+        return redirect("app_accounting")
+    expenses = list(Expense.objects.filter(pk__in=ids, company__in=_companies_all(request)))
+    if not expenses:
+        _messages.error(request, "Couldn't find those expenses.")
+        return redirect("app_accounting")
     if not _is_manager(request.user):
         _messages.error(request, "Only managers or admins can print checks.")
         return redirect("app_accounting")
-    if not e.vendor.strip():
-        _messages.error(request, "Add a vendor name to this expense before printing a check.")
+
+    company = expenses[0].company
+    if any(x.company_id != company.id for x in expenses):
+        _messages.error(request, "Selected expenses must all belong to the same company.")
         return redirect("app_accounting")
-    company = e.company
-    payee = e.vendor.strip()
+    vendors = {x.vendor.strip() for x in expenses if x.vendor.strip()}
+    if len(vendors) != 1:
+        _messages.error(request, "Select expenses from a single vendor — a check has one payee.")
+        return redirect("app_accounting")
+    payee = vendors.pop()
+    total = sum((x.amount for x in expenses), 0)
+
+    # If every selected expense is already tied to the SAME existing check, we're
+    # just re-viewing/reprinting that check, not creating a new one.
+    existing_ids = {x.paid_check_id for x in expenses}
+    existing_for_this = None
+    if len(existing_ids) == 1 and None not in existing_ids:
+        existing_for_this = IssuedCheck.objects.filter(pk=existing_ids.pop()).first()
+    elif any(x.paid_check_id for x in expenses):
+        _messages.error(request, "Some of the selected expenses were already paid on a different check — deselect them or start over.")
+        return redirect("app_accounting")
 
     manual_no = request.GET.get("no")
     confirmed = request.GET.get("confirm_reuse") == "1"
@@ -5288,30 +5316,32 @@ def expense_check(request, pk):
         check_no = company.check_next_number
         company.check_next_number = int(company.check_next_number) + 1
         company.save(update_fields=["check_next_number"])
-        collision = _check_collision(company, check_no, expense=e)
+        collision = _check_collision(company, check_no, exclude_check_id=existing_for_this.id if existing_for_this else None)
         if not collision:
-            _record_issued_check(company, check_no, payee, e.amount, expense=e)
+            issued = _record_issued_check(company, check_no, payee, total)
+            Expense.objects.filter(pk__in=[x.id for x in expenses]).update(paid_check=issued)
     elif manual_no:
         check_no = manual_no
-        collision = _check_collision(company, check_no, expense=e)
+        collision = _check_collision(company, check_no, exclude_check_id=existing_for_this.id if existing_for_this else None)
         if confirmed or not collision:
-            _record_issued_check(company, check_no, payee, e.amount, expense=e)
+            issued = _record_issued_check(company, check_no, payee, total)
+            Expense.objects.filter(pk__in=[x.id for x in expenses]).update(paid_check=issued)
             collision = None
+    elif existing_for_this:
+        check_no = existing_for_this.check_number
+        collision = None
     else:
         check_no = company.check_next_number
         collision = None  # just previewing the pending next number, nothing claimed yet
 
-    memo_bits = [e.category]
-    if e.vehicle:
-        memo_bits.append(str(e.vehicle))
     ctx = {
-        "e": e, "company": company,
-        "amount": e.amount,
-        "amount_words": _amount_to_words(e.amount),
+        "expenses": expenses, "company": company, "ids_csv": ",".join(str(x.id) for x in expenses),
+        "amount": total,
+        "amount_words": _amount_to_words(total),
         "payee": payee,
         "check_no": check_no,
         "today": _dt.date.today(),
-        "memo": " · ".join(memo_bits),
+        "memo": expenses[0].category if len({x.category for x in expenses}) == 1 else "Vendor payment",
         "ox": company.check_offset_x or 0,
         "oy": company.check_offset_y or 0,
         "aox": company.check_amount_offset_x or 0,
@@ -5322,21 +5352,23 @@ def expense_check(request, pk):
     if request.GET.get("pdf") == "1":
         if collision:
             _messages.error(request, f"Check #{check_no} was already issued to {collision.payee} — confirm reuse before downloading.")
-            return redirect(f"/app/accounting/expense/{pk}/check/?no={check_no}")
+            return redirect(f"/app/accounting/vendor-check/?ids={ctx['ids_csv']}&no={check_no}")
         pdf = _render_pdf("operations/vendor_check_print.html", ctx)
         from django.http import HttpResponse
         resp = HttpResponse(pdf, content_type="application/pdf")
-        resp["Content-Disposition"] = f'inline; filename="check_{check_no}_{e.vendor}.pdf"'
+        resp["Content-Disposition"] = f'inline; filename="check_{check_no}_{payee}.pdf"'
         return resp
     return render(request, "operations/vendor_check_print.html", ctx)
 
 
-def expense_check_nudge(request, pk):
+def expense_check_nudge(request):
     """Same amount-position nudge as driver checks, saved to the same
     per-company offsets (it's the same physical printer alignment)."""
-    if not _is_manager(request.user):
+    ids_csv = request.GET.get("ids", "")
+    ids = [i for i in ids_csv.split(",") if i.strip().isdigit()]
+    if not _is_manager(request.user) or not ids:
         return redirect("app_accounting")
-    e = _get(Expense, pk=pk, company__in=_companies_all(request))
+    e = _get(Expense, pk=ids[0], company__in=_companies_all(request))
     company = e.company
     d = request.GET.get("dir")
     STEP = 6
@@ -5352,7 +5384,7 @@ def expense_check_nudge(request, pk):
         company.check_amount_offset_x = 0
         company.check_amount_offset_y = 0
     company.save(update_fields=["check_amount_offset_x", "check_amount_offset_y"])
-    return redirect(f"/app/accounting/expense/{pk}/check/")
+    return redirect(f"/app/accounting/vendor-check/?ids={ids_csv}")
 
 
 def driver_pay_check(request, pk):
@@ -5363,6 +5395,7 @@ def driver_pay_check(request, pk):
         return redirect("driver_pay_detail", pk=pk)
     company = s.company
     payee = (s.driver.pay_to_name.strip() if getattr(s.driver, "pay_to_name", "").strip() else str(s.driver))
+    existing_for_this = s.issued_checks.first()  # the check already tied to this settlement, if any
 
     manual_no = request.GET.get("no")
     confirmed = request.GET.get("confirm_reuse") == "1"
@@ -5370,12 +5403,12 @@ def driver_pay_check(request, pk):
         check_no = company.check_next_number
         company.check_next_number = int(company.check_next_number) + 1
         company.save(update_fields=["check_next_number"])
-        collision = _check_collision(company, check_no, settlement=s)
+        collision = _check_collision(company, check_no, exclude_check_id=existing_for_this.id if existing_for_this else None)
         if not collision:
             _record_issued_check(company, check_no, payee, s.net_pay, settlement=s)
     elif manual_no:
         check_no = manual_no
-        collision = _check_collision(company, check_no, settlement=s)
+        collision = _check_collision(company, check_no, exclude_check_id=existing_for_this.id if existing_for_this else None)
         if confirmed or not collision:
             _record_issued_check(company, check_no, payee, s.net_pay, settlement=s)
             collision = None
