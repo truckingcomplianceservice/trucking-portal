@@ -880,11 +880,24 @@ def app_accounting(request):
         wag = sum(s.net_pay for s in Settlement.objects.filter(company=c))
         rows.append({"name": c.name, "rev": rev, "exp": exp, "wag": wag, "net": rev - exp - wag})
         tr += rev; te += exp; tw += wag
-    expenses = Expense.objects.filter(company__in=cs).select_related("company")[:12]
+    q = request.GET.get("q", "").strip()
+    expense_qs = Expense.objects.filter(company__in=cs).select_related("company")
+    if q:
+        from django.db.models import Q as _Qs
+        from django.db.models.functions import Cast
+        from django.db.models import CharField as _CharField
+        expense_qs = expense_qs.annotate(amount_str=Cast("amount", _CharField())).filter(
+            _Qs(category__icontains=q) | _Qs(notes__icontains=q) |
+            _Qs(vendor__icontains=q) | _Qs(amount_str__icontains=q)
+        )
+        expenses = expense_qs.order_by("-date")[:300]
+    else:
+        expenses = expense_qs[:12]
     settlements = Settlement.objects.filter(company__in=cs).select_related("driver", "company")[:8]
     totals = {"rev": tr, "exp": te, "wag": tw, "net": tr - te - tw}
     return render(request, "operations/app_accounting.html",
                   {"rows": rows, "totals": totals, "expenses": expenses, "settlements": settlements,
+                   "expense_search": q,
                    "companies": cs,
                    "vehicles": Vehicle.objects.filter(company__in=cs).order_by("unit_number"),
                    "drivers": Driver.objects.filter(company__in=cs).order_by("first_name"),

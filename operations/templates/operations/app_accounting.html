@@ -30,6 +30,12 @@
 </tbody></table></div>
 <div class="grid2">
  <div class="card"><div class="card-h"><h3>Recent expenses</h3><a href="/admin/operations/expense/">All</a></div>
+ <form method="get" action="/app/accounting/" style="margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap">
+  <input type="text" name="q" value="{{ expense_search }}" placeholder="Search by description, vendor, or amount…" style="flex:1;min-width:220px;padding:8px 10px;border:1px solid #ccc;border-radius:8px;font-size:13px">
+  <button type="submit" class="btn ghost" style="padding:8px 16px;font-size:13px">Search</button>
+  {% if expense_search %}<a href="/app/accounting/" class="btn ghost" style="padding:8px 16px;font-size:13px">Clear</a>{% endif %}
+ </form>
+ {% if expense_search %}<div class="sub" style="font-size:12px;margin:-6px 0 10px">{{ expenses|length }} result{{ expenses|length|pluralize }} for "{{ expense_search }}" (searched across all companies, all dates){% if expenses|length == 300 %} — showing the first 300, try a more specific search{% endif %}</div>{% endif %}
  {% if expenses %}
  <form id="checkform" method="get" action="/app/accounting/vendor-check/"></form>
  <table><tbody>{% for e in expenses %}<tr>
@@ -41,7 +47,7 @@
   <td style="text-align:right"><form method="post" action="/app/accounting/expense/{{ e.id }}/receipt/" onsubmit="return confirm('Remove this expense?');" style="display:inline">{% csrf_token %}<input type="hidden" name="action" value="delete"><button type="submit" style="background:none;border:0;color:#c0392b;cursor:pointer;font-size:12px">Remove</button></form></td>
  </tr>{% endfor %}</tbody></table>
  <div style="margin-top:10px"><button type="submit" form="checkform" class="btn ghost" style="padding:6px 14px;font-size:13px">Print check for selected</button> <span class="sub" style="font-size:12px">Select one or more expenses from the <b>same vendor</b> to combine into a single check.</span></div>
- {% else %}<div class="empty">No expenses yet.</div>{% endif %}</div>
+ {% else %}<div class="empty">{% if expense_search %}No expenses match "{{ expense_search }}".{% else %}No expenses yet.{% endif %}</div>{% endif %}</div>
  <div class="card"><div class="card-h"><h3>Recent settlements</h3><a href="/admin/operations/settlement/">All</a></div>
  {% if settlements %}<table><tbody>{% for s in settlements %}<tr><td>{{ s.driver }}<div class="sub">{{ s.company.name }} · {{ s.period_end }}</div></td><td style="text-align:right;font-weight:600">${{ s.net_pay|floatformat:2 }}</td></tr>{% endfor %}</tbody></table>{% else %}<div class="empty">No settlements yet.</div>{% endif %}</div>
 </div>{% endblock %}
