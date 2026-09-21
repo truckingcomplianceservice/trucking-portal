@@ -5448,6 +5448,7 @@ def expense_check(request):
         collision = None  # just previewing the pending next number, nothing claimed yet
 
     descs = {x.display_desc for x in items}
+    STUB_ITEM_LIMIT = 10  # roughly what fits legibly in the fixed check-stub area
     ctx = {
         "expenses": items, "company": company, "ids_csv": ids_csv,
         "amount": total,
@@ -5462,6 +5463,7 @@ def expense_check(request):
         "aoy": company.check_amount_offset_y or 0,
         "signature": company.check_signature or "",
         "collision": collision,
+        "is_summary": len(items) > STUB_ITEM_LIMIT,
     }
     if request.GET.get("pdf") == "1":
         if collision:
