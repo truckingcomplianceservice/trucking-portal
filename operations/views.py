@@ -890,9 +890,14 @@ def app_accounting(request):
             _Qs(category__icontains=q) | _Qs(notes__icontains=q) |
             _Qs(vendor__icontains=q) | _Qs(amount_str__icontains=q)
         )
-        expenses = expense_qs.order_by("-date")[:300]
-    else:
-        expenses = expense_qs[:12]
+    expense_qs = expense_qs.order_by("-date", "-id")
+    from django.core.paginator import Paginator
+    try:
+        page_num = int(request.GET.get("page", 1))
+    except ValueError:
+        page_num = 1
+    paginator = Paginator(expense_qs, 50)
+    expenses = paginator.get_page(page_num)
     settlements = Settlement.objects.filter(company__in=cs).select_related("driver", "company")[:8]
     totals = {"rev": tr, "exp": te, "wag": tw, "net": tr - te - tw}
     return render(request, "operations/app_accounting.html",
