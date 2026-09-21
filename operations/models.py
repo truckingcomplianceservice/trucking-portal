@@ -1627,3 +1627,29 @@ class CompanyDocument(models.Model):
         if self.doc_type == "other" and self.custom_type:
             return self.custom_type
         return self.get_doc_type_display()
+
+
+class IssuedCheck(models.Model):
+    """Registry of every check number actually printed/assigned, per company.
+    Lets us detect and warn about accidental reuse of a check number instead
+    of silently overwriting the record of who it was paid to."""
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name="issued_checks")
+    check_number = models.CharField(max_length=20)
+    payee = models.CharField(max_length=160)
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    issued_at = models.DateTimeField(auto_now=True)
+    settlement = models.ForeignKey(
+        Settlement, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="issued_checks",
+    )
+    expense = models.ForeignKey(
+        Expense, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="issued_checks",
+    )
+
+    class Meta:
+        unique_together = [("company", "check_number")]
+        ordering = ["-issued_at"]
+
+    def __str__(self):
+        return f"Check #{self.check_number} — {self.payee} (${self.amount})"

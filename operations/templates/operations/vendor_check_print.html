@@ -4,7 +4,7 @@
 {% block page_title %}Print check{% endblock %}
 {% block content %}
 <div class="noprint" style="margin-bottom:12px">
- <a href="/app/pay/{{ s.id }}/" class="sub" style="color:var(--blue)">&larr; Back to settlement</a>
+ <a href="/app/accounting/" class="sub" style="color:var(--blue)">&larr; Back to accounting</a>
 
  {% if collision %}
  <div class="card" style="margin-top:10px;padding:14px 16px;border:2px solid #c0392b;background:#fdf1ef">
@@ -14,7 +14,7 @@
    Printing it again now would record two different payments under the same check number, which will not reconcile with your bank statement.
   </div>
   <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
-   <a class="btn ghost" href="/app/pay/{{ s.id }}/check/?no={{ check_no }}&confirm_reuse=1" style="border-color:#c0392b;color:#c0392b">Yes, reuse #{{ check_no }} anyway</a>
+   <a class="btn ghost" href="/app/accounting/expense/{{ e.id }}/check/?no={{ check_no }}&confirm_reuse=1" style="border-color:#c0392b;color:#c0392b">Yes, reuse #{{ check_no }} anyway</a>
    <span class="sub" style="align-self:center;font-size:12px">— or pick a different number below</span>
   </div>
  </div>
@@ -22,7 +22,7 @@
 
  <div class="card" style="margin-top:10px;padding:14px 16px">
   <b>Laser Multi-Purpose check (check top, no lines)</b>
-  <div class="sub" style="font-size:13px;margin-top:4px">Matches Costco LMP100 / "Laser Multi-Purpose Check Top Without Lines" (8.5×11, check on top, one stub below). Works with your Canon MF240. Do a plain-paper test first; nudge X/Y offsets in Admin → Companies if needed.</div>
+  <div class="sub" style="font-size:13px;margin-top:4px">Matches Costco LMP100 / "Laser Multi-Purpose Check Top Without Lines" (8.5×11, check on top, one stub below). Do a plain-paper test first; nudge X/Y offsets if needed — these are shared with your driver settlement checks, so alignment stays the same everywhere.</div>
 
   <form method="get" style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
    <label class="sub" style="font-size:12px">Check number:</label>
@@ -33,19 +33,19 @@
   {% if not collision %}
   <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
    <button class="btn amber" onclick="window.print()">🖨 Print check</button>
-   <a class="btn ghost" href="/app/pay/{{ s.id }}/check/?pdf=1&no={{ check_no }}">Download PDF</a>
-   {% if not request.GET.no and not request.GET.assign %}<a class="btn ghost" href="/app/pay/{{ s.id }}/check/?assign=1">Assign next check # ({{ company.check_next_number }})</a>{% endif %}
+   <a class="btn ghost" href="/app/accounting/expense/{{ e.id }}/check/?pdf=1&no={{ check_no }}">Download PDF</a>
+   {% if not request.GET.no and not request.GET.assign %}<a class="btn ghost" href="/app/accounting/expense/{{ e.id }}/check/?assign=1">Assign next check # ({{ company.check_next_number }})</a>{% endif %}
   </div>
   {% endif %}
 
   <div style="margin-top:10px;padding:10px 12px;background:#f7f8fa;border-radius:9px">
    <b style="font-size:13px">Line up the $ amount:</b> if it doesn't sit next to the $ sign, nudge it here (saves automatically), then re-print.
    <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;align-items:center">
-    <a class="btn ghost" style="padding:5px 12px" href="/app/pay/{{ s.id }}/check/nudge/?dir=up">↑ Up</a>
-    <a class="btn ghost" style="padding:5px 12px" href="/app/pay/{{ s.id }}/check/nudge/?dir=down">↓ Down</a>
-    <a class="btn ghost" style="padding:5px 12px" href="/app/pay/{{ s.id }}/check/nudge/?dir=left">← Left</a>
-    <a class="btn ghost" style="padding:5px 12px" href="/app/pay/{{ s.id }}/check/nudge/?dir=right">→ Right</a>
-    <a class="btn ghost" style="padding:5px 12px" href="/app/pay/{{ s.id }}/check/nudge/?dir=reset">Reset</a>
+    <a class="btn ghost" style="padding:5px 12px" href="/app/accounting/expense/{{ e.id }}/check/nudge/?dir=up">↑ Up</a>
+    <a class="btn ghost" style="padding:5px 12px" href="/app/accounting/expense/{{ e.id }}/check/nudge/?dir=down">↓ Down</a>
+    <a class="btn ghost" style="padding:5px 12px" href="/app/accounting/expense/{{ e.id }}/check/nudge/?dir=left">← Left</a>
+    <a class="btn ghost" style="padding:5px 12px" href="/app/accounting/expense/{{ e.id }}/check/nudge/?dir=right">→ Right</a>
+    <a class="btn ghost" style="padding:5px 12px" href="/app/accounting/expense/{{ e.id }}/check/nudge/?dir=reset">Reset</a>
     <span class="sub" style="font-size:12px;margin-left:6px">Current amount position: X {{ aox }}, Y {{ aoy }}</span>
    </div>
   </div>
@@ -59,47 +59,26 @@
  <div style="position:absolute;left:{{ ox }}px;top:{{ oy }}px;width:8.5in;height:11in">
 
   <!-- ===== CHECK (top 3.5in) ===== -->
-  <!-- Date (top right) -->
   <div style="position:absolute;left:6.55in;top:0.62in;font-size:11pt">{{ today|date:"m/d/Y" }}</div>
-  <!-- Pay to the order of (payee) -->
   <div style="position:absolute;left:0.95in;top:1.5in;font-size:11pt">{{ payee }}</div>
-  <!-- Numeric amount box (right) — aligned with the $ sign; adjustable via amount offsets -->
   <div style="position:absolute;left:calc(6.7in + {{ aox }}px);top:calc(1.22in + {{ aoy }}px);font-size:11pt;font-weight:bold">{{ amount|floatformat:2|intcomma }}</div>
-  <!-- Amount in words -->
   <div style="position:absolute;left:0.35in;top:1.9in;font-size:11pt">{{ amount_words }}************************************</div>
-  <!-- Memo (bottom-left of check) -->
   <div style="position:absolute;left:0.55in;top:2.95in;font-size:9pt">{{ memo }}</div>
-  <!-- Signature (right) -->
   {% if signature %}<div style="position:absolute;left:5.2in;top:2.72in;font-size:10pt;font-style:italic">{{ signature }}</div>{% endif %}
 
-  <!-- ===== STUB (below the check) — pay breakdown ===== -->
+  <!-- ===== STUB (below the check) — simple vendor payment record ===== -->
   <div style="position:absolute;left:0.5in;top:4.3in;width:7.5in;font-size:9.5pt">
    <div style="display:flex;justify-content:space-between;border-bottom:1px solid #999;padding-bottom:4px;font-weight:bold;font-size:11pt">
     <span>{{ payee }}</span><span>Check #{{ check_no }} · {{ today|date:"m/d/Y" }}</span>
    </div>
-   <div style="margin-top:6px">Pay period: {{ s.period_start|date:"m/d/Y" }} – {{ s.period_end|date:"m/d/Y" }}</div>
-   {% if settle_loads %}
-   <table style="width:100%;border-collapse:collapse;margin-top:6px;font-size:8.5pt">
-    <tr style="color:#666;border-bottom:1px solid #ccc"><td style="padding:2px 0">Date</td><td>Load #</td><td>Route</td>{% if not hide_amounts %}<td style="text-align:right">Rate</td>{% endif %}</tr>
-    {% for ld in settle_loads %}<tr>
-     <td style="padding:2px 0">{{ ld.pickup_date|date:"m/d"|default:"—" }}</td>
-     <td>{{ ld.reference }}</td>
-     <td>{{ ld.origin }} → {{ ld.destination }}</td>
-     {% if not hide_amounts %}<td style="text-align:right">${{ ld.rate|floatformat:2|intcomma }}</td>{% endif %}
-    </tr>{% endfor %}
-    {% if not hide_amounts %}<tr style="border-top:1px solid #ccc;font-weight:bold"><td colspan="3" style="padding:2px 0">Loads total</td><td style="text-align:right">${{ settle_loads_total|floatformat:2|intcomma }}</td></tr>{% endif %}
+   <table style="width:100%;border-collapse:collapse;margin-top:10px">
+    <tr><td style="padding:3px 0;color:#666">Category</td><td style="text-align:right">{{ e.category }}</td></tr>
+    {% if e.vehicle %}<tr><td style="padding:3px 0;color:#666">Vehicle</td><td style="text-align:right">{{ e.vehicle }}</td></tr>{% endif %}
+    <tr><td style="padding:3px 0;color:#666">Expense date</td><td style="text-align:right">{{ e.date|date:"m/d/Y" }}</td></tr>
+    {% if e.notes %}<tr><td style="padding:3px 0;color:#666">Notes</td><td style="text-align:right">{{ e.notes }}</td></tr>{% endif %}
+    <tr style="border-top:2px solid #333;font-weight:bold"><td style="padding:6px 0">AMOUNT PAID</td><td style="text-align:right;padding:6px 0">${{ amount|floatformat:2|intcomma }}</td></tr>
    </table>
-   {% endif %}
-   <table style="width:100%;border-collapse:collapse;margin-top:6px">
-    <tr><td style="padding:2px 0">Gross pay</td><td style="text-align:right">${{ s.gross_pay|floatformat:2|intcomma }}</td></tr>
-    <tr><td style="padding:2px 0">Deductions</td><td style="text-align:right">- ${{ s.deductions|floatformat:2|intcomma }}</td></tr>
-    <tr><td style="padding:2px 0">Reimbursements (out-of-pocket)</td><td style="text-align:right">+ ${{ s.reimbursements|floatformat:2|intcomma }}</td></tr>
-    <tr><td style="padding:2px 0">Extra reimbursement</td><td style="text-align:right">+ ${{ s.extra_reimbursement|floatformat:2|intcomma }}</td></tr>
-    {% for it in reimbursement_items %}<tr><td style="padding:2px 0 2px 14px">+ {{ it.description }}</td><td style="text-align:right">+ ${{ it.amount|floatformat:2 }}</td></tr>{% endfor %}
-    {% for it in deduction_items %}<tr><td style="padding:2px 0 2px 14px">- {{ it.description }}</td><td style="text-align:right">- ${{ it.amount|floatformat:2 }}</td></tr>{% endfor %}
-    <tr style="border-top:2px solid #333;font-weight:bold"><td style="padding:4px 0">NET PAY</td><td style="text-align:right;padding:4px 0">${{ amount|floatformat:2|intcomma }}</td></tr>
-   </table>
-   <div style="margin-top:6px;color:#666;font-size:8.5pt">This stub is your record of pay for the period above.</div>
+   <div style="margin-top:6px;color:#666;font-size:8.5pt">This stub is your record of payment to this vendor.</div>
   </div>
 
  </div>

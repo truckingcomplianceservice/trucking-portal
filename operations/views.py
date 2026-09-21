@@ -1334,6 +1334,26 @@ def _apply_role(user, role):
     user.groups.add(group)
 
 
+def _check_collision(company, check_no, settlement=None, expense=None):
+    """Returns the existing IssuedCheck if this number is already claimed by a
+    DIFFERENT settlement/expense than the one being printed right now, else None."""
+    existing = IssuedCheck.objects.filter(company=company, check_number=str(check_no)).first()
+    if not existing:
+        return None
+    if settlement and existing.settlement_id == settlement.id:
+        return None
+    if expense and existing.expense_id == expense.id:
+        return None
+    return existing
+
+
+def _record_issued_check(company, check_no, payee, amount, settlement=None, expense=None):
+    IssuedCheck.objects.update_or_create(
+        company=company, check_number=str(check_no),
+        defaults={"payee": payee, "amount": amount, "settlement": settlement, "expense": expense},
+    )
+
+
 def _is_manager(user):
     if user.is_superuser:
         return True
@@ -2520,6 +2540,7 @@ def portal_login(request, slug=None):
 
 # ================= Tasks =================
 from .models import Task, PerformanceNote
+from .models import IssuedCheck
 
 
 @require_section("dashboard")
@@ -5246,6 +5267,94 @@ def _amount_to_words(amount):
 
 
 @login_required
+def expense_check(request, pk):
+    """Print a company check for a vendor expense (e.g. a truck repair shop) —
+    same physical check-stock layout as driver settlement checks, but with a
+    simple stub instead of a pay breakdown. Only makes sense when the company
+    itself is paying (not a driver's out-of-pocket expense or a partner's)."""
+    e = _get(Expense, pk=pk, company__in=_companies_all(request))
+    if not _is_manager(request.user):
+        _messages.error(request, "Only managers or admins can print checks.")
+        return redirect("app_accounting")
+    if not e.vendor.strip():
+        _messages.error(request, "Add a vendor name to this expense before printing a check.")
+        return redirect("app_accounting")
+    company = e.company
+    payee = e.vendor.strip()
+
+    manual_no = request.GET.get("no")
+    confirmed = request.GET.get("confirm_reuse") == "1"
+    if request.GET.get("assign") == "1":
+        check_no = company.check_next_number
+        company.check_next_number = int(company.check_next_number) + 1
+        company.save(update_fields=["check_next_number"])
+        collision = _check_collision(company, check_no, expense=e)
+        if not collision:
+            _record_issued_check(company, check_no, payee, e.amount, expense=e)
+    elif manual_no:
+        check_no = manual_no
+        collision = _check_collision(company, check_no, expense=e)
+        if confirmed or not collision:
+            _record_issued_check(company, check_no, payee, e.amount, expense=e)
+            collision = None
+    else:
+        check_no = company.check_next_number
+        collision = None  # just previewing the pending next number, nothing claimed yet
+
+    memo_bits = [e.category]
+    if e.vehicle:
+        memo_bits.append(str(e.vehicle))
+    ctx = {
+        "e": e, "company": company,
+        "amount": e.amount,
+        "amount_words": _amount_to_words(e.amount),
+        "payee": payee,
+        "check_no": check_no,
+        "today": _dt.date.today(),
+        "memo": " · ".join(memo_bits),
+        "ox": company.check_offset_x or 0,
+        "oy": company.check_offset_y or 0,
+        "aox": company.check_amount_offset_x or 0,
+        "aoy": company.check_amount_offset_y or 0,
+        "signature": company.check_signature or "",
+        "collision": collision,
+    }
+    if request.GET.get("pdf") == "1":
+        if collision:
+            _messages.error(request, f"Check #{check_no} was already issued to {collision.payee} — confirm reuse before downloading.")
+            return redirect(f"/app/accounting/expense/{pk}/check/?no={check_no}")
+        pdf = _render_pdf("operations/vendor_check_print.html", ctx)
+        from django.http import HttpResponse
+        resp = HttpResponse(pdf, content_type="application/pdf")
+        resp["Content-Disposition"] = f'inline; filename="check_{check_no}_{e.vendor}.pdf"'
+        return resp
+    return render(request, "operations/vendor_check_print.html", ctx)
+
+
+def expense_check_nudge(request, pk):
+    """Same amount-position nudge as driver checks, saved to the same
+    per-company offsets (it's the same physical printer alignment)."""
+    if not _is_manager(request.user):
+        return redirect("app_accounting")
+    e = _get(Expense, pk=pk, company__in=_companies_all(request))
+    company = e.company
+    d = request.GET.get("dir")
+    STEP = 6
+    if d == "up":
+        company.check_amount_offset_y = (company.check_amount_offset_y or 0) - STEP
+    elif d == "down":
+        company.check_amount_offset_y = (company.check_amount_offset_y or 0) + STEP
+    elif d == "left":
+        company.check_amount_offset_x = (company.check_amount_offset_x or 0) - STEP
+    elif d == "right":
+        company.check_amount_offset_x = (company.check_amount_offset_x or 0) + STEP
+    elif d == "reset":
+        company.check_amount_offset_x = 0
+        company.check_amount_offset_y = 0
+    company.save(update_fields=["check_amount_offset_x", "check_amount_offset_y"])
+    return redirect(f"/app/accounting/expense/{pk}/check/")
+
+
 def driver_pay_check(request, pk):
     """Print a check for a driver settlement onto pre-printed check stock."""
     s = _get(Settlement, pk=pk, company__in=_companies_all(request))
@@ -5253,17 +5362,32 @@ def driver_pay_check(request, pk):
         _messages.error(request, "Only managers or admins can print checks.")
         return redirect("driver_pay_detail", pk=pk)
     company = s.company
-    # assign a check number if printing for the first time via ?assign=1
-    check_no = request.GET.get("no") or company.check_next_number
+    payee = (s.driver.pay_to_name.strip() if getattr(s.driver, "pay_to_name", "").strip() else str(s.driver))
+
+    manual_no = request.GET.get("no")
+    confirmed = request.GET.get("confirm_reuse") == "1"
     if request.GET.get("assign") == "1":
         check_no = company.check_next_number
         company.check_next_number = int(company.check_next_number) + 1
         company.save(update_fields=["check_next_number"])
+        collision = _check_collision(company, check_no, settlement=s)
+        if not collision:
+            _record_issued_check(company, check_no, payee, s.net_pay, settlement=s)
+    elif manual_no:
+        check_no = manual_no
+        collision = _check_collision(company, check_no, settlement=s)
+        if confirmed or not collision:
+            _record_issued_check(company, check_no, payee, s.net_pay, settlement=s)
+            collision = None
+    else:
+        check_no = company.check_next_number
+        collision = None  # just previewing the pending next number, nothing claimed yet
+
     ctx = {
         "s": s, "company": company,
         "amount": s.net_pay,
         "amount_words": _amount_to_words(s.net_pay),
-        "payee": (s.driver.pay_to_name.strip() if getattr(s.driver, "pay_to_name", "").strip() else str(s.driver)),
+        "payee": payee,
         "check_no": check_no,
         "today": _dt.date.today(),
         "memo": f"Settlement {s.period_start:%m/%d}–{s.period_end:%m/%d/%Y}",
@@ -5277,8 +5401,12 @@ def driver_pay_check(request, pk):
         "settle_loads": s.loads.select_related("vehicle").order_by("pickup_date"),
         "settle_loads_total": s.loads.aggregate(x=Sum("rate"))["x"] or 0,
         "hide_amounts": bool(getattr(s.driver, "hide_load_amounts_on_check", False) or s.hide_load_amounts),
+        "collision": collision,
     }
     if request.GET.get("pdf") == "1":
+        if collision:
+            _messages.error(request, f"Check #{check_no} was already issued to {collision.payee} — confirm reuse before downloading.")
+            return redirect(f"/app/pay/{pk}/check/?no={check_no}")
         pdf = _render_pdf("operations/check_print.html", ctx)
         from django.http import HttpResponse
         resp = HttpResponse(pdf, content_type="application/pdf")
