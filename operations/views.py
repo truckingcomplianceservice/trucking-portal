@@ -5398,11 +5398,14 @@ def expense_check(request):
     if any(getattr(x, "out_of_pocket", False) or getattr(x, "paid_by_partner_id", None) for x in expense_items):
         _messages.error(request, "One of the selected expenses is marked as paid by a driver or partner, not the company — deselect it.")
         return redirect("app_accounting")
-    vendors = {x.vendor.strip() for x in items if x.vendor.strip()}
-    if len(vendors) != 1:
-        _messages.error(request, "Select items from a single vendor — a check has one payee.")
+    # Match vendors case/whitespace-insensitively — "Joe's Diesel Repair" and
+    # "joe's diesel repair " typed by different people are the same payee.
+    vendors_normalized = {x.vendor.strip().lower() for x in items if x.vendor.strip()}
+    if len(vendors_normalized) != 1:
+        distinct = sorted({x.vendor.strip() for x in items if x.vendor.strip()})
+        _messages.error(request, f"Select items from a single vendor — a check has one payee. You selected: {', '.join(distinct)}.")
         return redirect("app_accounting")
-    payee = vendors.pop()
+    payee = next(x.vendor.strip() for x in items if x.vendor.strip())  # first item's original casing
     total = sum((x.display_amount for x in items), 0)
 
     # If every selected item is already tied to the SAME existing check, we're
