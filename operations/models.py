@@ -1376,6 +1376,11 @@ class MaintenanceRecord(models.Model):
     labor_cost = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     receipt = models.FileField("Invoice / receipt", upload_to="receipts/", blank=True)
     notes = models.TextField(blank=True)
+    paid_check = models.ForeignKey(
+        "IssuedCheck", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="maintenance_records",
+        help_text="Set once a check has been printed covering this maintenance bill.",
+    )
 
     class Meta:
         ordering = ["-date", "-id"]

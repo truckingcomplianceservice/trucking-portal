@@ -164,6 +164,7 @@ urlpatterns = [
     path("app/accounting/", views.app_accounting, name="app_accounting"),
     path("app/accounting/expense/add/", views.expense_add, name="expense_add"),
     path("app/accounting/expense/<int:pk>/receipt/", views.expense_receipt, name="expense_receipt"),
+    path("app/accounting/maintenance/<int:pk>/receipt/", views.maintenance_receipt, name="maintenance_receipt"),
     path("app/accounting/vendor-check/", views.expense_check, name="expense_check"),
     path("app/accounting/vendor-check/nudge/", views.expense_check_nudge, name="expense_check_nudge"),
     path("app/billing/", views.app_billing, name="app_billing"),

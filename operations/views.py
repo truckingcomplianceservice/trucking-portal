@@ -881,22 +881,55 @@ def app_accounting(request):
         rows.append({"name": c.name, "rev": rev, "exp": exp, "wag": wag, "net": rev - exp - wag})
         tr += rev; te += exp; tw += wag
     q = request.GET.get("q", "").strip()
-    expense_qs = Expense.objects.filter(company__in=cs).select_related("company")
+    from django.db.models import Q as _Qs, Value as _Value, CharField as _CharField
+    from django.db.models.functions import Cast
+
+    expense_qs = Expense.objects.filter(company__in=cs).select_related("company", "vehicle")
+    maint_qs = MaintenanceRecord.objects.filter(company__in=cs).select_related("company", "vehicle")
     if q:
-        from django.db.models import Q as _Qs
-        from django.db.models.functions import Cast
-        from django.db.models import CharField as _CharField
         expense_qs = expense_qs.annotate(amount_str=Cast("amount", _CharField())).filter(
             _Qs(category__icontains=q) | _Qs(notes__icontains=q) |
             _Qs(vendor__icontains=q) | _Qs(amount_str__icontains=q)
         )
-    expense_qs = expense_qs.order_by("-date", "-id")
+        maint_qs = maint_qs.filter(
+            _Qs(part__icontains=q) | _Qs(notes__icontains=q) |
+            _Qs(vendor__icontains=q) | _Qs(vehicle__unit_number__icontains=q)
+        )
+        if any(ch.isdigit() for ch in q):
+            # parts_cost/labor_cost/total aren't a single stored column, so amount search
+            # for maintenance bills is done in Python against the (small) candidate set.
+            amt_ids = [r.id for r in MaintenanceRecord.objects.filter(company__in=cs) if q in str(r.total)]
+            maint_qs = MaintenanceRecord.objects.filter(
+                _Qs(pk__in=list(maint_qs.values_list("pk", flat=True))) | _Qs(pk__in=amt_ids)
+            ).select_related("company", "vehicle")
+
+    # Merge into one browsable, checkable list: maintenance bills logged on a truck
+    # (via Vehicles → Maintenance) are otherwise invisible here even though they're
+    # real vendor payments — so they belong in the same check-writing flow.
+    expense_list = list(expense_qs)
+    for x in expense_list:
+        x.kind = "expense"
+        x.display_amount = x.amount
+        x.display_desc = x.category
+        x.display_truck = x.vehicle.unit_number if x.vehicle_id else ""
+        x.company_paid = not (x.out_of_pocket or x.paid_by_partner_id)
+    maint_list = list(maint_qs)
+    for x in maint_list:
+        x.kind = "maintenance"
+        x.display_amount = x.total
+        x.display_desc = x.part
+        x.display_truck = x.vehicle.unit_number if x.vehicle_id else ""
+        x.company_paid = True  # maintenance bills have no out-of-pocket/partner concept
+
+    combined = expense_list + maint_list
+    combined.sort(key=lambda x: (x.date, x.id), reverse=True)
+
     from django.core.paginator import Paginator
     try:
         page_num = int(request.GET.get("page", 1))
     except ValueError:
         page_num = 1
-    paginator = Paginator(expense_qs, 50)
+    paginator = Paginator(combined, 50)
     expenses = paginator.get_page(page_num)
     settlements = Settlement.objects.filter(company__in=cs).select_related("driver", "company")[:8]
     totals = {"rev": tr, "exp": te, "wag": tw, "net": tr - te - tw}
@@ -970,6 +1003,34 @@ def expense_receipt(request, pk):
                 import os
                 os.makedirs(os.path.join(settings.MEDIA_ROOT, "expenses"), exist_ok=True)
                 e.receipt = request.FILES["receipt"]; e.save()
+                _messages.success(request, "Receipt attached.")
+            except Exception as ex:
+                _messages.error(request, f"Could not attach receipt: {ex}")
+    return redirect("app_accounting")
+
+
+def maintenance_receipt(request, pk):
+    """Attach/replace a receipt on an existing maintenance bill, update its vendor,
+    or delete it — same pattern as expense_receipt, for the merged Accounting list."""
+    m = _get(MaintenanceRecord, pk=pk, company__in=_companies(request))
+    if request.method == "POST":
+        if request.POST.get("action") == "delete":
+            if not _can_delete(request.user):
+                _messages.error(request, "Only an administrator can delete. You can edit instead.")
+            else:
+                m.delete(); _messages.success(request, "Maintenance record removed.")
+        elif request.POST.get("action") == "set_vendor":
+            vendor = request.POST.get("vendor", "").strip()
+            if vendor:
+                m.vendor = vendor; m.save(update_fields=["vendor"])
+                _messages.success(request, f"Vendor set to {vendor}.")
+            else:
+                _messages.error(request, "Enter a vendor name.")
+        elif request.FILES.get("receipt"):
+            try:
+                import os
+                os.makedirs(os.path.join(settings.MEDIA_ROOT, "receipts"), exist_ok=True)
+                m.receipt = request.FILES["receipt"]; m.save()
                 _messages.success(request, "Receipt attached.")
             except Exception as ex:
                 _messages.error(request, f"Could not attach receipt: {ex}")
@@ -5294,46 +5355,67 @@ def _amount_to_words(amount):
 
 @login_required
 def expense_check(request):
-    """Print ONE company check covering one or more selected vendor expenses
-    (e.g. several repair bills from the same shop) — same physical check-stock
-    layout as driver settlement checks, with a stub itemizing every expense
-    included and the combined total. All selected expenses must belong to the
-    same company and the same vendor (a check has exactly one payee)."""
+    """Print ONE company check covering one or more selected vendor bills — from
+    general expenses AND/OR per-truck maintenance records (e.g. several repair
+    bills from the same shop, however they were originally logged) — same
+    physical check-stock layout as driver settlement checks, with a stub
+    itemizing everything included and the combined total. All selected items
+    must belong to the same company and the same vendor (a check has one payee).
+    IDs are prefixed to tell the two sources apart: 'e123' = Expense pk 123,
+    'm45' = MaintenanceRecord pk 45 (plain numeric ids are treated as expenses,
+    for old links)."""
     raw_ids = request.GET.getlist("ids")
-    ids = []
+    tokens = []
     for r in raw_ids:
-        ids += [i for i in r.split(",") if i.strip().isdigit()]
-    if not ids:
-        _messages.error(request, "Select at least one expense to print a check.")
+        tokens += [t for t in r.split(",") if t.strip()]
+    expense_ids = [t[1:] for t in tokens if t.startswith("e") and t[1:].isdigit()]
+    maint_ids = [t[1:] for t in tokens if t.startswith("m") and t[1:].isdigit()]
+    expense_ids += [t for t in tokens if t.isdigit()]  # backward-compat: bare ids = expenses
+    if not expense_ids and not maint_ids:
+        _messages.error(request, "Select at least one item to print a check.")
         return redirect("app_accounting")
-    expenses = list(Expense.objects.filter(pk__in=ids, company__in=_companies_all(request)))
-    if not expenses:
-        _messages.error(request, "Couldn't find those expenses.")
+
+    expense_items = list(Expense.objects.filter(pk__in=expense_ids, company__in=_companies_all(request))) if expense_ids else []
+    maint_items = list(MaintenanceRecord.objects.filter(pk__in=maint_ids, company__in=_companies_all(request))) if maint_ids else []
+    for x in expense_items:
+        x.kind = "expense"; x.display_amount = x.amount; x.display_desc = x.category
+        x.display_truck = x.vehicle.unit_number if x.vehicle_id else ""
+    for x in maint_items:
+        x.kind = "maintenance"; x.display_amount = x.total; x.display_desc = x.part
+        x.display_truck = x.vehicle.unit_number if x.vehicle_id else ""
+    items = expense_items + maint_items
+    if not items:
+        _messages.error(request, "Couldn't find those items.")
         return redirect("app_accounting")
     if not _is_manager(request.user):
         _messages.error(request, "Only managers or admins can print checks.")
         return redirect("app_accounting")
 
-    company = expenses[0].company
-    if any(x.company_id != company.id for x in expenses):
-        _messages.error(request, "Selected expenses must all belong to the same company.")
+    company = items[0].company
+    if any(x.company_id != company.id for x in items):
+        _messages.error(request, "Selected items must all belong to the same company.")
         return redirect("app_accounting")
-    vendors = {x.vendor.strip() for x in expenses if x.vendor.strip()}
+    if any(getattr(x, "out_of_pocket", False) or getattr(x, "paid_by_partner_id", None) for x in expense_items):
+        _messages.error(request, "One of the selected expenses is marked as paid by a driver or partner, not the company — deselect it.")
+        return redirect("app_accounting")
+    vendors = {x.vendor.strip() for x in items if x.vendor.strip()}
     if len(vendors) != 1:
-        _messages.error(request, "Select expenses from a single vendor — a check has one payee.")
+        _messages.error(request, "Select items from a single vendor — a check has one payee.")
         return redirect("app_accounting")
     payee = vendors.pop()
-    total = sum((x.amount for x in expenses), 0)
+    total = sum((x.display_amount for x in items), 0)
 
-    # If every selected expense is already tied to the SAME existing check, we're
+    # If every selected item is already tied to the SAME existing check, we're
     # just re-viewing/reprinting that check, not creating a new one.
-    existing_ids = {x.paid_check_id for x in expenses}
+    existing_ids = {x.paid_check_id for x in items}
     existing_for_this = None
     if len(existing_ids) == 1 and None not in existing_ids:
         existing_for_this = IssuedCheck.objects.filter(pk=existing_ids.pop()).first()
-    elif any(x.paid_check_id for x in expenses):
-        _messages.error(request, "Some of the selected expenses were already paid on a different check — deselect them or start over.")
+    elif any(x.paid_check_id for x in items):
+        _messages.error(request, "Some of the selected items were already paid on a different check — deselect them or start over.")
         return redirect("app_accounting")
+
+    ids_csv = ",".join([f"e{x.id}" for x in expense_items] + [f"m{x.id}" for x in maint_items])
 
     manual_no = request.GET.get("no")
     confirmed = request.GET.get("confirm_reuse") == "1"
@@ -5344,13 +5426,19 @@ def expense_check(request):
         collision = _check_collision(company, check_no, exclude_check_id=existing_for_this.id if existing_for_this else None)
         if not collision:
             issued = _record_issued_check(company, check_no, payee, total)
-            Expense.objects.filter(pk__in=[x.id for x in expenses]).update(paid_check=issued)
+            if expense_items:
+                Expense.objects.filter(pk__in=[x.id for x in expense_items]).update(paid_check=issued)
+            if maint_items:
+                MaintenanceRecord.objects.filter(pk__in=[x.id for x in maint_items]).update(paid_check=issued)
     elif manual_no:
         check_no = manual_no
         collision = _check_collision(company, check_no, exclude_check_id=existing_for_this.id if existing_for_this else None)
         if confirmed or not collision:
             issued = _record_issued_check(company, check_no, payee, total)
-            Expense.objects.filter(pk__in=[x.id for x in expenses]).update(paid_check=issued)
+            if expense_items:
+                Expense.objects.filter(pk__in=[x.id for x in expense_items]).update(paid_check=issued)
+            if maint_items:
+                MaintenanceRecord.objects.filter(pk__in=[x.id for x in maint_items]).update(paid_check=issued)
             collision = None
     elif existing_for_this:
         check_no = existing_for_this.check_number
@@ -5359,14 +5447,15 @@ def expense_check(request):
         check_no = company.check_next_number
         collision = None  # just previewing the pending next number, nothing claimed yet
 
+    descs = {x.display_desc for x in items}
     ctx = {
-        "expenses": expenses, "company": company, "ids_csv": ",".join(str(x.id) for x in expenses),
+        "expenses": items, "company": company, "ids_csv": ids_csv,
         "amount": total,
         "amount_words": _amount_to_words(total),
         "payee": payee,
         "check_no": check_no,
         "today": _dt.date.today(),
-        "memo": expenses[0].category if len({x.category for x in expenses}) == 1 else "Vendor payment",
+        "memo": descs.pop() if len(descs) == 1 else "Vendor payment",
         "ox": company.check_offset_x or 0,
         "oy": company.check_offset_y or 0,
         "aox": company.check_amount_offset_x or 0,
@@ -5390,11 +5479,15 @@ def expense_check_nudge(request):
     """Same amount-position nudge as driver checks, saved to the same
     per-company offsets (it's the same physical printer alignment)."""
     ids_csv = request.GET.get("ids", "")
-    ids = [i for i in ids_csv.split(",") if i.strip().isdigit()]
-    if not _is_manager(request.user) or not ids:
+    tokens = [t for t in ids_csv.split(",") if t.strip()]
+    if not _is_manager(request.user) or not tokens:
         return redirect("app_accounting")
-    e = _get(Expense, pk=ids[0], company__in=_companies_all(request))
-    company = e.company
+    first = tokens[0]
+    if first.startswith("m") and first[1:].isdigit():
+        company = _get(MaintenanceRecord, pk=first[1:], company__in=_companies_all(request)).company
+    else:
+        raw_id = first[1:] if first.startswith("e") else first
+        company = _get(Expense, pk=raw_id, company__in=_companies_all(request)).company
     d = request.GET.get("dir")
     STEP = 6
     if d == "up":

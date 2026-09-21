@@ -78,9 +78,9 @@
     <tr style="color:#666;border-bottom:1px solid #ccc;font-size:8.5pt"><td style="padding:2px 0">Date</td><td>Category</td><td>Notes</td><td style="text-align:right">Amount</td></tr>
     {% for x in expenses %}<tr>
      <td style="padding:3px 0">{{ x.date|date:"m/d/Y" }}</td>
-     <td>{{ x.category }}{% if x.vehicle %} · {{ x.vehicle }}{% endif %}</td>
+     <td>{{ x.display_desc }}{% if x.display_truck %} · Truck {{ x.display_truck }}{% endif %}</td>
      <td>{{ x.notes|truncatechars:40 }}</td>
-     <td style="text-align:right">${{ x.amount|floatformat:2|intcomma }}</td>
+     <td style="text-align:right">${{ x.display_amount|floatformat:2|intcomma }}</td>
     </tr>{% endfor %}
     <tr style="border-top:2px solid #333;font-weight:bold"><td colspan="3" style="padding:6px 0">AMOUNT PAID</td><td style="text-align:right;padding:6px 0">${{ amount|floatformat:2|intcomma }}</td></tr>
    </table>
