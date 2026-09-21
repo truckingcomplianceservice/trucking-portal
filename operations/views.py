@@ -932,7 +932,7 @@ def expense_add(request):
 @require_section("accounting")
 @login_required
 def expense_receipt(request, pk):
-    """Attach/replace a receipt on an existing expense, or delete the expense."""
+    """Attach/replace a receipt on an existing expense, update its vendor, or delete it."""
     e = _get(Expense, pk=pk, company__in=_companies(request))
     if request.method == "POST":
         if request.POST.get("action") == "delete":
@@ -940,6 +940,13 @@ def expense_receipt(request, pk):
                 _messages.error(request, "Only an administrator can delete. You can edit instead.")
             else:
                 e.delete(); _messages.success(request, "Expense removed.")
+        elif request.POST.get("action") == "set_vendor":
+            vendor = request.POST.get("vendor", "").strip()
+            if vendor:
+                e.vendor = vendor; e.save(update_fields=["vendor"])
+                _messages.success(request, f"Vendor set to {vendor}.")
+            else:
+                _messages.error(request, "Enter a vendor name.")
         elif request.FILES.get("receipt"):
             try:
                 import os
