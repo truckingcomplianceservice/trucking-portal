@@ -983,7 +983,8 @@ def expense_add(request):
 @require_section("accounting")
 @login_required
 def expense_receipt(request, pk):
-    """Attach/replace a receipt on an existing expense, update its vendor, or delete it."""
+    """Attach/replace a receipt on an existing expense, update its vendor,
+    mark it unpaid (undo a check), or delete it."""
     e = _get(Expense, pk=pk, company__in=_companies(request))
     if request.method == "POST":
         if request.POST.get("action") == "delete":
@@ -998,6 +999,8 @@ def expense_receipt(request, pk):
                 _messages.success(request, f"Vendor set to {vendor}.")
             else:
                 _messages.error(request, "Enter a vendor name.")
+        elif request.POST.get("action") == "unpay":
+            _undo_check_payment(request, e)
         elif request.FILES.get("receipt"):
             try:
                 import os
@@ -1011,7 +1014,7 @@ def expense_receipt(request, pk):
 
 def maintenance_receipt(request, pk):
     """Attach/replace a receipt on an existing maintenance bill, update its vendor,
-    or delete it — same pattern as expense_receipt, for the merged Accounting list."""
+    mark it unpaid (undo a check), or delete it — mirrors expense_receipt."""
     m = _get(MaintenanceRecord, pk=pk, company__in=_companies(request))
     if request.method == "POST":
         if request.POST.get("action") == "delete":
@@ -1026,6 +1029,8 @@ def maintenance_receipt(request, pk):
                 _messages.success(request, f"Vendor set to {vendor}.")
             else:
                 _messages.error(request, "Enter a vendor name.")
+        elif request.POST.get("action") == "unpay":
+            _undo_check_payment(request, m)
         elif request.FILES.get("receipt"):
             try:
                 import os
@@ -1035,6 +1040,31 @@ def maintenance_receipt(request, pk):
             except Exception as ex:
                 _messages.error(request, f"Could not attach receipt: {ex}")
     return redirect("app_accounting")
+
+
+def _undo_check_payment(request, item):
+    """Unlink one Expense or MaintenanceRecord from the check it was paid on.
+    If that check has nothing else on it afterward, the check number is
+    cleared from the registry entirely so it's free to reuse without a
+    collision warning. If other items are still on it, the check's recorded
+    total is recalculated to match what's actually left."""
+    old_check = item.paid_check
+    if not old_check:
+        _messages.error(request, "This wasn't marked as paid.")
+        return
+    item.paid_check = None
+    item.save(update_fields=["paid_check"])
+    check_no = old_check.check_number
+    remaining_expenses = old_check.expenses.all()
+    remaining_maint = old_check.maintenance_records.all()
+    if not remaining_expenses.exists() and not remaining_maint.exists():
+        old_check.delete()
+        _messages.success(request, f"Marked unpaid. Check #{check_no} had nothing else on it, so it's been cleared — that number is free to use again.")
+    else:
+        new_total = sum((x.amount for x in remaining_expenses), 0) + sum((x.total for x in remaining_maint), 0)
+        old_check.amount = new_total
+        old_check.save(update_fields=["amount"])
+        _messages.success(request, f"Removed from Check #{check_no}. That check still covers the rest, total updated to ${new_total:.2f}.")
 
 
 def _companies_all(request):
