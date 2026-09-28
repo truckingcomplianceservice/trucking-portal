@@ -1222,7 +1222,6 @@ def fuel_add(request):
                 date=_parse_date(request.POST.get("date", "")) or _dt.date.today(),
                 vehicle=Vehicle.objects.filter(pk=request.POST.get("vehicle"), company__in=cs).first(),
                 driver=Driver.objects.filter(pk=request.POST.get("driver"), company__in=cs).first(),
-                co_driver=Driver.objects.filter(pk=request.POST.get("co_driver"), company__in=cs).first() if request.POST.get("co_driver") else None,
                 location=request.POST.get("location", "").strip()[:160],
                 ifta_state=request.POST.get("ifta_state", "").strip().upper()[:2],
                 gallons=round(_num(request.POST.get("gallons", "0")), 2),
