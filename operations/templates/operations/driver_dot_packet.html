@@ -1,0 +1,88 @@
+{% extends "operations/driver_base.html" %}
+{% block title %}DOT Inspection Packet{% endblock %}
+{% block nav_dot %}on{% endblock %}
+{% block content %}
+
+<div class="card" style="background:var(--navy);color:#fff;border:none">
+ <h3 style="color:#fff;margin-bottom:4px">🚨 DOT Inspection Packet</h3>
+ <div style="font-size:13px;opacity:.85">{{ company.name }}{% if company.dot_number %} · USDOT {{ company.dot_number }}{% endif %}{% if company.mc_number %} · MC {{ company.mc_number }}{% endif %}</div>
+ <div style="font-size:13px;opacity:.85;margin-top:2px">Driver: {{ drv.first_name }} {{ drv.last_name }}{% if vehicle %} · Unit {{ vehicle.unit_number }}{% endif %}</div>
+ {% if expired_count %}<div style="margin-top:10px;background:#c0392b;border-radius:8px;padding:8px 10px;font-size:13px;font-weight:600">⚠️ {{ expired_count }} document{{ expired_count|pluralize }} expired — fix before you're stopped.</div>
+ {% elif missing_count %}<div style="margin-top:10px;background:#8a6d1a;border-radius:8px;padding:8px 10px;font-size:13px;font-weight:600">{{ missing_count }} item{{ missing_count|pluralize }} not on file yet.</div>
+ {% else %}<div style="margin-top:10px;background:#137a51;border-radius:8px;padding:8px 10px;font-size:13px;font-weight:600">✅ Everything on file and current.</div>{% endif %}
+</div>
+
+{% if recent_vehicles|length > 1 %}
+<div class="card">
+ <h3>Truck</h3>
+ <form method="get">
+  <select name="vehicle" onchange="this.form.submit()">
+   {% for v in recent_vehicles %}<option value="{{ v.id }}" {% if vehicle.id == v.id %}selected{% endif %}>Unit {{ v.unit_number }}{% if v.make %} — {{ v.make }} {{ v.model }}{% endif %}</option>{% endfor %}
+  </select>
+ </form>
+</div>
+{% endif %}
+
+<div class="card">
+ <h3>My driver documents</h3>
+ <table><tbody>
+ {% for r in driver_rows %}
+  <tr>
+   <td>{{ r.label }}{% if r.expiry %}<div class="sub" style="font-size:11px;color:var(--muted)">Expires {{ r.expiry|date:"M d, Y" }}</div>{% endif %}</td>
+   <td class="n">
+    {% if r.status == "expired" %}<span class="pill unpaid">Expired</span>
+    {% elif r.status == "soon" %}<span class="pill" style="background:#fff3cd;color:#8a6d1a">Expiring soon</span>
+    {% elif r.status == "ok" %}<span class="pill paid">On file</span>
+    {% else %}<span class="pill open">Not on file</span>{% endif %}
+   </td>
+   <td class="n">{% if r.doc.file %}<a class="btn ghost" style="padding:5px 12px;font-size:12px" href="{{ r.doc.file.url }}" target="_blank">View</a>{% endif %}</td>
+  </tr>
+ {% endfor %}
+ </tbody></table>
+</div>
+
+{% if vehicle %}
+<div class="card">
+ <h3>Truck papers — Unit {{ vehicle.unit_number }}</h3>
+ <table><tbody>
+ {% for r in vehicle_rows %}
+  <tr>
+   <td>{{ r.label }}{% if r.expiry %}<div class="sub" style="font-size:11px;color:var(--muted)">Expires {{ r.expiry|date:"M d, Y" }}</div>{% endif %}</td>
+   <td class="n">
+    {% if r.status == "expired" %}<span class="pill unpaid">Expired</span>
+    {% elif r.status == "soon" %}<span class="pill" style="background:#fff3cd;color:#8a6d1a">Expiring soon</span>
+    {% elif r.status == "ok" %}<span class="pill paid">On file</span>
+    {% else %}<span class="pill open">Not on file</span>{% endif %}
+   </td>
+   <td class="n">{% if r.doc.file %}<a class="btn ghost" style="padding:5px 12px;font-size:12px" href="{{ r.doc.file.url }}" target="_blank">View</a>{% endif %}</td>
+  </tr>
+ {% endfor %}
+ </tbody></table>
+</div>
+{% else %}
+<div class="card"><div class="empty">No truck on file yet for your recent loads — ask dispatch to assign one, or your registration/insurance/inspection papers won't show here.</div></div>
+{% endif %}
+
+<div class="card">
+ <h3>Company operating authority</h3>
+ <table><tbody>
+ {% for r in company_rows %}
+  <tr>
+   <td>{{ r.label }}{% if r.expiry %}<div class="sub" style="font-size:11px;color:var(--muted)">Expires {{ r.expiry|date:"M d, Y" }}</div>{% endif %}</td>
+   <td class="n">
+    {% if r.status == "expired" %}<span class="pill unpaid">Expired</span>
+    {% elif r.status == "soon" %}<span class="pill" style="background:#fff3cd;color:#8a6d1a">Expiring soon</span>
+    {% elif r.status == "ok" %}<span class="pill paid">On file</span>
+    {% else %}<span class="pill open">Not on file</span>{% endif %}
+   </td>
+   <td class="n">{% if r.doc.file %}<a class="btn ghost" style="padding:5px 12px;font-size:12px" href="{{ r.doc.file.url }}" target="_blank">View</a>{% endif %}</td>
+  </tr>
+ {% endfor %}
+ </tbody></table>
+</div>
+
+<div class="card" style="text-align:center">
+ <div class="sub" style="font-size:12px;color:var(--muted)">This packet is for your convenience during a roadside inspection. It isn't a substitute for carrying required physical documents (CDL, medical card, registration) where the law requires the original.</div>
+</div>
+
+{% endblock %}

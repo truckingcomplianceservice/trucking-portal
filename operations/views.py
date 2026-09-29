@@ -327,6 +327,26 @@ def _expiring_items(companies):
     return items
 
 
+def _maintenance_alerts(companies, warn_within_miles=2000):
+    """Mileage-based service alerts: trucks within `warn_within_miles` of their
+    next oil-change/service interval (or already past it), based on the truck's
+    current odometer vs. its service interval — separate from the date-based
+    'Service due' entry in _expiring_items, which only fires if someone has
+    manually entered a next_service_date."""
+    alerts = []
+    for v in Vehicle.objects.filter(company__in=companies, status="active"):
+        mts = v.miles_to_service
+        if mts is None or mts > warn_within_miles:
+            continue
+        alerts.append({
+            "vehicle": v, "unit": v.unit_number, "miles_to_service": mts,
+            "overdue": mts <= 0, "overdue_by": abs(mts) if mts <= 0 else None,
+            "interval": v.service_interval_miles,
+        })
+    alerts.sort(key=lambda a: a["miles_to_service"])
+    return alerts
+
+
 @login_required
 def dashboard(request):
     # Drivers get their own portal, not the company dashboard
@@ -349,6 +369,7 @@ def dashboard(request):
     ).aggregate(s=Sum("rate"))["s"] or 0
     exp_items = _expiring_items(companies)
     alerts = [i for i in exp_items if i["days"] <= 30]
+    maint_alerts = _maintenance_alerts(companies)
     recent_loads = Load.objects.filter(company__in=companies).select_related("company", "driver")[:6]
     recent_activity = (ActivityLog.objects.all()[:8] if request.user.is_superuser
                        else ActivityLog.objects.filter(company__in=companies)[:8])
@@ -453,6 +474,7 @@ def dashboard(request):
         "recent_activity": recent_activity, "company_count": companies.count(),
         "kpi": kpi, "driver_rows": driver_rows[:8], "truck_rows": truck_rows[:8],
         "team_rows": team_rows, "kpi_year": today.year, "onboarding": onboarding,
+        "maint_alerts": maint_alerts,
     })
 
 
@@ -635,7 +657,7 @@ def _service_chip(v):
     if mts is not None:
         if mts <= 0:
             return {"cls": "c-red", "label": f"Overdue {abs(mts):,} mi"}
-        if mts <= 1500:
+        if mts <= 2000:
             return {"cls": "c-warn", "label": f"{mts:,} mi left"}
         return {"cls": "c-green", "label": f"{mts:,} mi left"}
     # date-based
@@ -4910,6 +4932,104 @@ def driver_portal_pay(request, drv):
     setts = Settlement.objects.filter(driver=drv).order_by("-period_end")
     return render(request, "operations/driver_portal_pay.html", {
         "drv": drv, "setts": setts, "company": drv.company, "track": drv.company.track_drivers,
+    })
+
+
+@_driver_required
+def driver_dot_packet(request, drv):
+    """DOT Inspection Packet: the driver's own qualification docs, their truck's
+    papers, and the company's operating-authority docs, all on one screen so a
+    driver can hand a roadside officer everything at once instead of hunting
+    through folders."""
+    today = _dt.date.today()
+
+    def _status(expiry):
+        if not expiry:
+            return "na"
+        days = (expiry - today).days
+        if days < 0:
+            return "expired"
+        if days <= 30:
+            return "soon"
+        return "ok"
+
+    def _row(label, doc, fallback_expiry=None):
+        expiry = (doc.expiry_date if (doc and doc.expiry_date) else None) or fallback_expiry
+        status = _status(expiry) if expiry else ("ok" if doc else "na")
+        return {"label": label, "doc": doc, "expiry": expiry, "status": status}
+
+    # Which truck? Default to the vehicle from the driver's most recent load,
+    # but let them switch if they've run more than one truck recently.
+    recent_vehicle_ids = []
+    for vid in (Load.objects.filter(Q(driver=drv) | Q(co_driver=drv), vehicle__isnull=False)
+                .order_by("-pickup_date", "-id").values_list("vehicle_id", flat=True)[:25]):
+        if vid not in recent_vehicle_ids:
+            recent_vehicle_ids.append(vid)
+    recent_vehicles = list(Vehicle.objects.filter(id__in=recent_vehicle_ids, company=drv.company))
+    recent_vehicles.sort(key=lambda v: recent_vehicle_ids.index(v.id))
+
+    vehicle = None
+    vid = request.GET.get("vehicle")
+    if vid:
+        vehicle = Vehicle.objects.filter(pk=vid, company=drv.company).first()
+    if not vehicle and recent_vehicles:
+        vehicle = recent_vehicles[0]
+
+    # Driver's own roadside-relevant qualification docs — most recent, non-superseded, per type.
+    driver_docs = {}
+    for d in ComplianceDocument.objects.filter(
+            driver=drv, superseded=False,
+            doc_type__in=["cdl", "medical", "mvr", "clearinghouse", "road_test", "drug_test", "epn"]
+    ).order_by("-uploaded_at"):
+        driver_docs.setdefault(d.doc_type, d)
+
+    driver_rows = [
+        _row("CDL", driver_docs.get("cdl"), drv.cdl_expiry),
+        _row("Medical certificate", driver_docs.get("medical"), drv.medical_expiry),
+        _row("MVR (Motor Vehicle Record)", driver_docs.get("mvr")),
+        _row("Road test / CDL equivalency", driver_docs.get("road_test")),
+        _row("Drug & alcohol test", driver_docs.get("drug_test")),
+        _row("Clearinghouse query", driver_docs.get("clearinghouse")),
+    ]
+    if driver_docs.get("epn"):
+        driver_rows.append(_row("Employer Pull Notice (EPN) — CA", driver_docs.get("epn")))
+
+    # This truck's papers.
+    vehicle_rows = []
+    if vehicle:
+        vdocs = {}
+        for d in VehicleDocument.objects.filter(vehicle=vehicle).order_by("-uploaded_at"):
+            vdocs.setdefault(d.doc_type, d)
+        vehicle_rows = [
+            _row("Registration / plate", vdocs.get("registration"), vehicle.registration_expiry),
+            _row("Annual / DOT inspection", vdocs.get("inspection"), vehicle.inspection_expiry),
+            _row("Insurance", vdocs.get("insurance")),
+            _row("IFTA", vdocs.get("ifta")),
+            _row("Permit", vdocs.get("permit")),
+            _row("Title", vdocs.get("title")),
+        ]
+
+    # Company-level operating authority.
+    cdocs = {}
+    for d in CompanyDocument.objects.filter(company=drv.company).order_by("-uploaded_at"):
+        cdocs.setdefault(d.doc_type, d)
+    company_rows = [
+        _row("MC / Operating authority", cdocs.get("mc_authority") or cdocs.get("operating_auth")),
+        _row("Certificate of Insurance (COI)", cdocs.get("coi")),
+        _row("IFTA", cdocs.get("ifta")),
+        _row("UCR", cdocs.get("ucr")),
+        _row("BOC-3", cdocs.get("boc3")),
+    ]
+
+    all_rows = driver_rows + vehicle_rows + company_rows
+    expired_count = sum(1 for r in all_rows if r["status"] == "expired")
+    missing_count = sum(1 for r in all_rows if r["status"] == "na")
+
+    return render(request, "operations/driver_dot_packet.html", {
+        "drv": drv, "company": drv.company, "track": drv.company.track_drivers,
+        "vehicle": vehicle, "recent_vehicles": recent_vehicles,
+        "driver_rows": driver_rows, "vehicle_rows": vehicle_rows, "company_rows": company_rows,
+        "expired_count": expired_count, "missing_count": missing_count,
     })
 
 

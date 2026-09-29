@@ -23,6 +23,21 @@
  </div>
 </div>
 {% endif %}
+{% if maint_alerts %}
+<div class="card" style="margin-bottom:16px;border:none;background:{% if maint_alerts.0.overdue %}#c0392b{% else %}#b8860b{% endif %};color:#fff">
+ <div style="padding:16px 18px">
+  <b style="font-size:16px">🔧 Truck maintenance {% if maint_alerts.0.overdue %}overdue{% else %}coming due{% endif %}</b>
+  <div style="display:flex;flex-direction:column;gap:6px;margin-top:10px">
+   {% for a in maint_alerts %}
+   <a href="/app/vehicles/{{ a.vehicle.id }}/" style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;border-radius:8px;background:rgba(255,255,255,.15);text-decoration:none;color:#fff">
+    <span><b>Unit {{ a.unit }}</b> — service every {{ a.interval|default:"?"|intcomma }} mi</span>
+    <span style="font-weight:700">{% if a.overdue %}OVERDUE by {{ a.overdue_by|intcomma }} mi{% else %}{{ a.miles_to_service|intcomma }} mi left{% endif %}</span>
+   </a>
+   {% endfor %}
+  </div>
+ </div>
+</div>
+{% endif %}
 <h1 style="font-size:22px;margin-bottom:4px">Welcome back <span style="color:var(--muted);font-size:14px;font-weight:400;font-family:'Inter'">· {{ company_count }} compan{{ company_count|pluralize:"y,ies" }} · today at a glance</span></h1>
 <div class="kpis" style="margin-top:18px">
  <div class="kpi"><div class="l">Active loads</div><div class="n">{{ active_loads }}</div><div class="s">booked, dispatched, in transit</div></div>
