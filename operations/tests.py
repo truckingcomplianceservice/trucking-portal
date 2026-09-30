@@ -358,3 +358,158 @@ class CoreSystemTests(TestCase):
         self._invoiced(self.a, "SETTLED", 4, payment_status="closed")
         refs = [r["reference"] for r in _billing_alerts([self.a])["awaiting"]]
         self.assertEqual(refs, ["STILL-OWED"])
+
+    # ---- Maintenance: fuel cross-check + time-based fallback ----
+    def _fuel(self, company, vehicle, gallons, days_ago, n=1):
+        for i in range(n):
+            FuelTransaction.objects.create(
+                company=company, vehicle=vehicle, gallons=gallons,
+                amount=float(gallons) * 4,
+                date=datetime.date.today() - datetime.timedelta(days=days_ago + i))
+
+    def _load_miles(self, company, vehicle, miles, days_ago, ref="M"):
+        Load.objects.create(company=company, vehicle=vehicle, reference=ref,
+                            origin="X", destination="Y", miles=miles,
+                            pickup_date=datetime.date.today() - datetime.timedelta(days=days_ago))
+
+    def test_mpg_comes_from_this_trucks_own_load_miles_and_gallons(self):
+        from operations.views import _vehicle_mpg
+        v = Vehicle.objects.create(company=self.a, unit_number="MPG-1")
+        self._fuel(self.a, v, 50, 30, n=4)              # 200 gal
+        self._load_miles(self.a, v, 1200, 20, ref="A")  # 1200 mi
+        self._load_miles(self.a, v, 400, 25, ref="B")   # +400 = 1600 mi
+        self.assertEqual(_vehicle_mpg(v), 8.0)          # 1600 / 200
+
+    def test_mpg_is_none_without_enough_history(self):
+        from operations.views import _vehicle_mpg
+        v = Vehicle.objects.create(company=self.a, unit_number="MPG-2")
+        self._fuel(self.a, v, 50, 10, n=2)              # only 2 fill-ups
+        self._load_miles(self.a, v, 800, 10)
+        self.assertIsNone(_vehicle_mpg(v))
+        thin = Vehicle.objects.create(company=self.a, unit_number="MPG-3")
+        self.assertIsNone(_vehicle_mpg(thin))           # no data at all
+
+    def test_mpg_rejects_implausible_numbers(self):
+        """Loads missing their miles, or fuel booked to the wrong truck, must not
+        produce a bogus MPG that the estimate then nags on."""
+        from operations.views import _vehicle_mpg
+        v = Vehicle.objects.create(company=self.a, unit_number="MPG-4")
+        self._fuel(self.a, v, 100, 30, n=4)             # 400 gal
+        self._load_miles(self.a, v, 20000, 20)          # 50 mpg - impossible
+        self.assertIsNone(_vehicle_mpg(v))
+
+    def _thirsty_truck(self, company, unit, odometer):
+        """A truck whose fuel burn implies ~4000 mi since service (500 gal x 8 mpg),
+        on a 5000 mi interval from 10000 mi, i.e. estimated 1000 mi from service."""
+        v = Vehicle.objects.create(
+            company=company, unit_number=unit, status="active",
+            service_interval_miles=5000, last_service_miles=10000,
+            last_service_date=datetime.date.today() - datetime.timedelta(days=60),
+            odometer=odometer)
+        self._fuel(company, v, 125, 50, n=4)            # 500 gal since service
+        self._load_miles(company, v, 4000, 40)          # 4000 mi / 500 gal = 8 mpg
+        return v
+
+    def test_fuel_estimate_fires_when_odometer_is_stale(self):
+        from operations.views import _fuel_mileage_alerts
+        v = self._thirsty_truck(self.a, "STALE-1", odometer=10050)  # barely moved
+        out = _fuel_mileage_alerts([self.a])
+        self.assertEqual([a["unit"] for a in out], ["STALE-1"])
+        self.assertEqual(out[0]["mpg"], 8.0)
+        self.assertAlmostEqual(out[0]["est_miles"], 4000, delta=5)
+        self.assertEqual(out[0]["odometer"], 10050)
+        self.assertEqual(v.miles_to_service, 4950)      # odometer says "plenty left"
+
+    def test_fuel_estimate_stays_quiet_when_odometer_is_current(self):
+        """If the odometer already shows the truck is near service, the hard
+        mileage alert owns it — no duplicate 'verify mileage' nag."""
+        from operations.views import _fuel_mileage_alerts, _maintenance_alerts
+        self._thirsty_truck(self.a, "CURRENT-1", odometer=14000)   # 1000 mi to service
+        self.assertEqual(_fuel_mileage_alerts([self.a]), [])
+        self.assertEqual([a["unit"] for a in _maintenance_alerts([self.a])], ["CURRENT-1"])
+
+    def test_fuel_estimate_stays_quiet_below_the_threshold(self):
+        from operations.views import _fuel_mileage_alerts
+        v = Vehicle.objects.create(company=self.a, unit_number="FRESH-1", status="active",
+            service_interval_miles=25000, last_service_miles=10000, odometer=10050,
+            last_service_date=datetime.date.today() - datetime.timedelta(days=10))
+        self._fuel(self.a, v, 125, 5, n=4)              # 500 gal -> ~4000 mi est
+        self._load_miles(self.a, v, 4000, 5)            # of a 25000 mi interval
+        self.assertEqual(_fuel_mileage_alerts([self.a]), [])
+
+    def test_fuel_estimate_skips_trucks_with_thin_fuel_history(self):
+        from operations.views import _fuel_mileage_alerts
+        v = Vehicle.objects.create(company=self.a, unit_number="THIN-1", status="active",
+            service_interval_miles=5000, last_service_miles=10000, odometer=10050,
+            last_service_date=datetime.date.today() - datetime.timedelta(days=60))
+        self._fuel(self.a, v, 200, 50, n=2)             # only 2 fill-ups -> no MPG
+        self._load_miles(self.a, v, 4000, 40)
+        self.assertEqual(_fuel_mileage_alerts([self.a]), [])
+
+    def test_fuel_estimate_is_scoped_to_the_given_companies(self):
+        from operations.views import _fuel_mileage_alerts
+        self._thirsty_truck(self.a, "MINE-F", odometer=10050)
+        self._thirsty_truck(self.b, "THEIRS-F", odometer=10050)
+        self.assertEqual([a["unit"] for a in _fuel_mileage_alerts([self.a])], ["MINE-F"])
+        self.assertEqual([a["unit"] for a in _fuel_mileage_alerts([self.b])], ["THEIRS-F"])
+
+    def test_time_based_service_alert_fires_at_25_days(self):
+        from operations.views import _service_time_alerts
+        today = datetime.date.today()
+        Vehicle.objects.create(company=self.a, unit_number="IDLE-25", status="active",
+                               last_service_date=today - datetime.timedelta(days=25))
+        Vehicle.objects.create(company=self.a, unit_number="IDLE-40", status="active",
+                               last_service_date=today - datetime.timedelta(days=40))
+        Vehicle.objects.create(company=self.a, unit_number="FRESH-24", status="active",
+                               last_service_date=today - datetime.timedelta(days=24))
+        Vehicle.objects.create(company=self.a, unit_number="UNKNOWN", status="active")
+        out = _service_time_alerts([self.a])
+        self.assertEqual([a["unit"] for a in out], ["IDLE-40", "IDLE-25"])  # oldest first
+        self.assertEqual(out[1]["days"], 25)
+
+    def test_time_based_service_alert_is_scoped_to_the_given_companies(self):
+        from operations.views import _service_time_alerts
+        old = datetime.date.today() - datetime.timedelta(days=40)
+        Vehicle.objects.create(company=self.a, unit_number="MINE-T", status="active",
+                               last_service_date=old)
+        Vehicle.objects.create(company=self.b, unit_number="THEIRS-T", status="active",
+                               last_service_date=old)
+        self.assertEqual([a["unit"] for a in _service_time_alerts([self.a])], ["MINE-T"])
+
+    def test_logging_a_scheduled_service_resets_the_clock_but_a_repair_does_not(self):
+        from operations.models import MaintenanceRecord
+        today = datetime.date.today()
+        v = Vehicle.objects.create(company=self.a, unit_number="SVC-1", status="active",
+                                   odometer=90000)
+        MaintenanceRecord.objects.create(company=self.a, vehicle=v, date=today,
+                                         part="Oil change + filter", odometer=90000)
+        v.refresh_from_db()
+        self.assertEqual(v.last_service_date, today)
+        self.assertEqual(v.last_service_miles, 90000)
+        # a repair must not make the truck look freshly serviced
+        MaintenanceRecord.objects.create(company=self.a, vehicle=v,
+                                         date=today + datetime.timedelta(days=5),
+                                         part="Tire replacement", odometer=92000)
+        v.refresh_from_db()
+        self.assertEqual(v.last_service_date, today)
+        self.assertEqual(v.last_service_miles, 90000)
+        # and back-dating an older service must not rewind the clock
+        MaintenanceRecord.objects.create(company=self.a, vehicle=v,
+                                         date=today - datetime.timedelta(days=30),
+                                         part="Lube service", odometer=80000)
+        v.refresh_from_db()
+        self.assertEqual(v.last_service_date, today)
+        self.assertEqual(v.last_service_miles, 90000)
+
+    def test_dashboard_renders_the_two_new_checks_separately(self):
+        today = datetime.date.today()
+        self._thirsty_truck(self.a, "VERIFY-ME", odometer=10050)
+        Vehicle.objects.create(company=self.a, unit_number="IDLE-ME", status="active",
+                               last_service_date=today - datetime.timedelta(days=33))
+        self._set_company(self.oc, self.a)
+        html = self.oc.get("/dashboard/").content.decode()
+        self.assertIn("Verify mileage", html)
+        self.assertIn("VERIFY-ME", html)
+        self.assertIn("Service check due", html)
+        self.assertIn("IDLE-ME", html)
+        self.assertIn("33 days", html)

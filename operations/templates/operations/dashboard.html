@@ -38,6 +38,40 @@
  </div>
 </div>
 {% endif %}
+{% if fuel_mileage_alerts %}
+<div class="card" style="margin-bottom:16px;background:#fffdf5;border:2px dashed #b8860b;color:#4a3a10">
+ <div style="padding:14px 16px">
+  <b style="font-size:15px">❓ Verify mileage — estimated from fuel usage</b>
+  <div style="font-size:12px;opacity:.75;margin-top:2px">Not a confirmed reading. These trucks have burned enough fuel to be near service, but their odometer hasn’t been updated to match.</div>
+  <div style="display:flex;flex-direction:column;gap:6px;margin-top:10px">
+   {% for a in fuel_mileage_alerts %}
+   <a href="/app/vehicles/{{ a.vehicle.id }}/" style="display:block;padding:8px 12px;border-radius:8px;background:rgba(184,134,11,.10);text-decoration:none;color:#4a3a10">
+    <b>Unit {{ a.unit }}</b> — estimated ~{{ a.est_miles|intcomma }} mi driven since last service based on fuel usage
+    {% if a.est_past_due %}<b>(past the {{ a.interval|intcomma }} mi interval)</b>{% else %}(within {{ a.est_to_service|intcomma }} mi of service){% endif %},
+    but the odometer {% if a.odometer %}still reads {{ a.odometer|intcomma }} mi{% else %}hasn’t been set{% endif %} and hasn’t been updated to match. Please confirm current mileage.
+    <div style="font-size:11px;opacity:.7;margin-top:3px">{{ a.gallons_since|floatformat:0|intcomma }} gal since {% if a.since %}{{ a.since }}{% else %}first record{% endif %} · this truck averages {{ a.mpg }} mpg</div>
+   </a>
+   {% endfor %}
+  </div>
+ </div>
+</div>
+{% endif %}
+{% if service_time_alerts %}
+<div class="card" style="margin-bottom:16px;border:none;background:#2f3e56;color:#fff">
+ <div style="padding:14px 16px">
+  <b style="font-size:15px">📅 Service check due — time based</b>
+  <div style="font-size:12px;opacity:.8;margin-top:2px">Due on elapsed time regardless of miles, so idle trucks don’t slip through.</div>
+  <div style="display:flex;flex-direction:column;gap:6px;margin-top:10px">
+   {% for a in service_time_alerts %}
+   <a href="/app/vehicles/{{ a.vehicle.id }}/" style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 12px;border-radius:8px;background:rgba(255,255,255,.15);text-decoration:none;color:#fff">
+    <span>It’s been <b>{{ a.days }} days</b> since Unit <b>{{ a.unit }}</b> was last serviced<div style="font-size:11px;opacity:.75">last service {{ a.since }}</div></span>
+    <span style="font-weight:700;white-space:nowrap">{{ a.days }}d</span>
+   </a>
+   {% endfor %}
+  </div>
+ </div>
+</div>
+{% endif %}
 {% if bill_ready %}
 <div class="card" style="margin-bottom:16px;border:none;background:{% if bill_ready.0.severity == 'urgent' %}#c0392b{% elif bill_ready.0.severity == 'warn' %}#b8860b{% else %}#1e2d45{% endif %};color:#fff">
  <div style="padding:16px 18px">

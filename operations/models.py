@@ -5,6 +5,7 @@ Companies (each with its own MC/DOT/CA and factor), Drivers, Vehicles,
 Loads, and user Profiles that control role and which companies a person
 can access.
 """
+import re as _re
 import secrets
 from django.db import models
 from django.utils import timezone as _timezone
@@ -269,6 +270,20 @@ class Vehicle(models.Model):
         if nsm is not None and self.odometer is not None:
             return nsm - self.odometer
         return None
+
+    def note_service(self, when, odometer=None):
+        """Record that a scheduled service happened, resetting the service clock.
+        Only ever moves the clock FORWARD, so back-entering an old service can't
+        make a truck look freshly serviced. Returns the fields it changed."""
+        if not when or (self.last_service_date and when <= self.last_service_date):
+            return []
+        fields = ["last_service_date"]
+        self.last_service_date = when
+        if odometer:
+            self.last_service_miles = odometer
+            fields.append("last_service_miles")
+        self.save(update_fields=fields)
+        return fields
 
     def __str__(self):
         return f"Unit {self.unit_number}"
@@ -1408,10 +1423,24 @@ class MaintenanceRecord(models.Model):
     class Meta:
         ordering = ["-date", "-id"]
 
+    # Scheduled maintenance resets a truck's service interval; a repair does not.
+    # A tire or brake job must never make a truck look freshly oil-changed.
+    # "inspect" belongs here on purpose: a DOT inspection at our shop includes the
+    # oil/filter change and brake/leak checks, so it really is a service visit.
+    SERVICE_RE = _re.compile(
+        r"oil|lube|grease|filter|servic|preventive|preventative|inspect|\bpm\b", _re.I)
+
+    @property
+    def is_scheduled_service(self):
+        """True if this record reads like scheduled maintenance rather than a repair."""
+        return bool(self.SERVICE_RE.search(self.part or ""))
+
     def save(self, *args, **kwargs):
         if not self.company_id and self.vehicle_id:
             self.company = self.vehicle.company
         super().save(*args, **kwargs)
+        if self.vehicle_id and self.is_scheduled_service:
+            self.vehicle.note_service(self.date, self.odometer)
 
     @property
     def total(self):

@@ -2,7 +2,7 @@
 import datetime
 from django import forms
 from django.contrib.auth.decorators import login_required
-from django.db.models import Sum, Q
+from django.db.models import Sum, Q, Count
 from django.shortcuts import render, get_object_or_404, redirect
 from django.views.static import serve
 from django.views.decorators.http import require_POST
@@ -348,6 +348,150 @@ def _maintenance_alerts(companies, warn_within_miles=2000):
     return alerts
 
 
+# A truck's own MPG is only trustworthy with enough history behind it. Below these
+# floors we skip the fuel cross-check entirely rather than nag on a guessed number.
+MPG_WINDOW_DAYS = 365
+MPG_MIN_FILLUPS = 4
+MPG_MIN_GALLONS = 100
+MPG_MIN_MILES = 500
+MPG_PLAUSIBLE_RANGE = (3.0, 12.0)   # a loaded Class-8 outside this means bad data
+SERVICE_MAX_DAYS = 25               # time-based fallback for trucks that sit idle
+
+
+def _service_dates(vehicles):
+    """{vehicle_id: date of last service} for a batch of trucks, in at most two
+    queries. Prefers Vehicle.last_service_date and falls back to the truck's
+    newest scheduled-service record, so trucks serviced before that field was
+    being maintained still age correctly."""
+    out = {v.id: v.last_service_date for v in vehicles}
+    missing = [vid for vid, when in out.items() if not when]
+    if missing:
+        for rec in (MaintenanceRecord.objects.filter(vehicle_id__in=missing)
+                    .only("vehicle_id", "date", "part")
+                    .order_by("vehicle_id", "-date", "-id")):
+            if out.get(rec.vehicle_id):
+                continue
+            if rec.is_scheduled_service:
+                out[rec.vehicle_id] = rec.date
+    return out
+
+
+def _last_service_on(vehicle):
+    """When this one truck was last serviced (see _service_dates)."""
+    return _service_dates([vehicle]).get(vehicle.id)
+
+
+def _mpg_from(fillups, gallons, miles):
+    """Decide a truck's MPG from its totals, or None when the history is too thin
+    to trust or the result is implausible (loads missing miles, fuel booked to the
+    wrong truck). A skipped check beats a fabricated one."""
+    if fillups < MPG_MIN_FILLUPS or gallons < MPG_MIN_GALLONS or miles < MPG_MIN_MILES:
+        return None
+    mpg = miles / gallons
+    lo, hi = MPG_PLAUSIBLE_RANGE
+    return round(mpg, 2) if lo <= mpg <= hi else None
+
+
+def _vehicle_mpg(vehicle, window_days=MPG_WINDOW_DAYS):
+    """This truck's own average MPG, from the miles its loads covered versus the
+    gallons it actually bought. Returns None when there isn't enough history."""
+    since = _dt.date.today() - _dt.timedelta(days=window_days)
+    f = (FuelTransaction.objects.filter(vehicle=vehicle, date__gte=since)
+         .aggregate(g=Sum("gallons"), n=Count("id")))
+    m = (Load.objects.filter(vehicle=vehicle, pickup_date__gte=since)
+         .aggregate(m=Sum("miles"), d=Sum("deadhead_miles")))
+    return _mpg_from(f["n"] or 0, float(f["g"] or 0),
+                     float((m["m"] or 0) + (m["d"] or 0)))
+
+
+def _fuel_mileage_alerts(companies, warn_within_miles=2000):
+    """Backstop for stale odometers. If a truck's fuel burn implies it's near or
+    past its service interval but nobody has updated the odometer to say so, ask
+    for the mileage to be confirmed.
+
+    Deliberately separate from _maintenance_alerts: this is an ESTIMATE and must
+    never share a banner with a confirmed odometer-based overdue. Fires only when
+    the estimate crosses the threshold AND the odometer doesn't already show it -
+    if the odometer is current, the hard check already owns that truck.
+
+    Runs in a fixed handful of queries regardless of fleet size.
+    """
+    since = _dt.date.today() - _dt.timedelta(days=MPG_WINDOW_DAYS)
+    candidates = [v for v in (Vehicle.objects
+                              .filter(company__in=companies, status="active")
+                              .select_related("company"))
+                  if v.service_interval_miles and v.last_service_miles is not None]
+    if not candidates:
+        return []
+    ids = [v.id for v in candidates]
+
+    fuel_window = {r["vehicle"]: r for r in (FuelTransaction.objects
+                   .filter(vehicle_id__in=ids, date__gte=since)
+                   .values("vehicle").annotate(g=Sum("gallons"), n=Count("id")))}
+    miles_window = {r["vehicle"]: r for r in (Load.objects
+                    .filter(vehicle_id__in=ids, pickup_date__gte=since)
+                    .values("vehicle").annotate(m=Sum("miles"), d=Sum("deadhead_miles")))}
+    # Every fill-up for these trucks, so gallons-since-service can be summed per
+    # truck against its own service date without a query each.
+    fills = {}
+    for vid, when, gal in (FuelTransaction.objects.filter(vehicle_id__in=ids)
+                           .values_list("vehicle_id", "date", "gallons")):
+        fills.setdefault(vid, []).append((when, float(gal or 0)))
+    serviced_on = _service_dates(candidates)
+
+    alerts = []
+    for v in candidates:
+        fw = fuel_window.get(v.id) or {}
+        mw = miles_window.get(v.id) or {}
+        mpg = _mpg_from(fw.get("n") or 0, float(fw.get("g") or 0),
+                        float((mw.get("m") or 0) + (mw.get("d") or 0)))
+        if mpg is None:
+            continue
+        anchor = serviced_on.get(v.id)
+        gallons_since = sum(g for when, g in fills.get(v.id, [])
+                            if not anchor or (when and when >= anchor))
+        if gallons_since <= 0:
+            continue
+        est_miles = gallons_since * mpg
+        est_to_service = v.next_service_miles - (v.last_service_miles + est_miles)
+        if est_to_service > warn_within_miles:
+            continue
+        actual = v.miles_to_service
+        if actual is not None and actual <= warn_within_miles:
+            continue   # odometer already shows it; the hard alert has this truck
+        alerts.append({
+            "vehicle": v, "unit": v.unit_number, "mpg": mpg,
+            "gallons_since": round(gallons_since, 1),
+            "est_miles": int(round(est_miles)),
+            "est_to_service": int(round(est_to_service)),
+            "est_past_due": est_to_service <= 0,
+            "odometer": v.odometer, "since": anchor,
+            "interval": v.service_interval_miles,
+        })
+    alerts.sort(key=lambda a: a["est_to_service"])
+    return alerts
+
+
+def _service_time_alerts(companies, max_days=SERVICE_MAX_DAYS):
+    """Time-based fallback: a truck that sits idle or runs very few miles still
+    needs periodic servicing, which a mileage-only check never catches."""
+    today = _dt.date.today()
+    vehicles = list(Vehicle.objects.filter(company__in=companies, status="active")
+                    .select_related("company"))
+    serviced_on = _service_dates(vehicles)
+    alerts = []
+    for v in vehicles:
+        when = serviced_on.get(v.id)
+        if not when:
+            continue   # never serviced as far as we know - nothing to age from
+        days = (today - when).days
+        if days < max_days:
+            continue
+        alerts.append({"vehicle": v, "unit": v.unit_number, "days": days, "since": when})
+    alerts.sort(key=lambda a: -a["days"])
+    return alerts
+
+
 # How long "Awaiting payment" may sit before we nag, by how the company gets paid.
 # A factored carrier expects the advance in 1-2 business days; direct-billed
 # freight runs on net-30 broker terms, so nagging at 3 days would cry wolf.
@@ -445,6 +589,8 @@ def dashboard(request):
     alerts = [i for i in exp_items if i["days"] <= 30]
     maint_alerts = _maintenance_alerts(companies)
     billing_alerts = _billing_alerts(companies)
+    fuel_mileage_alerts = _fuel_mileage_alerts(companies)
+    service_time_alerts = _service_time_alerts(companies)
     recent_loads = Load.objects.filter(company__in=companies).select_related("company", "driver")[:6]
     recent_activity = (ActivityLog.objects.all()[:8] if request.user.is_superuser
                        else ActivityLog.objects.filter(company__in=companies)[:8])
@@ -550,6 +696,8 @@ def dashboard(request):
         "kpi": kpi, "driver_rows": driver_rows[:8], "truck_rows": truck_rows[:8],
         "team_rows": team_rows, "kpi_year": today.year, "onboarding": onboarding,
         "maint_alerts": maint_alerts,
+        "fuel_mileage_alerts": fuel_mileage_alerts,
+        "service_time_alerts": service_time_alerts,
         "bill_ready": billing_alerts["ready"],
         "bill_awaiting": billing_alerts["awaiting"],
     })
