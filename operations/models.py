@@ -271,6 +271,16 @@ class Vehicle(models.Model):
             return nsm - self.odometer
         return None
 
+    def note_odometer(self, reading):
+        """Adopt an odometer reading someone actually read off the dash. Forward
+        only: a typo, or a rental record whose "odometer" is really period miles,
+        must never wind a truck's mileage backwards. Returns changed fields."""
+        if not reading or reading <= (self.odometer or 0):
+            return []
+        self.odometer = reading
+        self.save(update_fields=["odometer"])
+        return ["odometer"]
+
     def note_service(self, when, odometer=None):
         """Record that a scheduled service happened, resetting the service clock.
         Only ever moves the clock FORWARD, so back-entering an old service can't
@@ -1439,8 +1449,13 @@ class MaintenanceRecord(models.Model):
         if not self.company_id and self.vehicle_id:
             self.company = self.vehicle.company
         super().save(*args, **kwargs)
-        if self.vehicle_id and self.is_scheduled_service:
-            self.vehicle.note_service(self.date, self.odometer)
+        if self.vehicle_id:
+            # Any shop visit reads the dash, so the reading is worth keeping even
+            # for a repair; only a scheduled service resets the service clock.
+            if self.odometer:
+                self.vehicle.note_odometer(self.odometer)
+            if self.is_scheduled_service:
+                self.vehicle.note_service(self.date, self.odometer)
 
     @property
     def total(self):

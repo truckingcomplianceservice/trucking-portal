@@ -179,6 +179,28 @@ function evClose(){document.getElementById('evModal').style.display='none';}
    {% if v.service_interval_miles %}<div class="field"><span class="k">Service interval</span><span class="v">{{ v.service_interval_miles }} mi</span></div>
    <div class="field"><span class="k">Last service</span><span class="v">{% if v.last_service_miles %}{{ v.last_service_miles }} mi{% endif %}{% if v.last_service_date %} · {{ v.last_service_date }}{% endif %}</span></div>
    <div class="field"><span class="k">Next service at</span><span class="v">{% if v.next_service_miles %}{{ v.next_service_miles }} mi{% else %}—{% endif %}</span></div>{% endif %}
+   {% if not v.service_interval_miles or not v.last_service_miles or not v.odometer %}
+   <div style="background:#fffdf5;border:1px dashed #b8860b;border-radius:8px;padding:10px 12px;margin:10px 0;font-size:12px;color:#4a3a10">
+    <b>Mileage alerts are off for this truck.</b> They need all three of odometer, service interval and last-service mileage — fill them in below and the dashboard starts watching it.
+   </div>
+   {% endif %}
+   <form method="post" action="/app/vehicles/{{ v.id }}/mileage/" style="border-top:1px solid var(--line);margin-top:12px;padding-top:12px">{% csrf_token %}
+    <div style="font-size:12px;color:var(--muted);font-weight:600;margin-bottom:8px">Update mileage &amp; service settings</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px">
+     <div><label class="sub">Current odometer</label>
+      <input name="odometer" inputmode="numeric" placeholder="{% if v.odometer %}{{ v.odometer }}{% else %}miles{% endif %}" style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px"></div>
+     <div><label class="sub">Service interval</label>
+      <input name="service_interval_miles" inputmode="numeric" placeholder="{% if v.service_interval_miles %}{{ v.service_interval_miles }}{% else %}e.g. 17000{% endif %}" style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px"></div>
+     <div><label class="sub">Odometer at last service</label>
+      <input name="last_service_miles" inputmode="numeric" placeholder="{% if v.last_service_miles %}{{ v.last_service_miles }}{% else %}miles{% endif %}" style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px"></div>
+     <div><label class="sub">Last service date</label>
+      <input name="last_service_date" type="date" value="{{ v.last_service_date|date:'Y-m-d' }}" style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px"></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;margin-top:10px">
+     <button class="btn" type="submit" style="padding:7px 16px;font-size:13px">Save mileage</button>
+     <span class="sub" style="font-size:11px;color:var(--muted)">Blank fields are left unchanged. A reading lower than the current odometer is rejected as a typo.</span>
+    </div>
+   </form>
    {% if v.next_service_date %}<div class="field"><span class="k">Next service date</span><span class="v">{{ v.next_service_date }}</span></div>{% endif %}
    <div class="field"><span class="k">DOT inspection</span><span class="v"><span class="chip {{ insp.cls }}"><span class="d"></span>{{ insp.label }}</span> {{ v.inspection_expiry|default:"" }}</span></div>
    <div class="field"><span class="k">Plate / registration</span><span class="v"><span class="chip {{ reg.cls }}"><span class="d"></span>{{ reg.label }}</span> {{ v.registration_expiry|default:"" }}</span></div>

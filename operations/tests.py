@@ -513,3 +513,88 @@ class CoreSystemTests(TestCase):
         self.assertIn("Service check due", html)
         self.assertIn("IDLE-ME", html)
         self.assertIn("33 days", html)
+
+    # ---- Editing mileage / service settings from the vehicle page ----
+    def test_office_can_turn_on_mileage_alerts_from_the_vehicle_page(self):
+        """The three fields the mileage alerts need must be settable from the
+        dashboard, not only the Django admin."""
+        from operations.views import _maintenance_alerts
+        v = Vehicle.objects.create(company=self.a, unit_number="EDIT-1", status="active")
+        self._set_company(self.oc, self.a)
+        self.assertIsNone(v.miles_to_service)
+        self.assertEqual(_maintenance_alerts([self.a]), [])
+        self.oc.post(f"/app/vehicles/{v.id}/mileage/", {
+            "odometer": "116,500", "service_interval_miles": "17000",
+            "last_service_miles": "100000", "last_service_date": "2026-09-01"})
+        v.refresh_from_db()
+        self.assertEqual(v.odometer, 116500)            # commas tolerated
+        self.assertEqual(v.service_interval_miles, 17000)
+        self.assertEqual(v.last_service_miles, 100000)
+        self.assertEqual(v.last_service_date, datetime.date(2026, 9, 1))
+        self.assertEqual(v.miles_to_service, 500)       # now computable
+        self.assertEqual([a["unit"] for a in _maintenance_alerts([self.a])], ["EDIT-1"])
+
+    def test_mileage_form_leaves_blank_fields_alone(self):
+        v = Vehicle.objects.create(company=self.a, unit_number="EDIT-2", status="active",
+                                   odometer=500000, service_interval_miles=17000,
+                                   last_service_miles=495000)
+        self._set_company(self.oc, self.a)
+        self.oc.post(f"/app/vehicles/{v.id}/mileage/", {"odometer": "505000",
+                     "service_interval_miles": "", "last_service_miles": ""})
+        v.refresh_from_db()
+        self.assertEqual(v.odometer, 505000)
+        self.assertEqual(v.service_interval_miles, 17000)   # untouched
+        self.assertEqual(v.last_service_miles, 495000)      # untouched
+
+    def test_mileage_form_rejects_a_backwards_odometer(self):
+        """A typo that winds mileage back would make an overdue truck look fresh."""
+        v = Vehicle.objects.create(company=self.a, unit_number="EDIT-3", status="active",
+                                   odometer=500000)
+        self._set_company(self.oc, self.a)
+        self.oc.post(f"/app/vehicles/{v.id}/mileage/", {"odometer": "50000"})
+        v.refresh_from_db()
+        self.assertEqual(v.odometer, 500000)
+
+    def test_mileage_form_rejects_last_service_above_the_odometer(self):
+        v = Vehicle.objects.create(company=self.a, unit_number="EDIT-4", status="active")
+        self._set_company(self.oc, self.a)
+        self.oc.post(f"/app/vehicles/{v.id}/mileage/",
+                     {"odometer": "100000", "last_service_miles": "200000"})
+        v.refresh_from_db()
+        self.assertEqual(v.odometer, 100000)
+        self.assertIsNone(v.last_service_miles)
+
+    def test_mileage_form_is_company_scoped(self):
+        other = Vehicle.objects.create(company=self.b, unit_number="OTHER-1", status="active")
+        self.oc.post("/app/company/access/", {"company": str(self.a.id), "username": "mw",
+                                              "password": "secret12345", "role": "admin"})
+        u = User.objects.get(username="mw"); c = Client(); c.force_login(u)
+        c.post(f"/app/vehicles/{other.id}/mileage/", {"odometer": "999999"})
+        other.refresh_from_db()
+        self.assertIsNone(other.odometer)   # untouched across the tenant boundary
+
+    def test_logging_a_service_carries_the_odometer_onto_the_truck(self):
+        """The shop reads the dash, so a service record's reading updates the
+        truck - but only forwards, so rental 'period miles' can't wind it back."""
+        from operations.models import MaintenanceRecord
+        today = datetime.date.today()
+        v = Vehicle.objects.create(company=self.a, unit_number="ODO-1", status="active",
+                                   service_interval_miles=17000)
+        MaintenanceRecord.objects.create(company=self.a, vehicle=v, date=today,
+                                         part="Oil Change", odometer=840514)
+        v.refresh_from_db()
+        self.assertEqual(v.odometer, 840514)
+        self.assertEqual(v.last_service_miles, 840514)
+        # a rental record whose "odometer" is really miles-driven must not rewind it
+        MaintenanceRecord.objects.create(company=self.a, vehicle=v,
+                                         date=today + datetime.timedelta(days=1),
+                                         part="Paid miles 13900", odometer=13900)
+        v.refresh_from_db()
+        self.assertEqual(v.odometer, 840514)
+        # a later repair with a genuine higher reading does move it
+        MaintenanceRecord.objects.create(company=self.a, vehicle=v,
+                                         date=today + datetime.timedelta(days=2),
+                                         part="Caliper installed / labor", odometer=845000)
+        v.refresh_from_db()
+        self.assertEqual(v.odometer, 845000)
+        self.assertEqual(v.last_service_miles, 840514)   # repair didn't reset the clock

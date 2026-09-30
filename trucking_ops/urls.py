@@ -130,6 +130,7 @@ urlpatterns = [
     path("app/vehicles/<int:pk>/photo/<int:photo_id>/delete/", views.vehicle_photo_delete, name="vehicle_photo_delete"),
     path("app/vehicles/<int:pk>/doc/<int:doc_id>/delete/", views.vehicle_doc_delete, name="vehicle_doc_delete"),
     path("app/vehicles/<int:pk>/service/add/", views.maintenance_add, name="maintenance_add"),
+    path("app/vehicles/<int:pk>/mileage/", views.vehicle_service_update, name="vehicle_service_update"),
     path("app/vehicles/<int:pk>/report/", views.vehicle_report_pdf, name="vehicle_report_pdf"),
     path("app/vehicles/<int:pk>/report/email/", views.email_vehicle_report, name="email_vehicle_report"),
     path("app/hiring/", views.app_hiring, name="app_hiring"),

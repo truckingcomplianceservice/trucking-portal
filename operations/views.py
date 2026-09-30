@@ -3761,6 +3761,64 @@ def load_import(request):
 
 @require_section("vehicles")
 @login_required
+def vehicle_service_update(request, pk):
+    """Set a truck's mileage and service settings from the vehicle page, so the
+    office can fill these in without the Django admin. These three fields are
+    what the dashboard's mileage alerts run on: without all of them,
+    miles_to_service is None and no mileage alert can ever fire."""
+    v = _get(Vehicle, pk=pk, company__in=_companies_all(request))
+    if request.method == "POST":
+        def whole(name):
+            raw = (request.POST.get(name) or "").replace(",", "").strip()
+            if not raw:
+                return None
+            try:
+                n = int(float(raw))
+            except ValueError:
+                return None
+            return n if n >= 0 else None
+
+        odo = whole("odometer")
+        interval = whole("service_interval_miles")
+        lsm = whole("last_service_miles")
+        lsd = _parse_date(request.POST.get("last_service_date", "")) or None
+
+        if odo is not None and v.odometer and odo < v.odometer:
+            # Refuse a backwards reading: it is nearly always a typo, and it would
+            # make an overdue truck look freshly serviced.
+            _messages.error(request, f"Odometer {odo:,} is lower than the current "
+                                     f"{v.odometer:,} mi. Left unchanged - fix the reading and retry.")
+            odo = None
+        if lsm is not None and odo is not None and lsm > odo:
+            _messages.error(request, "Last-service mileage can't be higher than the "
+                                     "current odometer. Left unchanged.")
+            lsm = None
+
+        fields = []
+        for name, value in (("odometer", odo), ("service_interval_miles", interval),
+                            ("last_service_miles", lsm), ("last_service_date", lsd)):
+            if value is not None:
+                setattr(v, name, value)
+                fields.append(name)
+        if fields:
+            v.save(update_fields=fields)
+            ActivityLog.objects.create(
+                category="maintenance", user=request.user, company=v.company,
+                text=f"Updated mileage/service settings on Unit {v.unit_number}: "
+                     + ", ".join(fields))
+            mts = v.miles_to_service
+            if mts is None:
+                _messages.success(request, "Saved. Still need odometer, service interval "
+                                           "and last-service mileage before alerts can run.")
+            else:
+                _messages.success(request, f"Saved. Unit {v.unit_number} is {mts:,} mi from its next service.")
+        elif not _messages.get_messages(request):
+            _messages.error(request, "Nothing to save - enter at least one value.")
+    return redirect("app_vehicle_detail", pk=v.id)
+
+
+@require_section("vehicles")
+@login_required
 def vehicle_doc_upload(request, pk):
     v = _get(Vehicle, pk=pk, company__in=_companies_all(request))
     if request.method == "POST" and request.FILES.get("file"):
