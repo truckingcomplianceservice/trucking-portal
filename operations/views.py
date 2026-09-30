@@ -496,6 +496,11 @@ def _service_time_alerts(companies, max_days=SERVICE_MAX_DAYS):
 # A factored carrier expects the advance in 1-2 business days; direct-billed
 # freight runs on net-30 broker terms, so nagging at 3 days would cry wolf.
 READY_DAYS = (2, 5)                    # (warn, urgent) days delivered-but-unbilled
+# How this outfit actually signals billing: payment_status leaves "unpaid" when the
+# load is submitted to the factor, and reaches reserve_released/closed once the money
+# is in. status="invoiced" means the same thing for anyone billing brokers direct.
+BILLED_PAYMENT = ("submitted", "advanced")
+SETTLED_PAYMENT = ("reserve_released", "closed")
 AWAITING_DAYS_FACTORED = (3, 7)        # (warn, urgent)
 AWAITING_DAYS_DIRECT = (30, 45)
 
@@ -526,21 +531,24 @@ def _billing_status(load):
     chasing. Single source of truth for both the dashboard's billing banners and
     the per-load banner on the load page, so the thresholds can never drift apart.
 
+    A load counts as BILLED once it is submitted to the factor (payment_status) or
+    marked invoiced (status) - whichever way the company bills. It counts as
+    SETTLED once the money is in, and then stops nagging even if nobody advanced
+    the status to "paid".
+
     Pass a load with its company select_related to avoid a query per row.
     """
-    if load.status == "delivered":
-        kind, stamp = "ready", load.delivered_at
-        warn, urgent = READY_DAYS
-    elif load.status == "invoiced":
-        # A load can sit at "invoiced" while payment_status already reached
-        # reserve_released/closed - the money landed, nobody advanced the status.
-        if load.payment_status in ("reserve_released", "closed"):
-            return None
+    if load.status == "paid" or load.payment_status in SETTLED_PAYMENT:
+        return None   # money's in
+    if load.status == "invoiced" or load.payment_status in BILLED_PAYMENT:
         kind, stamp = "awaiting", load.billed_at
         warn, urgent = (AWAITING_DAYS_DIRECT if load.company.factor == "None"
                         else AWAITING_DAYS_FACTORED)
+    elif load.status == "delivered":
+        kind, stamp = "ready", load.delivered_at
+        warn, urgent = READY_DAYS
     else:
-        return None   # booked / in transit / paid - nothing to chase
+        return None   # booked / in transit and not yet billed - nothing to chase
     days = _billing_days_since(stamp, load.delivery_date)
     return {
         "kind": kind, "load": load, "reference": load.reference,
@@ -562,8 +570,11 @@ def _billing_alerts(companies):
     _billing_status, which the load detail page uses too.
     """
     ready, awaiting = [], []
-    for ld in (Load.objects.filter(company__in=companies,
-                                   status__in=("delivered", "invoiced"))
+    for ld in (Load.objects.filter(company__in=companies)
+               .filter(Q(status__in=("delivered", "invoiced"))
+                       | Q(payment_status__in=BILLED_PAYMENT))
+               .exclude(status="paid")
+               .exclude(payment_status__in=SETTLED_PAYMENT)
                .select_related("company", "driver")):
         row = _billing_status(ld)
         if row:

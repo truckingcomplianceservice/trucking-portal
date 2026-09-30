@@ -357,7 +357,10 @@ class Load(models.Model):
         if self.status == "delivered" and not self.delivered_at:
             self.delivered_at = now
             stamped.append("delivered_at")
-        if self.status == "invoiced" and not self.billed_at:
+        # Billed means "the bill went out", whichever way this company bills:
+        # marked invoiced, or submitted to the factor.
+        if not self.billed_at and (self.status == "invoiced"
+                                   or self.payment_status in ("submitted", "advanced")):
             self.billed_at = now
             stamped.append("billed_at")
         # Callers that save narrowly - load.save(update_fields=["status"]) when a
@@ -1324,6 +1327,12 @@ class Invoice(models.Model):
             n = Invoice.objects.count() + 1
             self.invoice_number = f"INV-{n:05d}"
         super().save(*args, **kwargs)
+        # Invoicing a load is what makes it invoiced. Without this the load stayed
+        # at "delivered" and the dashboard kept asking someone to bill it again.
+        # Only advances a delivered load - never drags a paid one backwards.
+        if self.load_id and self.load.status == "delivered":
+            self.load.status = "invoiced"
+            self.load.save(update_fields=["status"])
 
     @property
     def items_subtotal(self):

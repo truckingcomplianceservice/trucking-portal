@@ -676,3 +676,90 @@ class CoreSystemTests(TestCase):
             self.assertEqual(single["kind"], row["kind"])
             self.assertEqual(single["days"], row["days"])
             self.assertEqual(single["severity"], row["severity"])
+
+    # ---- Billing keyed to how this outfit actually bills (factor submission) ----
+    def test_submitted_to_factor_counts_as_billed_not_ready_to_bill(self):
+        """A delivered load already submitted to the factor has been billed.
+        Listing it under 'Ready to bill' would tell someone to bill it twice."""
+        from operations.views import _billing_alerts
+        ld = self._aged_load(self.a, "SUBM-1", "delivered", 4)
+        Load.objects.filter(pk=ld.pk).update(payment_status="submitted")
+        out = _billing_alerts([self.a])
+        self.assertEqual([r["reference"] for r in out["ready"]], [])
+        self.assertEqual([r["reference"] for r in out["awaiting"]], ["SUBM-1"])
+
+    def test_delivered_and_unpaid_is_still_ready_to_bill(self):
+        from operations.views import _billing_alerts
+        self._aged_load(self.a, "UNB-1", "delivered", 4)   # payment_status unpaid
+        out = _billing_alerts([self.a])
+        self.assertEqual([r["reference"] for r in out["ready"]], ["UNB-1"])
+        self.assertEqual(out["awaiting"], [])
+
+    def test_settled_with_the_factor_stops_nagging(self):
+        from operations.views import _billing_alerts
+        for pay in ("reserve_released", "closed"):
+            ld = self._aged_load(self.a, f"SET-{pay}", "delivered", 40)
+            Load.objects.filter(pk=ld.pk).update(payment_status=pay)
+        out = _billing_alerts([self.a])
+        self.assertEqual(out["ready"], [])
+        self.assertEqual(out["awaiting"], [])
+
+    def test_billed_at_is_stamped_when_submitted_to_the_factor(self):
+        ld = Load.objects.create(company=self.a, reference="STAMP-1", origin="X",
+                                 destination="Y", status="delivered")
+        self.assertIsNone(ld.billed_at)
+        ld.payment_status = "submitted"
+        ld.save(update_fields=["payment_status"])
+        ld.refresh_from_db()
+        self.assertIsNotNone(ld.billed_at)          # survives a narrow save
+        first = ld.billed_at
+        ld.payment_status = "advanced"; ld.save()
+        self.assertEqual(ld.billed_at, first)       # stamped once, not re-stamped
+
+    def test_creating_an_invoice_marks_the_load_invoiced(self):
+        """The old gap: you could invoice a load in the app and the load stayed
+        at 'delivered', so the dashboard kept asking for it to be billed."""
+        from operations.models import Invoice
+        ld = Load.objects.create(company=self.a, reference="INV-1", origin="X",
+                                 destination="Y", rate=1000, status="delivered")
+        Invoice.objects.create(company=self.a, load=ld, subtotal=1000)
+        ld.refresh_from_db()
+        self.assertEqual(ld.status, "invoiced")
+        self.assertIsNotNone(ld.billed_at)
+
+    def test_invoicing_never_drags_a_paid_load_backwards(self):
+        from operations.models import Invoice
+        ld = Load.objects.create(company=self.a, reference="INV-2", origin="X",
+                                 destination="Y", rate=1000, status="paid",
+                                 payment_status="closed")
+        Invoice.objects.create(company=self.a, load=ld, subtotal=1000)
+        ld.refresh_from_db()
+        self.assertEqual(ld.status, "paid")
+
+    def test_load_page_banner_for_a_factor_submitted_load(self):
+        self.a.factor = "RTS"; self.a.save()        # factored: warn 3, urgent 7
+        ld = Load.objects.create(company=self.a, reference="SUBM-BAN", origin="Reno NV",
+                                 destination="Modesto CA", rate=4100, status="delivered")
+        ld.payment_status = "submitted"
+        ld.save()                      # stamps billed_at the way real code does
+        Load.objects.filter(pk=ld.pk).update(
+            billed_at=timezone.now() - datetime.timedelta(days=8))
+        self._set_company(self.oc, self.a)
+        html = self.oc.get(f"/app/loads/{ld.id}/").content.decode()
+        self.assertIn("This load was invoiced 8 days ago and payment has not been received", html)
+        self.assertEqual(self._banner_colour(html), "#c0392b")
+
+    def test_billed_load_with_no_timestamp_is_listed_but_not_nagged(self):
+        """Loads billed before billed_at existed have no stamp and no delivery
+        date, so we can't age them. They're still listed, just not escalated."""
+        from operations.views import _billing_alerts
+        ld = Load.objects.create(company=self.a, reference="OLDBILL", origin="X",
+                                 destination="Y", status="delivered")
+        Load.objects.filter(pk=ld.pk).update(payment_status="submitted")  # no stamp
+        out = _billing_alerts([self.a])
+        self.assertEqual([r["reference"] for r in out["awaiting"]], ["OLDBILL"])
+        self.assertIsNone(out["awaiting"][0]["days"])
+        self.assertEqual(out["awaiting"][0]["severity"], "ok")
+        self._set_company(self.oc, self.a)
+        html = self.oc.get(f"/app/loads/{ld.id}/").content.decode()
+        self.assertIsNone(self._banner_colour(html))      # no banner without an age
