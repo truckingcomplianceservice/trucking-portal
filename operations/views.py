@@ -4955,7 +4955,13 @@ def driver_dot_packet(request, drv):
 
     def _row(label, doc, fallback_expiry=None):
         expiry = (doc.expiry_date if (doc and doc.expiry_date) else None) or fallback_expiry
-        status = _status(expiry) if expiry else ("ok" if doc else "na")
+        has_file = bool(doc and doc.file)
+        if expiry and _status(expiry) == "expired":
+            status = "expired"   # worst news wins, even with nothing uploaded
+        elif not has_file:
+            status = "na"        # nothing here an officer could actually look at
+        else:
+            status = _status(expiry) if expiry else "ok"
         return {"label": label, "doc": doc, "expiry": expiry, "status": status}
 
     # Which truck? Default to the vehicle from the driver's most recent load,
@@ -4971,7 +4977,8 @@ def driver_dot_packet(request, drv):
     vehicle = None
     vid = request.GET.get("vehicle")
     if vid:
-        vehicle = Vehicle.objects.filter(pk=vid, company=drv.company).first()
+        # Only a truck this driver has actually run - not any unit in the fleet.
+        vehicle = next((v for v in recent_vehicles if str(v.id) == vid), None)
     if not vehicle and recent_vehicles:
         vehicle = recent_vehicles[0]
 

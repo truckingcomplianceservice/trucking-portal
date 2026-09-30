@@ -140,3 +140,92 @@ class CoreSystemTests(TestCase):
         self.assertNotIn("Bob", board)
         r = c.get(f"/app/hiring/{other.id}/", follow=True)
         self.assertNotIn("Lee", r.content.decode())
+
+    # ---- DOT inspection packet (driver's roadside screen) ----
+    def _driver_client(self, company=None, **kw):
+        """A driver with a login, ready to hit the /driver/ portal."""
+        company = company or self.a
+        d = Driver.objects.create(company=company, first_name="Raj", last_name="Gill",
+                                  cdl_number="D9911", **kw)
+        u = User.objects.create_user("raj", password="pw12345678")
+        d.user = u; d.save()
+        c = Client(); c.force_login(u)
+        return d, c
+
+    def test_dot_packet_statuses_and_default_truck(self):
+        from operations.models import ComplianceDocument
+        t = datetime.date.today()
+        d, c = self._driver_client(medical_expiry=t - datetime.timedelta(days=5))
+        v_old = Vehicle.objects.create(company=self.a, unit_number="OLD-1")
+        v_new = Vehicle.objects.create(company=self.a, unit_number="NEW-2", plate="8XYZ123")
+        Load.objects.create(company=self.a, driver=d, vehicle=v_old, reference="L-OLD",
+                            origin="X", destination="Y", pickup_date=t - datetime.timedelta(days=20))
+        Load.objects.create(company=self.a, driver=d, vehicle=v_new, reference="L-NEW",
+                            origin="P", destination="Q", pickup_date=t - datetime.timedelta(days=2))
+        ComplianceDocument.objects.create(company=self.a, driver=d, doc_type="cdl",
+            expiry_date=t + datetime.timedelta(days=400),
+            file=SimpleUploadedFile("cdl.pdf", b"%PDF-1.4"))
+        ComplianceDocument.objects.create(company=self.a, driver=d, doc_type="mvr",
+            expiry_date=t + datetime.timedelta(days=10),
+            file=SimpleUploadedFile("mvr.pdf", b"%PDF-1.4"))
+        VehicleDocument.objects.create(company=self.a, vehicle=v_new, doc_type="inspection",
+            expiry_date=t - datetime.timedelta(days=3),
+            file=SimpleUploadedFile("insp.pdf", b"%PDF-1.4"))
+        CompanyDocument.objects.create(company=self.a, doc_type="coi",
+            expiry_date=t + datetime.timedelta(days=200),
+            file=SimpleUploadedFile("coi.pdf", b"%PDF-1.4"))
+
+        r = c.get("/driver/dot-packet/")
+        self.assertEqual(r.status_code, 200)
+        html = r.content.decode()
+        self.assertIn("On file", html)          # CDL + COI
+        self.assertIn("Expiring soon", html)    # MVR, 10 days out
+        self.assertIn("Expired", html)          # medical card + truck inspection
+        self.assertIn("Not on file", html)      # e.g. BOC-3, title
+        # defaults to the truck on the most recent load, offers the other as an option
+        self.assertIn("NEW-2", html)
+        self.assertIn("OLD-1", html)
+        self.assertIn('value="{}" selected'.format(v_new.id), html)
+
+    def test_dot_packet_green_needs_an_actual_file(self):
+        """A document row with no upload must not read as 'On file' — there's
+        nothing for the officer to look at."""
+        from operations.models import ComplianceDocument
+        t = datetime.date.today()
+        d, c = self._driver_client()
+        ComplianceDocument.objects.create(company=self.a, driver=d, doc_type="mvr",
+                                          expiry_date=t + datetime.timedelta(days=100))
+        html = c.get("/driver/dot-packet/").content.decode()
+        self.assertNotIn("On file", html)
+        self.assertIn("Not on file", html)
+        self.assertNotIn(">View<", html)
+
+    def test_dot_packet_truck_switch_is_limited_to_own_trucks(self):
+        t = datetime.date.today()
+        d, c = self._driver_client()
+        mine = Vehicle.objects.create(company=self.a, unit_number="MINE-1")
+        theirs = Vehicle.objects.create(company=self.a, unit_number="THEIRS-9")
+        Load.objects.create(company=self.a, driver=d, vehicle=mine, reference="L1",
+                            origin="X", destination="Y", pickup_date=t)
+        VehicleDocument.objects.create(company=self.a, vehicle=theirs, doc_type="title",
+            title="SECRET-TITLE", file=SimpleUploadedFile("t.pdf", b"%PDF-1.4"))
+        html = c.get(f"/driver/dot-packet/?vehicle={theirs.id}").content.decode()
+        self.assertIn("MINE-1", html)           # falls back to their own truck
+        self.assertNotIn("THEIRS-9", html)
+
+    def test_dot_packet_no_loads_no_crash(self):
+        d, c = self._driver_client()
+        r = c.get("/driver/dot-packet/")
+        self.assertEqual(r.status_code, 200)
+        self.assertIn("No truck on file yet", r.content.decode())
+
+    def test_dot_packet_requires_a_driver_login(self):
+        self._set_company(self.oc, self.a)
+        r = self.oc.get("/driver/dot-packet/")
+        self.assertEqual(r.status_code, 302)    # office user gets bounced to dashboard
+
+    def test_dot_packet_link_on_driver_home_and_nav(self):
+        d, c = self._driver_client()
+        html = c.get("/driver/").content.decode()
+        self.assertIn("/driver/dot-packet/", html)
+        self.assertIn("DOT Packet", html)       # bottom nav from driver_base
