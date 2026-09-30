@@ -1555,6 +1555,48 @@ def _parse_date(val):
     return None
 
 
+# IFTA jurisdictions: US states + Canadian provinces. Used to validate what a fuel
+# card export claims, so a stray "N/A" or city fragment never lands in a tax figure.
+IFTA_JURISDICTIONS = frozenset("""
+AL AK AZ AR CA CO CT DE FL GA HI ID IL IN IA KS KY LA ME MD MA MI MN MS MO MT NE
+NV NH NJ NM NY NC ND OH OK OR PA RI SC SD TN TX UT VT VA WA WV WI WY DC
+AB BC MB NB NL NS NT NU ON PE QC SK YT
+""".split())
+
+
+def _find_state(hdr):
+    """Guess the jurisdiction column. Short codes must match the WHOLE header -
+    a bare "st" substring would otherwise grab "Cost", "Customer" or "Station"."""
+    hls = [h.strip().lower() for h in hdr]
+    for exact in ("state", "st", "st.", "state code", "jurisdiction", "juris",
+                  "prov", "province"):
+        for i, hl in enumerate(hls):
+            if hl == exact:
+                return i
+    for part in ("state", "jurisdiction", "juris", "province"):
+        for i, hl in enumerate(hls):
+            if part in hl:
+                return i
+    return None
+
+
+def _ifta_state(raw, location=""):
+    """Normalize a fuel row's jurisdiction to a valid 2-letter IFTA code.
+
+    Prefers an explicit state column. Falls back to a trailing state on the
+    location ("RENO, NV" / "RENO NV"), which some exports use instead of a
+    separate column. Returns "" rather than guessing - unallocated gallons are a
+    visible problem on the IFTA report, whereas a wrong state is an invisible one.
+    """
+    code = (raw or "").strip().upper()
+    if len(code) == 2 and code in IFTA_JURISDICTIONS:
+        return code
+    tail = (location or "").strip().upper().rstrip(".").replace(",", " ").split()
+    if tail and tail[-1] in IFTA_JURISDICTIONS:
+        return tail[-1]
+    return ""
+
+
 @require_section("fuel")
 @login_required
 def fuel_import(request):
@@ -1585,11 +1627,13 @@ def fuel_import(request):
                                     "cost", "charge", "sale amt", "spent", "paid"),
                     "gallons": _find(header, "gallon", "qty", "quantity", "volume", "units"),
                     "location": _find(header, "merchant", "location", "site", "station", "vendor", "city"),
+                    "state": _find_state(header),
                     "card": _find(header, "card"),
                     "unit": _find_unit(header),
                 }
                 fielddefs = [("date", "Date"), ("amount", "Amount ($)"), ("gallons", "Gallons"),
-                             ("location", "Location / merchant"), ("card", "Card number"),
+                             ("location", "Location / merchant"),
+                             ("state", "State (IFTA)"), ("card", "Card number"),
                              ("unit", "Unit / truck #")]
                 fields = []
                 for fname, flabel in fielddefs:
@@ -1608,13 +1652,15 @@ def fuel_import(request):
             def col(key):
                 v = request.POST.get(key, "")
                 return int(v) if v not in ("", "none") else None
-            idx = {k: col(k) for k in ["date", "amount", "gallons", "location", "card", "unit"]}
-            existing = set()
+            idx = {k: col(k) for k in ["date", "amount", "gallons", "location", "state",
+                                       "card", "unit"]}
+            existing = {}
             for t in FuelTransaction.objects.filter(company=company).values_list(
-                    "date", "card_last4", "gallons", "amount", "location"):
-                existing.add((t[0], t[1], round(float(t[2]), 2), round(float(t[3]), 2),
-                              (t[4] or "").strip().lower()))
-            created, skipped, dup = 0, 0, 0
+                    "date", "card_last4", "gallons", "amount", "location", "id", "ifta_state"):
+                sig = (t[0], t[1], round(float(t[2]), 2), round(float(t[3]), 2),
+                       (t[4] or "").strip().lower())
+                existing[sig] = (t[5], t[6])
+            created, skipped, dup, filled, no_state = 0, 0, 0, 0, 0
             for row in rows[1:]:
                 if not any(c.strip() for c in row):
                     continue
@@ -1627,20 +1673,35 @@ def fuel_import(request):
                 date_val = _parse_date(cell("date"))
                 card = cell("card").strip(); last4 = card[-4:] if card else ""
                 loc = cell("location").strip()[:160]
+                state = _ifta_state(cell("state"), loc)
                 sig = (date_val, last4, gallons, amount, loc.strip().lower())
                 if sig in existing:
-                    dup += 1; continue
+                    # Already imported. If that row never got a jurisdiction and this
+                    # file has one, fill it in - that's how past imports get fixed
+                    # without creating duplicates or inventing a state.
+                    row_id, row_state = existing[sig]
+                    if state and not row_state:
+                        FuelTransaction.objects.filter(pk=row_id).update(ifta_state=state)
+                        existing[sig] = (row_id, state)
+                        filled += 1
+                    else:
+                        dup += 1
+                    continue
                 vehicle = None; unit = cell("unit").strip()
                 if unit:
                     vehicle = Vehicle.objects.filter(company=company, unit_number__iexact=unit).first()
                 FuelTransaction.objects.create(
                     company=company, date=date_val, vehicle=vehicle,
-                    card_last4=last4, location=loc,
+                    card_last4=last4, location=loc, ifta_state=state,
                     gallons=gallons, amount=amount, source="csv")
-                existing.add(sig)
+                existing[sig] = (None, state)
                 created += 1
-            ctx.update({"step": "done", "result": {"created": created, "skipped": skipped,
-                        "dup": dup, "company": company.name, "company_id": company.id}})
+                if not state:
+                    no_state += 1   # imported, but it will sit unallocated on the IFTA report
+            ctx.update({"step": "done", "result": {
+                "created": created, "skipped": skipped, "dup": dup, "filled": filled,
+                "no_state": no_state,
+                "company": company.name, "company_id": company.id}})
     return render(request, "operations/app_fuel_import.html", ctx)
 
 

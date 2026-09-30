@@ -763,3 +763,116 @@ class CoreSystemTests(TestCase):
         self._set_company(self.oc, self.a)
         html = self.oc.get(f"/app/loads/{ld.id}/").content.decode()
         self.assertIsNone(self._banner_colour(html))      # no banner without an age
+
+    # ---- Fuel import: IFTA jurisdiction ----
+    def _import_fuel(self, csv_text, mapping):
+        """Run the two-step importer: preview, then import with an explicit mapping."""
+        f = SimpleUploadedFile("fuel.csv", csv_text.encode(), content_type="text/csv")
+        self.oc.post("/app/fuel/import/", {"stage": "preview", "file": f,
+                                           "company": str(self.a.id)})
+        data = {"stage": "import", "company": str(self.a.id), "csv_data": csv_text}
+        data.update({k: ("none" if v is None else str(v)) for k, v in mapping.items()})
+        return self.oc.post("/app/fuel/import/", data)
+
+    def test_fuel_import_captures_the_ifta_state_column(self):
+        from operations.models import FuelTransaction
+        self._set_company(self.oc, self.a)
+        csv = ("Date,Amount,Gallons,Merchant,State,Card\n"
+               "2026-09-23,1059.51,168.79,PILOT WINNEMUCCA 485,NV,1234\n"
+               "2026-09-24,810.84,135.94,FJ BIG SPRINGS 904,ne,1234\n")
+        self._import_fuel(csv, {"date": 0, "amount": 1, "gallons": 2, "location": 3,
+                                "state": 4, "card": 5, "unit": None})
+        states = sorted(FuelTransaction.objects.values_list("ifta_state", flat=True))
+        self.assertEqual(states, ["NE", "NV"])      # lowercase normalised
+
+    def test_fuel_import_reads_a_state_off_the_location_when_there_is_no_column(self):
+        from operations.models import FuelTransaction
+        self._set_company(self.oc, self.a)
+        csv = ("Date,Amount,Gallons,Merchant\n"
+               "2026-09-23,100.00,20.00,\"RENO, NV\"\n"
+               "2026-09-24,100.00,20.00,LOVELOCK NV\n"
+               "2026-09-25,100.00,20.00,PILOT 43\n")
+        self._import_fuel(csv, {"date": 0, "amount": 1, "gallons": 2, "location": 3,
+                                "state": None, "card": None, "unit": None})
+        got = dict(FuelTransaction.objects.values_list("location", "ifta_state"))
+        self.assertEqual(got["RENO, NV"], "NV")
+        self.assertEqual(got["LOVELOCK NV"], "NV")
+        self.assertEqual(got["PILOT 43"], "")       # no city, no state - not guessed
+
+    def test_fuel_import_never_invents_a_jurisdiction(self):
+        from operations.models import FuelTransaction
+        self._set_company(self.oc, self.a)
+        csv = ("Date,Amount,Gallons,Merchant,State\n"
+               "2026-09-23,100.00,20.00,SOMEWHERE,N/A\n"
+               "2026-09-24,100.00,20.00,ELSEWHERE,ZZ\n"
+               "2026-09-25,100.00,20.00,NOWHERE,\n")
+        self._import_fuel(csv, {"date": 0, "amount": 1, "gallons": 2, "location": 3,
+                                "state": 4, "card": None, "unit": None})
+        self.assertEqual(set(FuelTransaction.objects.values_list("ifta_state", flat=True)),
+                         {""})   # junk rejected rather than written into a tax figure
+
+    def test_reimporting_fills_a_missing_state_without_duplicating(self):
+        """How past imports get fixed: re-upload the same file with the state
+        column mapped, and existing rows are completed in place."""
+        from operations.models import FuelTransaction
+        self._set_company(self.oc, self.a)
+        no_state = ("Date,Amount,Gallons,Merchant\n"
+                    "2026-09-23,1059.51,168.79,PILOT WINNEMUCCA 485\n")
+        self._import_fuel(no_state, {"date": 0, "amount": 1, "gallons": 2, "location": 3,
+                                     "state": None, "card": None, "unit": None})
+        self.assertEqual(FuelTransaction.objects.count(), 1)
+        self.assertEqual(FuelTransaction.objects.first().ifta_state, "")
+
+        with_state = ("Date,Amount,Gallons,Merchant,State\n"
+                      "2026-09-23,1059.51,168.79,PILOT WINNEMUCCA 485,NV\n")
+        r = self._import_fuel(with_state, {"date": 0, "amount": 1, "gallons": 2,
+                                           "location": 3, "state": 4, "card": None,
+                                           "unit": None})
+        self.assertEqual(FuelTransaction.objects.count(), 1)        # no duplicate
+        self.assertEqual(FuelTransaction.objects.first().ifta_state, "NV")
+        self.assertEqual(r.context["result"]["filled"], 1)
+        self.assertEqual(r.context["result"]["created"], 0)
+
+    def test_reimport_does_not_overwrite_a_state_already_on_file(self):
+        from operations.models import FuelTransaction
+        self._set_company(self.oc, self.a)
+        base = "Date,Amount,Gallons,Merchant,State\n2026-09-23,100.00,20.00,SITE A,NV\n"
+        self._import_fuel(base, {"date": 0, "amount": 1, "gallons": 2, "location": 3,
+                                 "state": 4, "card": None, "unit": None})
+        wrong = "Date,Amount,Gallons,Merchant,State\n2026-09-23,100.00,20.00,SITE A,CA\n"
+        r = self._import_fuel(wrong, {"date": 0, "amount": 1, "gallons": 2, "location": 3,
+                                      "state": 4, "card": None, "unit": None})
+        self.assertEqual(FuelTransaction.objects.first().ifta_state, "NV")   # unchanged
+        self.assertEqual(r.context["result"]["dup"], 1)
+
+    def test_fuel_import_reports_rows_left_without_a_state(self):
+        self._set_company(self.oc, self.a)
+        csv = ("Date,Amount,Gallons,Merchant\n"
+               "2026-09-23,100.00,20.00,PILOT 43\n"
+               "2026-09-24,100.00,20.00,RENO NV\n")
+        r = self._import_fuel(csv, {"date": 0, "amount": 1, "gallons": 2, "location": 3,
+                                    "state": None, "card": None, "unit": None})
+        self.assertEqual(r.context["result"]["created"], 2)
+        self.assertEqual(r.context["result"]["no_state"], 1)   # only PILOT 43
+        self.assertIn("have no IFTA state", r.content.decode())
+
+    def test_state_column_guess_ignores_lookalike_headers(self):
+        """A bare "st" substring would grab Cost/Customer/Station."""
+        from operations.views import _find_state
+        self.assertIsNone(_find_state(["Date", "Cost", "Customer", "Station", "Gallons"]))
+        self.assertEqual(_find_state(["Date", "Cost", "State", "Gallons"]), 2)
+        self.assertEqual(_find_state(["Date", "Cost", "ST", "Gallons"]), 2)
+        self.assertEqual(_find_state(["Date", "Jurisdiction", "Cost"]), 1)
+        self.assertEqual(_find_state(["Date", "State Code", "Cost"]), 1)
+
+    def test_fuel_import_does_not_map_cost_as_the_state(self):
+        from operations.models import FuelTransaction
+        self._set_company(self.oc, self.a)
+        csv = ("Date,Cost,Gallons,Station,Customer\n"
+               "2026-09-23,100.00,20.00,PILOT 43,ACME\n")
+        f = SimpleUploadedFile("f.csv", csv.encode(), content_type="text/csv")
+        r = self.oc.post("/app/fuel/import/", {"stage": "preview", "file": f,
+                                               "company": str(self.a.id)})
+        state_field = [x for x in r.context["fields"] if x["name"] == "state"][0]
+        self.assertFalse([o for o in state_field["options"] if o["selected"]],
+                         "nothing should be pre-selected as the state column here")

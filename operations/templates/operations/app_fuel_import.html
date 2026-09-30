@@ -7,6 +7,8 @@
 {% if step == "done" %}
 <div class="card" style="margin:12px 0;border-color:#bfe6cf;max-width:620px"><div style="padding:16px 18px">
  <b style="color:#137a51">Imported {{ result.created }} transaction(s)</b> into {{ result.company }}.{% if result.dup %} <b>Skipped {{ result.dup }} duplicate(s)</b> already on file.{% endif %}{% if result.skipped %} Skipped {{ result.skipped }} blank/zero rows.{% endif %}
+ {% if result.filled %}<div style="margin-top:8px;background:#e4f4ec;border-radius:8px;padding:8px 10px;color:#137a51;font-size:13px"><b>Filled in the IFTA state on {{ result.filled }} transaction(s)</b> already on file that were missing one.</div>{% endif %}
+ {% if result.no_state %}<div style="margin-top:8px;background:#fff4e0;border-radius:8px;padding:8px 10px;color:#8a5a00;font-size:13px"><b>{{ result.no_state }} imported row(s) have no IFTA state</b> — they'll show as unallocated gallons on the IFTA report. If your file has a state column, re-run this import and map it to <b>State (IFTA)</b>; existing rows will be filled in rather than duplicated.</div>{% endif %}
  <div style="margin-top:12px"><a class="btn navy" href="/app/fuel/?company={{ result.company_id }}">View fuel transactions</a> <a class="btn ghost" href="/app/fuel/import/">Import another</a></div>
 </div></div>
 
