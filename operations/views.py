@@ -7,6 +7,7 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.views.static import serve
 from django.views.decorators.http import require_POST
 from django.conf import settings
+from django.utils import timezone as _timezone
 from .models import (DriverLocation, LoadStatusEvent, Partner, PartnerPayback,
     TeamMessage, ShiftHandoff, Notification, TaskComment, IftaStateEntry, TeamInvite, BrokerAgent, Company, Load, Expense, Settlement, Driver, Vehicle, Applicant, ApplicantStatusHistory, SignatureRecord, AuditorLink,
                      ComplianceDocument, Broker, FuelTransaction, RentalContract, VehicleDocument, VehiclePhoto, CompanyDocument, notify)
@@ -347,6 +348,79 @@ def _maintenance_alerts(companies, warn_within_miles=2000):
     return alerts
 
 
+# How long "Awaiting payment" may sit before we nag, by how the company gets paid.
+# A factored carrier expects the advance in 1-2 business days; direct-billed
+# freight runs on net-30 broker terms, so nagging at 3 days would cry wolf.
+AWAITING_DAYS_FACTORED = (3, 7)        # (warn, urgent)
+AWAITING_DAYS_DIRECT = (30, 45)
+
+
+def _billing_alerts(companies):
+    """Money-in alerts for the dashboard: freight that's been delivered but never
+    invoiced, and freight that's been invoiced but never paid. Both age from the
+    milestone the Load stamps on itself.
+
+    Mirrors _maintenance_alerts: scoped to `companies` only, oldest first.
+    Returns {"ready": [...], "awaiting": [...]}.
+
+    Loads that predate the delivered_at/billed_at fields have no stamp, so they
+    fall back to delivery_date; with neither, they're still listed but unaged
+    rather than being silently dropped.
+    """
+    now = _timezone.now()
+    today = _dt.date.today()
+
+    def _days_since(stamp, fallback_date):
+        if stamp:
+            return max((now - stamp).days, 0)
+        if fallback_date:
+            return max((today - fallback_date).days, 0)
+        return None
+
+    def _severity(days, warn, urgent):
+        if days is None:
+            return "ok"
+        if days >= urgent:
+            return "urgent"
+        if days >= warn:
+            return "warn"
+        return "ok"
+
+    ready, awaiting = [], []
+
+    for ld in (Load.objects.filter(company__in=companies, status="delivered")
+               .select_related("company", "driver")):
+        days = _days_since(ld.delivered_at, ld.delivery_date)
+        ready.append({
+            "load": ld, "reference": ld.reference, "customer": ld.customer,
+            "origin": ld.origin, "destination": ld.destination, "rate": ld.rate,
+            "days": days, "severity": _severity(days, 2, 5),
+            "since": ld.delivered_at or ld.delivery_date,
+        })
+
+    # A load can sit at status="invoiced" while payment_status has already reached
+    # reserve_released/closed - the money landed, nobody advanced the status. Those
+    # are paid, so they must not nag forever.
+    for ld in (Load.objects.filter(company__in=companies, status="invoiced")
+               .exclude(payment_status__in=["reserve_released", "closed"])
+               .select_related("company", "driver")):
+        warn, urgent = (AWAITING_DAYS_DIRECT if ld.company.factor == "None"
+                        else AWAITING_DAYS_FACTORED)
+        days = _days_since(ld.billed_at, ld.delivery_date)
+        awaiting.append({
+            "load": ld, "reference": ld.reference, "customer": ld.customer,
+            "origin": ld.origin, "destination": ld.destination, "rate": ld.rate,
+            "days": days, "severity": _severity(days, warn, urgent),
+            "since": ld.billed_at or ld.delivery_date,
+            "terms": "factoring" if ld.company.factor != "None" else "net-30",
+        })
+
+    # Oldest first; anything we couldn't age sits at the bottom.
+    for bucket in (ready, awaiting):
+        bucket.sort(key=lambda a: (a["days"] is None, -(a["days"] or 0)))
+    return {"ready": ready, "awaiting": awaiting}
+
+
 @login_required
 def dashboard(request):
     # Drivers get their own portal, not the company dashboard
@@ -370,6 +444,7 @@ def dashboard(request):
     exp_items = _expiring_items(companies)
     alerts = [i for i in exp_items if i["days"] <= 30]
     maint_alerts = _maintenance_alerts(companies)
+    billing_alerts = _billing_alerts(companies)
     recent_loads = Load.objects.filter(company__in=companies).select_related("company", "driver")[:6]
     recent_activity = (ActivityLog.objects.all()[:8] if request.user.is_superuser
                        else ActivityLog.objects.filter(company__in=companies)[:8])
@@ -475,6 +550,8 @@ def dashboard(request):
         "kpi": kpi, "driver_rows": driver_rows[:8], "truck_rows": truck_rows[:8],
         "team_rows": team_rows, "kpi_year": today.year, "onboarding": onboarding,
         "maint_alerts": maint_alerts,
+        "bill_ready": billing_alerts["ready"],
+        "bill_awaiting": billing_alerts["awaiting"],
     })
 
 

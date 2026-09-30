@@ -6,6 +6,7 @@ Each test is one safety check. Green = working, Red = something broke.
 import datetime, tempfile
 from django.test import TestCase, Client, override_settings
 from django.contrib.auth.models import User
+from django.utils import timezone
 from django.core.files.uploadedfile import SimpleUploadedFile
 from operations.models import (Company, Driver, Vehicle, Load, Settlement,
                                Profile, VehicleDocument, CompanyDocument,
@@ -229,3 +230,131 @@ class CoreSystemTests(TestCase):
         html = c.get("/driver/").content.decode()
         self.assertIn("/driver/dot-packet/", html)
         self.assertIn("DOT Packet", html)       # bottom nav from driver_base
+
+    # ---- Billing alerts (dashboard money-in nags) ----
+    def _delivered(self, company, ref, days_ago, **kw):
+        """A delivered load whose delivered_at stamp is `days_ago` days old."""
+        ld = Load.objects.create(company=company, reference=ref, origin="X", destination="Y",
+                                 rate=1500, status="delivered", **kw)
+        ld.delivered_at = timezone.now() - datetime.timedelta(days=days_ago)
+        Load.objects.filter(pk=ld.pk).update(delivered_at=ld.delivered_at)
+        return ld
+
+    def _invoiced(self, company, ref, days_ago, **kw):
+        """An invoiced load whose billed_at stamp is `days_ago` days old."""
+        ld = Load.objects.create(company=company, reference=ref, origin="X", destination="Y",
+                                 rate=1500, status="invoiced", **kw)
+        ld.billed_at = timezone.now() - datetime.timedelta(days=days_ago)
+        Load.objects.filter(pk=ld.pk).update(billed_at=ld.billed_at)
+        return ld
+
+    def test_load_stamps_delivered_at_and_billed_at_once(self):
+        ld = Load.objects.create(company=self.a, reference="S1", origin="X", destination="Y")
+        self.assertIsNone(ld.delivered_at)
+        ld.status = "delivered"; ld.save()
+        first = ld.delivered_at
+        self.assertIsNotNone(first)
+        self.assertIsNone(ld.billed_at)
+        # bouncing back and forth must not re-stamp
+        ld.status = "in_transit"; ld.save()
+        ld.status = "delivered"; ld.save()
+        self.assertEqual(ld.delivered_at, first)
+        ld.status = "invoiced"; ld.save()
+        self.assertIsNotNone(ld.billed_at)
+        self.assertEqual(ld.delivered_at, first)
+
+    def test_stamp_survives_a_narrow_update_fields_save(self):
+        """The driver app marks delivery with save(update_fields=["status"]) —
+        the stamp must not be silently dropped."""
+        ld = Load.objects.create(company=self.a, reference="S2", origin="X", destination="Y")
+        ld.status = "delivered"
+        ld.save(update_fields=["status"])
+        ld.refresh_from_db()
+        self.assertIsNotNone(ld.delivered_at)
+
+    def test_delivered_unbilled_load_is_ready_to_bill(self):
+        from operations.views import _billing_alerts
+        ld = self._delivered(self.a, "RB1", 1)
+        out = _billing_alerts([self.a])
+        self.assertEqual([r["load"].id for r in out["ready"]], [ld.id])
+        self.assertEqual(out["awaiting"], [])
+
+    def test_invoiced_unpaid_load_is_awaiting_payment(self):
+        from operations.views import _billing_alerts
+        ld = self._invoiced(self.a, "AP1", 1)
+        out = _billing_alerts([self.a])
+        self.assertEqual([r["load"].id for r in out["awaiting"]], [ld.id])
+        self.assertEqual(out["ready"], [])
+
+    def test_paid_load_appears_in_neither_list(self):
+        from operations.views import _billing_alerts
+        Load.objects.create(company=self.a, reference="P1", origin="X", destination="Y",
+                            status="paid", payment_status="closed")
+        out = _billing_alerts([self.a])
+        self.assertEqual(out["ready"], [])
+        self.assertEqual(out["awaiting"], [])
+
+    def test_ready_to_bill_severity_thresholds(self):
+        from operations.views import _billing_alerts
+        self._delivered(self.a, "D0", 0)
+        self._delivered(self.a, "D2", 2)
+        self._delivered(self.a, "D5", 5)
+        by_ref = {r["reference"]: r for r in _billing_alerts([self.a])["ready"]}
+        self.assertEqual(by_ref["D0"]["severity"], "ok")
+        self.assertEqual(by_ref["D2"]["severity"], "warn")     # warn at 2+
+        self.assertEqual(by_ref["D5"]["severity"], "urgent")   # urgent at 5+
+
+    def test_awaiting_payment_thresholds_follow_how_the_company_gets_paid(self):
+        from operations.views import _billing_alerts
+        self.a.factor = "RTS"; self.a.save()        # factored: 3 / 7
+        self.b.factor = "None"; self.b.save()       # direct billed: 30 / 45
+        self._invoiced(self.a, "F3", 3)
+        self._invoiced(self.a, "F7", 7)
+        self._invoiced(self.b, "N3", 3)
+        self._invoiced(self.b, "N30", 30)
+        self._invoiced(self.b, "N45", 45)
+        by_ref = {r["reference"]: r for r in _billing_alerts([self.a, self.b])["awaiting"]}
+        self.assertEqual(by_ref["F3"]["severity"], "warn")
+        self.assertEqual(by_ref["F7"]["severity"], "urgent")
+        self.assertEqual(by_ref["N3"]["severity"], "ok")       # still well inside net-30
+        self.assertEqual(by_ref["N30"]["severity"], "warn")
+        self.assertEqual(by_ref["N45"]["severity"], "urgent")
+
+    def test_billing_alerts_sorted_oldest_first(self):
+        from operations.views import _billing_alerts
+        self._delivered(self.a, "NEW", 1)
+        self._delivered(self.a, "OLD", 9)
+        self._delivered(self.a, "MID", 4)
+        self.assertEqual([r["reference"] for r in _billing_alerts([self.a])["ready"]],
+                         ["OLD", "MID", "NEW"])
+
+    def test_billing_alerts_are_scoped_to_the_given_companies(self):
+        from operations.views import _billing_alerts
+        mine = self._delivered(self.a, "MINE", 3)
+        self._delivered(self.b, "THEIRS", 3)
+        self._invoiced(self.b, "THEIRS-INV", 3)
+        out = _billing_alerts([self.a])
+        self.assertEqual([r["reference"] for r in out["ready"]], ["MINE"])
+        self.assertEqual(out["awaiting"], [])
+        self.assertEqual(mine.company_id, self.a.id)
+
+    def test_dashboard_shows_billing_banners_only_for_own_companies(self):
+        self._delivered(self.a, "BANNER-MINE", 3)
+        self._invoiced(self.b, "BANNER-THEIRS", 3)
+        self.oc.post("/app/company/access/", {"company": str(self.a.id), "username": "bd",
+                                              "password": "secret12345", "role": "admin"})
+        u = User.objects.get(username="bd"); c = Client(); c.force_login(u)
+        html = c.get("/dashboard/").content.decode()
+        self.assertIn("Ready to bill", html)
+        self.assertIn("BANNER-MINE", html)
+        self.assertNotIn("BANNER-THEIRS", html)
+
+    def test_invoiced_but_already_settled_does_not_nag(self):
+        """Money landed (factor released reserve / closed) but nobody advanced
+        status to "paid" — must not sit in Awaiting payment forever."""
+        from operations.views import _billing_alerts
+        self._invoiced(self.a, "STILL-OWED", 4, payment_status="submitted")
+        self._invoiced(self.a, "RESERVE-OUT", 4, payment_status="reserve_released")
+        self._invoiced(self.a, "SETTLED", 4, payment_status="closed")
+        refs = [r["reference"] for r in _billing_alerts([self.a])["awaiting"]]
+        self.assertEqual(refs, ["STILL-OWED"])

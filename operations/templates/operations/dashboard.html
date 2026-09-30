@@ -38,6 +38,38 @@
  </div>
 </div>
 {% endif %}
+{% if bill_ready %}
+<div class="card" style="margin-bottom:16px;border:none;background:{% if bill_ready.0.severity == 'urgent' %}#c0392b{% elif bill_ready.0.severity == 'warn' %}#b8860b{% else %}#1e2d45{% endif %};color:#fff">
+ <div style="padding:16px 18px">
+  <b style="font-size:16px">📋 Ready to bill</b>
+  <span style="font-size:13px;opacity:.85;margin-left:6px">delivered, not invoiced yet</span>
+  <div style="display:flex;flex-direction:column;gap:6px;margin-top:10px">
+   {% for a in bill_ready %}
+   <a href="/app/loads/{{ a.load.id }}/" style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 12px;border-radius:8px;background:rgba(255,255,255,.15);text-decoration:none;color:#fff">
+    <span><b>{{ a.reference|default:"(no ref)" }}</b>{% if a.customer %} · {{ a.customer }}{% endif %}<div style="font-size:12px;opacity:.8">{{ a.origin }} → {{ a.destination }}{% if a.rate %} · ${{ a.rate|floatformat:0|intcomma }}{% endif %}</div></span>
+    <span style="font-weight:700;white-space:nowrap">{% if a.days == None %}no date{% elif a.days == 0 %}today{% else %}{{ a.days }}d waiting{% endif %}</span>
+   </a>
+   {% endfor %}
+  </div>
+ </div>
+</div>
+{% endif %}
+{% if bill_awaiting %}
+<div class="card" style="margin-bottom:16px;border:none;background:{% if bill_awaiting.0.severity == 'urgent' %}#c0392b{% elif bill_awaiting.0.severity == 'warn' %}#b8860b{% else %}#1e2d45{% endif %};color:#fff">
+ <div style="padding:16px 18px">
+  <b style="font-size:16px">💰 Awaiting payment</b>
+  <span style="font-size:13px;opacity:.85;margin-left:6px">invoiced, not paid yet</span>
+  <div style="display:flex;flex-direction:column;gap:6px;margin-top:10px">
+   {% for a in bill_awaiting %}
+   <a href="/app/loads/{{ a.load.id }}/" style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 12px;border-radius:8px;background:rgba(255,255,255,.15);text-decoration:none;color:#fff">
+    <span><b>{{ a.reference|default:"(no ref)" }}</b>{% if a.customer %} · {{ a.customer }}{% endif %}<div style="font-size:12px;opacity:.8">{{ a.origin }} → {{ a.destination }}{% if a.rate %} · ${{ a.rate|floatformat:0|intcomma }}{% endif %} · {{ a.terms }}</div></span>
+    <span style="font-weight:700;white-space:nowrap">{% if a.days == None %}no date{% elif a.days == 0 %}today{% else %}{{ a.days }}d unpaid{% endif %}</span>
+   </a>
+   {% endfor %}
+  </div>
+ </div>
+</div>
+{% endif %}
 <h1 style="font-size:22px;margin-bottom:4px">Welcome back <span style="color:var(--muted);font-size:14px;font-weight:400;font-family:'Inter'">· {{ company_count }} compan{{ company_count|pluralize:"y,ies" }} · today at a glance</span></h1>
 <div class="kpis" style="margin-top:18px">
  <div class="kpi"><div class="l">Active loads</div><div class="n">{{ active_loads }}</div><div class="s">booked, dispatched, in transit</div></div>

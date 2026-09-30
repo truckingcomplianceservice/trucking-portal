@@ -7,6 +7,7 @@ can access.
 """
 import secrets
 from django.db import models
+from django.utils import timezone as _timezone
 from django.contrib.auth.models import User
 from django.db.models.signals import post_save
 from django.dispatch import receiver
@@ -306,6 +307,10 @@ class Load(models.Model):
     vehicle = models.ForeignKey(Vehicle, on_delete=models.SET_NULL, null=True, blank=True)
     settlement = models.ForeignKey("Settlement", on_delete=models.SET_NULL, null=True, blank=True, related_name="loads")
     invoice_number = models.CharField(max_length=40, blank=True)
+    delivered_at = models.DateTimeField("First marked delivered", null=True, blank=True,
+        help_text="Stamped automatically the first time status becomes 'delivered'. Ages the dashboard's 'Ready to bill' list.")
+    billed_at = models.DateTimeField("First marked invoiced", null=True, blank=True,
+        help_text="Stamped automatically the first time status becomes 'invoiced'. Ages the dashboard's 'Awaiting payment' list.")
     bill_of_lading = models.FileField("Bill of Lading (BOL)", upload_to="loads/bol/", blank=True)
     proof_of_delivery = models.FileField("Proof of Delivery (POD)", upload_to="loads/pod/", blank=True)
     rate_confirmation = models.FileField(upload_to="loads/ratecon/", blank=True)
@@ -317,6 +322,24 @@ class Load(models.Model):
 
     class Meta:
         ordering = ["-pickup_date"]
+
+    def save(self, *args, **kwargs):
+        # Stamp each billing milestone the FIRST time the load reaches it, so the
+        # dashboard can age unbilled and unpaid work. Never re-stamped, so moving
+        # a load backwards and forwards through the statuses keeps the original date.
+        stamped = []
+        now = _timezone.now()
+        if self.status == "delivered" and not self.delivered_at:
+            self.delivered_at = now
+            stamped.append("delivered_at")
+        if self.status == "invoiced" and not self.billed_at:
+            self.billed_at = now
+            stamped.append("billed_at")
+        # Callers that save narrowly - load.save(update_fields=["status"]) when a
+        # driver marks delivery - would otherwise drop the stamp we just set.
+        if stamped and kwargs.get("update_fields") is not None:
+            kwargs["update_fields"] = list(kwargs["update_fields"]) + stamped
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"Load {self.reference}: {self.origin} -> {self.destination}"
