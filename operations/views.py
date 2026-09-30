@@ -983,6 +983,13 @@ def app_vehicle_detail(request, pk):
         pct = (amt / grand_total * 100) if grand_total else 0
         cost_breakdown.append({"category": cat, "amount": round(amt, 2),
                                "pct": round(pct, 1)})
+    # A truck that's been retired can still be mid-run: the load was dispatched on
+    # it before it left the fleet. Surface those so nobody assumes it's idle.
+    open_loads = []
+    if v.status in ("retired", "inactive") or v.out_of_service_date:
+        open_loads = list(Load.objects.filter(
+            vehicle=v, status__in=("booked", "dispatched", "in_transit")
+        ).select_related("driver").order_by("pickup_date", "id"))
     return render(request, "operations/app_vehicle_detail.html",
                   {"v": v, "insp": _exp_chip(v.inspection_expiry),
                    "reg": _exp_chip(v.registration_expiry), "service": _service_chip(v),
@@ -993,6 +1000,7 @@ def app_vehicle_detail(request, pk):
                    "cost_breakdown": cost_breakdown, "cost_grand_total": round(grand_total, 2),
                    "replaces": v.replaces,
                    "replaced_by": v.replaced_by_set.first(),
+                   "open_loads": open_loads,
                    "can_manage": _is_manager(request.user)})
 
 

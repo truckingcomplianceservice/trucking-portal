@@ -876,3 +876,50 @@ class CoreSystemTests(TestCase):
         state_field = [x for x in r.context["fields"] if x["name"] == "state"][0]
         self.assertFalse([o for o in state_field["options"] if o["selected"]],
                          "nothing should be pre-selected as the state column here")
+
+    # ---- Retired truck still carrying open loads ----
+    def test_retired_truck_lists_loads_still_running_on_it(self):
+        v = Vehicle.objects.create(company=self.a, unit_number="RET-1", status="retired",
+                                   out_of_service_date=datetime.date(2026, 9, 28))
+        running = Load.objects.create(
+            company=self.a, vehicle=v, reference="RUN-1", origin="San Juan Bautista CA",
+            destination="South Bend IN", rate=5200, status="in_transit",
+            pickup_date=datetime.date(2026, 9, 28), delivery_date=datetime.date(2026, 10, 2))
+        Load.objects.create(company=self.a, vehicle=v, reference="DONE-1", origin="X",
+                            destination="Y", status="paid", payment_status="closed")
+        self._set_company(self.oc, self.a)
+        html = self.oc.get(f"/app/vehicles/{v.id}/").content.decode()
+        self.assertIn("Still running 1 load", html)
+        self.assertIn("RUN-1", html)
+        self.assertIn("due Oct. 2, 2026", html)
+        self.assertIn(f'/app/loads/{running.id}/', html)
+        self.assertNotIn("DONE-1", html)        # finished loads aren't "still running"
+
+    def test_retired_truck_with_nothing_running_shows_no_note(self):
+        v = Vehicle.objects.create(company=self.a, unit_number="RET-2", status="retired",
+                                   out_of_service_date=datetime.date(2026, 9, 1))
+        Load.objects.create(company=self.a, vehicle=v, reference="OLD-1", origin="X",
+                            destination="Y", status="paid", payment_status="closed")
+        self._set_company(self.oc, self.a)
+        html = self.oc.get(f"/app/vehicles/{v.id}/").content.decode()
+        self.assertNotIn("Still running", html)
+
+    def test_active_truck_shows_no_open_loads_note(self):
+        """The note is about trucks that left the fleet — an active truck with
+        loads running is just a truck doing its job."""
+        v = Vehicle.objects.create(company=self.a, unit_number="ACT-1", status="active")
+        Load.objects.create(company=self.a, vehicle=v, reference="BUSY-1", origin="X",
+                            destination="Y", status="in_transit")
+        self._set_company(self.oc, self.a)
+        html = self.oc.get(f"/app/vehicles/{v.id}/").content.decode()
+        self.assertNotIn("Still running", html)
+
+    def test_out_of_service_truck_also_flags_open_loads(self):
+        v = Vehicle.objects.create(company=self.a, unit_number="OOS-1", status="inactive",
+                                   out_of_service_date=datetime.date(2026, 9, 20))
+        Load.objects.create(company=self.a, vehicle=v, reference="OOS-RUN", origin="X",
+                            destination="Y", status="dispatched")
+        self._set_company(self.oc, self.a)
+        html = self.oc.get(f"/app/vehicles/{v.id}/").content.decode()
+        self.assertIn("Still running 1 load", html)
+        self.assertIn("OOS-RUN", html)
