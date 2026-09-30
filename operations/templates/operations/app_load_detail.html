@@ -6,6 +6,24 @@
 <a href="/app/loads/" class="sub" style="color:var(--blue)">&larr; All loads</a>
 <div class="toolbar"><div class="spacer"></div><a class="btn ghost" href="#" onclick="window.print();return false">Print / Save as PDF</a></div>
 <div class="print-only"><h2 style="margin:0;color:#1e2d45">Load {{ l.reference }}</h2><div class="sub">{{ l.company.name }}</div></div>
+{% if billing %}
+<div class="card" style="margin-top:12px;border:none;background:{% if billing.severity == 'urgent' %}#c0392b{% else %}#b8860b{% endif %};color:#fff">
+ <div style="padding:14px 18px">
+  <b style="font-size:15px">{% if billing.kind == 'ready' %}📋 Not invoiced yet{% else %}💰 Payment outstanding{% endif %}</b>
+  <div style="font-size:13px;margin-top:4px">
+   {% if billing.kind == 'ready' %}
+    This load was delivered {% if billing.days == 0 %}today{% elif billing.days == 1 %}1 day ago{% else %}{{ billing.days }} days ago{% endif %} and has not yet been invoiced.
+   {% else %}
+    This load was invoiced {% if billing.days == 0 %}today{% elif billing.days == 1 %}1 day ago{% else %}{{ billing.days }} days ago{% endif %} and payment has not been received.
+   {% endif %}
+  </div>
+  <div style="font-size:11px;opacity:.8;margin-top:5px">
+   {% if billing.since %}Since {{ billing.since|date:"M d, Y" }} · {% endif %}
+   {% if billing.kind == 'ready' %}flagged at {{ billing.warn_at }} days{% else %}{{ billing.terms }} terms, flagged at {{ billing.warn_at }} days{% endif %}
+  </div>
+ </div>
+</div>
+{% endif %}
 <div class="grid2" style="margin-top:12px">
  <div class="card"><div class="card-h"><h3>Load details</h3><a href="/admin/operations/load/{{ l.id }}/change/">Edit</a></div>
   <div style="padding:6px 18px 14px">

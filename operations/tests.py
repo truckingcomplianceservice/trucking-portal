@@ -598,3 +598,81 @@ class CoreSystemTests(TestCase):
         v.refresh_from_db()
         self.assertEqual(v.odometer, 845000)
         self.assertEqual(v.last_service_miles, 840514)   # repair didn't reset the clock
+
+    # ---- Per-load billing banner on the load detail page ----
+    def _aged_load(self, company, ref, status, days_ago, **kw):
+        ld = Load.objects.create(company=company, reference=ref, origin="Reno NV",
+                                 destination="Modesto CA", rate=4100, status=status, **kw)
+        stamp = timezone.now() - datetime.timedelta(days=days_ago)
+        field = "delivered_at" if status == "delivered" else "billed_at"
+        Load.objects.filter(pk=ld.pk).update(**{field: stamp})
+        return ld
+
+    def test_load_page_banner_for_a_delivered_uninvoiced_load(self):
+        ld = self._aged_load(self.a, "BAN-1", "delivered", 6)
+        self._set_company(self.oc, self.a)
+        html = self.oc.get(f"/app/loads/{ld.id}/").content.decode()
+        self.assertIn("This load was delivered 6 days ago and has not yet been invoiced", html)
+        # assert the BANNER's own colour - the base stylesheet also contains #c0392b,
+        # so a bare assertIn would pass even when the banner is amber.
+        self.assertEqual(self._banner_colour(html), "#c0392b")   # past the 5-day urgent mark
+
+    def _banner_colour(self, html):
+        import re
+        m = re.search(r"margin-top:12px;border:none;background:(#[0-9a-f]{6})", html)
+        return m.group(1) if m else None
+
+    def test_load_page_banner_is_amber_at_warn_and_red_at_urgent(self):
+        self.a.factor = "RTS"; self.a.save()        # factored: warn 3, urgent 7
+        self._set_company(self.oc, self.a)
+        cases = [("delivered", 3, "#b8860b"), ("delivered", 6, "#c0392b"),
+                 ("invoiced", 4, "#b8860b"), ("invoiced", 9, "#c0392b")]
+        for status, days, colour in cases:
+            ld = self._aged_load(self.a, f"C-{status[:3]}{days}", status, days)
+            html = self.oc.get(f"/app/loads/{ld.id}/").content.decode()
+            self.assertEqual(self._banner_colour(html), colour,
+                             f"{status} {days}d should be {colour}")
+
+    def test_load_page_banner_for_an_invoiced_unpaid_load(self):
+        self.a.factor = "RTS"; self.a.save()        # factored: warn 3, urgent 7
+        ld = self._aged_load(self.a, "BAN-2", "invoiced", 9)
+        self._set_company(self.oc, self.a)
+        html = self.oc.get(f"/app/loads/{ld.id}/").content.decode()
+        self.assertIn("This load was invoiced 9 days ago and payment has not been received", html)
+
+    def test_load_page_banner_wording_matches_the_actual_days(self):
+        for days, phrase in ((2, "delivered 2 days ago"), (4, "delivered 4 days ago"),
+                             (11, "delivered 11 days ago")):
+            ld = self._aged_load(self.a, f"BAN-D{days}", "delivered", days)
+            self._set_company(self.oc, self.a)
+            html = self.oc.get(f"/app/loads/{ld.id}/").content.decode()
+            self.assertIn(phrase, html, f"{days}d load should say '{phrase}'")
+
+    def test_load_page_shows_no_banner_when_nothing_to_chase(self):
+        self._set_company(self.oc, self.a)
+        # paid, delivered-but-too-recent, in transit, and factor-settled all stay quiet
+        paid = Load.objects.create(company=self.a, reference="Q-PAID", origin="X",
+                                   destination="Y", status="paid", payment_status="closed")
+        fresh = self._aged_load(self.a, "Q-FRESH", "delivered", 1)      # under the 2-day mark
+        moving = Load.objects.create(company=self.a, reference="Q-MOVING", origin="X",
+                                     destination="Y", status="in_transit")
+        settled = self._aged_load(self.a, "Q-SETTLED", "invoiced", 40,
+                                  payment_status="closed")
+        for ld in (paid, fresh, moving, settled):
+            html = self.oc.get(f"/app/loads/{ld.id}/").content.decode()
+            self.assertNotIn("has not yet been invoiced", html, f"{ld.reference} banner leaked")
+            self.assertNotIn("payment has not been received", html, f"{ld.reference} banner leaked")
+
+    def test_load_banner_and_dashboard_list_use_the_same_rule(self):
+        """The whole point of sharing _billing_status: the per-load banner and the
+        dashboard list can never disagree about a load."""
+        from operations.views import _billing_alerts, _billing_status
+        self._aged_load(self.a, "SYNC-1", "delivered", 6)
+        self._aged_load(self.a, "SYNC-2", "invoiced", 40)
+        self._aged_load(self.a, "SYNC-3", "delivered", 0)
+        out = _billing_alerts([self.a])
+        for row in out["ready"] + out["awaiting"]:
+            single = _billing_status(row["load"])
+            self.assertEqual(single["kind"], row["kind"])
+            self.assertEqual(single["days"], row["days"])
+            self.assertEqual(single["severity"], row["severity"])
