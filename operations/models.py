@@ -299,6 +299,16 @@ class Vehicle(models.Model):
         return f"Unit {self.unit_number}"
 
 
+def pay_method_for(company, customer=""):
+    """How a load is most likely paid when nobody has said explicitly: Amazon
+    freight settles through Relay, otherwise follow the company's factor, and a
+    company that doesn't factor bills direct."""
+    if "amazon" in (customer or "").lower():
+        return "Amazon Relay"
+    factor = (getattr(company, "factor", "") or "").strip()
+    return "Direct Pay" if factor in ("", "None") else factor
+
+
 class Load(models.Model):
     STATUS_CHOICES = [
         ("booked", "Booked"), ("dispatched", "Dispatched"), ("in_transit", "In transit"),
@@ -308,6 +318,34 @@ class Load(models.Model):
         ("unpaid", "Unpaid"), ("submitted", "Submitted to factor"),
         ("advanced", "Advanced"), ("reserve_released", "Reserve released"), ("closed", "Closed"),
     ]
+    # How THIS load gets paid. Lives on the load, not the company, because a
+    # carrier runs Amazon Relay freight and factored broker freight side by side
+    # and they settle on completely different clocks.
+    PAYMENT_METHOD_CHOICES = [
+        ("Direct Pay", "Direct Pay - broker/customer pays us"),
+        ("Amazon Relay", "Amazon Relay"),
+        ("Quick Pay", "Quick Pay (broker, for a fee)"),
+        ("RTS", "RTS Financial"),
+        ("Bobtail", "Bobtail"),
+        ("TAFS", "TAFS"),
+        ("Apex", "Apex Capital"),
+        ("TBS", "TBS Factoring"),
+        ("OTR", "OTR Solutions"),
+        ("Triumph", "Triumph Business Capital"),
+        ("eCapital", "eCapital"),
+        ("Riviera", "Riviera Finance"),
+        ("Porter", "Porter Freight Funding"),
+        ("Compass", "Compass Funding Solutions"),
+        ("England", "England Carrier Services"),
+        ("Thunder", "Thunder Funding"),
+        ("Phoenix", "Phoenix Capital Group"),
+        ("Single", "Single Point Capital"),
+        ("Love", "Love's / TFS"),
+        ("Other", "Other factor / service"),
+    ]
+    # Everything except direct billing settles in days rather than on net-30
+    # broker terms. Add a slow method here and the alerts follow.
+    NET30_METHODS = ("Direct Pay",)
 
     company = models.ForeignKey(Company, on_delete=models.PROTECT, related_name="loads")
     reference = models.CharField("Load / reference #", max_length=40)
@@ -326,6 +364,11 @@ class Load(models.Model):
         help_text="Empty miles driven to reach the pickup.")
     status = models.CharField(max_length=12, choices=STATUS_CHOICES, default="booked")
     payment_status = models.CharField(max_length=18, choices=PAYMENT_CHOICES, default="unpaid")
+    payment_method = models.CharField(
+        "How this load gets paid", max_length=20, choices=PAYMENT_METHOD_CHOICES, blank=True,
+        help_text="Sets how long before this load is chased for payment: direct billing "
+                  "runs on net-30 terms, everything else settles in days. Left blank, it "
+                  "follows the customer and the company's factor.")
     driver = models.ForeignKey(Driver, on_delete=models.SET_NULL, null=True, blank=True)
     co_driver = models.ForeignKey(Driver, on_delete=models.SET_NULL, null=True, blank=True,
         related_name="co_driver_loads", help_text="Second (team) driver on this load, if any.")
@@ -345,6 +388,14 @@ class Load(models.Model):
     def total_miles(self):
         return (self.miles or 0) + (self.deadhead_miles or 0)
 
+    @property
+    def pays_fast(self):
+        """True when this load settles in days (factoring, Amazon Relay, quick pay)
+        rather than on net-30 broker terms. Falls back to the company's factor for
+        any load whose method was never set."""
+        method = self.payment_method or pay_method_for(self.company, self.customer)
+        return method not in self.NET30_METHODS
+
     class Meta:
         ordering = ["-pickup_date"]
 
@@ -357,6 +408,9 @@ class Load(models.Model):
         if self.status == "delivered" and not self.delivered_at:
             self.delivered_at = now
             stamped.append("delivered_at")
+        if not self.payment_method and self.company_id:
+            self.payment_method = pay_method_for(self.company, self.customer)
+            stamped.append("payment_method")
         # Billed means "the bill went out", whichever way this company bills:
         # marked invoiced, or submitted to the factor.
         if not self.billed_at and (self.status == "invoiced"

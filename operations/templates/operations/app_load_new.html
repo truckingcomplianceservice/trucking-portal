@@ -89,6 +89,7 @@
    <div><label class="sub">Truck</label><select name="vehicle" onchange="autoDeadhead()" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px"><option value="">—</option>{% for v in vehicles %}<option value="{{ v.id }}">Unit {{ v.unit_number }}</option>{% endfor %}</select></div>
    <div><label class="sub">Load status</label><select name="status" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px">{% for code,label in status_choices %}<option value="{{ code }}">{{ label }}</option>{% endfor %}</select></div>
    <div><label class="sub">Payment status</label><select name="payment_status" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px">{% for code,label in payment_choices %}<option value="{{ code }}">{{ label }}</option>{% endfor %}</select></div>
+   <div><label class="sub">How it gets paid</label><select name="payment_method" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px"><option value="">— follow the customer / company default —</option>{% for code,label in pay_method_choices %}<option value="{{ code }}">{{ label }}</option>{% endfor %}</select><div class="sub" style="font-size:11px;margin-top:3px">Direct Pay is chased on net-30 terms; factoring, Amazon Relay and quick pay are chased within days.</div></div>
   </div>
 
   <div style="margin-top:14px;border-top:1px solid var(--line);padding-top:12px"><label class="sub" style="font-weight:600">Documents (optional)</label>

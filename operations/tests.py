@@ -923,3 +923,115 @@ class CoreSystemTests(TestCase):
         html = self.oc.get(f"/app/vehicles/{v.id}/").content.decode()
         self.assertIn("Still running 1 load", html)
         self.assertIn("OOS-RUN", html)
+
+    # ---- Payment method lives on the load, not the company ----
+    def test_direct_pay_load_uses_net30_thresholds(self):
+        from operations.views import _billing_status
+        self.a.factor = "RTS"; self.a.save()      # company factors, this load doesn't
+        ld = self._aged_load(self.a, "DP-1", "invoiced", 20)
+        ld.payment_method = "Direct Pay"; ld.save(update_fields=["payment_method"])
+        bs = _billing_status(Load.objects.select_related("company").get(pk=ld.pk))
+        self.assertEqual((bs["warn_at"], bs["urgent_at"]), (30, 45))
+        self.assertEqual(bs["severity"], "ok")    # 20 days is early on net-30
+
+    def test_amazon_relay_load_uses_factor_speed_thresholds(self):
+        from operations.views import _billing_status
+        self.b.factor = "None"; self.b.save()     # company doesn't factor at all
+        ld = self._aged_load(self.b, "AR-1", "invoiced", 8)
+        ld.payment_method = "Amazon Relay"; ld.save(update_fields=["payment_method"])
+        bs = _billing_status(Load.objects.select_related("company").get(pk=ld.pk))
+        self.assertEqual((bs["warn_at"], bs["urgent_at"]), (3, 7))
+        self.assertEqual(bs["severity"], "urgent")
+
+    def test_quick_pay_and_other_are_fast_pay(self):
+        from operations.views import _billing_status
+        self.a.factor = "None"; self.a.save()
+        for method in ("Quick Pay", "Other", "Bobtail"):
+            ld = self._aged_load(self.a, f"FP-{method}", "invoiced", 8)
+            ld.payment_method = method; ld.save(update_fields=["payment_method"])
+            bs = _billing_status(Load.objects.select_related("company").get(pk=ld.pk))
+            self.assertEqual((bs["warn_at"], bs["urgent_at"]), (3, 7), f"{method} should be fast")
+
+    def test_two_loads_same_company_different_methods_age_differently(self):
+        """The whole point: one carrier runs Relay freight and direct-billed
+        freight side by side, and they must not share one clock."""
+        from operations.views import _billing_alerts
+        self.a.factor = "RTS"; self.a.save()
+        fast = self._aged_load(self.a, "MIX-RELAY", "invoiced", 8)
+        fast.payment_method = "Amazon Relay"; fast.save(update_fields=["payment_method"])
+        slow = self._aged_load(self.a, "MIX-DIRECT", "invoiced", 8)
+        slow.payment_method = "Direct Pay"; slow.save(update_fields=["payment_method"])
+        by_ref = {r["reference"]: r for r in _billing_alerts([self.a])["awaiting"]}
+        self.assertEqual(by_ref["MIX-RELAY"]["severity"], "urgent")   # 8d on 3/7
+        self.assertEqual(by_ref["MIX-DIRECT"]["severity"], "ok")      # 8d on 30/45
+
+    def test_load_banner_reflects_the_loads_own_method_not_the_company(self):
+        self.a.factor = "RTS"; self.a.save()
+        self._set_company(self.oc, self.a)
+        slow = self._aged_load(self.a, "BAN-DIRECT", "invoiced", 20)
+        slow.payment_method = "Direct Pay"; slow.save(update_fields=["payment_method"])
+        html = self.oc.get(f"/app/loads/{slow.id}/").content.decode()
+        self.assertIsNone(self._banner_colour(html))   # quiet: 20d is early on net-30
+        fast = self._aged_load(self.a, "BAN-RELAY", "invoiced", 20)
+        fast.payment_method = "Amazon Relay"; fast.save(update_fields=["payment_method"])
+        html = self.oc.get(f"/app/loads/{fast.id}/").content.decode()
+        self.assertEqual(self._banner_colour(html), "#c0392b")
+        self.assertIn("Amazon Relay", html)            # terms line names the method
+
+    def test_new_load_infers_its_payment_method(self):
+        """Nothing should land unset: Amazon freight gets Relay, everything else
+        follows the company's factor, and a non-factoring company bills direct."""
+        self.a.factor = "RTS"; self.a.save()
+        self.b.factor = "None"; self.b.save()
+        amz = Load.objects.create(company=self.a, reference="INF-1", customer="Amazon",
+                                  origin="X", destination="Y")
+        fac = Load.objects.create(company=self.a, reference="INF-2", customer="TQL",
+                                  origin="X", destination="Y")
+        dir_ = Load.objects.create(company=self.b, reference="INF-3", customer="TQL",
+                                   origin="X", destination="Y")
+        self.assertEqual(amz.payment_method, "Amazon Relay")
+        self.assertEqual(fac.payment_method, "RTS")
+        self.assertEqual(dir_.payment_method, "Direct Pay")
+        self.assertTrue(amz.pays_fast)
+        self.assertFalse(dir_.pays_fast)
+
+    def test_dispatcher_can_set_the_method_on_the_create_form(self):
+        self._set_company(self.oc, self.a)
+        self.oc.post("/app/loads/new/", {
+            "company": str(self.a.id), "reference": "FORM-1", "customer": "Amazon",
+            "origin": "Reno NV", "destination": "Modesto CA", "rate": "1200",
+            "miles": "250", "status": "booked", "payment_status": "unpaid",
+            "payment_method": "Direct Pay"})
+        ld = Load.objects.get(reference="FORM-1")
+        self.assertEqual(ld.payment_method, "Direct Pay")   # beats the Amazon guess
+
+    def test_create_form_rejects_a_method_we_dont_offer(self):
+        self._set_company(self.oc, self.a)
+        self.a.factor = "RTS"; self.a.save()
+        self.oc.post("/app/loads/new/", {
+            "company": str(self.a.id), "reference": "FORM-2", "customer": "TQL",
+            "origin": "X", "destination": "Y", "rate": "100", "miles": "10",
+            "status": "booked", "payment_status": "unpaid",
+            "payment_method": "Totally Made Up Ltd"})
+        ld = Load.objects.get(reference="FORM-2")
+        self.assertEqual(ld.payment_method, "RTS")   # junk dropped, then inferred
+
+    def test_backfill_helper_matches_the_live_one(self):
+        """The migration carries a frozen copy of pay_method_for. If the live one
+        changes shape, this catches the divergence instead of letting a future
+        backfill mean something different."""
+        from importlib import import_module
+        from operations.models import pay_method_for
+        frozen = import_module("operations.migrations.0084_load_payment_method")._method_for
+
+        class FakeCo:
+            def __init__(self, factor): self.factor = factor
+        cases = [("RTS", "TQL"), ("Bobtail", "RXO"), ("Other", ""), ("None", "TQL"),
+                 ("", "TQL"), ("RTS", "Amazon"), ("None", "AMAZON"), ("Bobtail", "amazon relay")]
+        for factor, customer in cases:
+            self.assertEqual(frozen(factor, customer),
+                             pay_method_for(FakeCo(factor), customer),
+                             f"divergence for factor={factor!r} customer={customer!r}")
+        self.assertEqual(frozen("RTS", "Amazon"), "Amazon Relay")
+        self.assertEqual(frozen("None", "TQL"), "Direct Pay")
+        self.assertEqual(frozen("Bobtail", "RXO"), "Bobtail")

@@ -505,6 +505,13 @@ AWAITING_DAYS_FACTORED = (3, 7)        # (warn, urgent)
 AWAITING_DAYS_DIRECT = (30, 45)
 
 
+def _pay_method_choice(raw):
+    """Only accept a payment method we actually offer. Anything else comes back
+    blank, and Load.save() then infers it rather than storing junk."""
+    raw = (raw or "").strip()
+    return raw if raw in dict(Load.PAYMENT_METHOD_CHOICES) else ""
+
+
 def _billing_days_since(stamp, fallback_date):
     """Days a load has sat at a milestone. Loads predating delivered_at/billed_at
     have no stamp, so they fall back to delivery_date; with neither we return None
@@ -542,8 +549,8 @@ def _billing_status(load):
         return None   # money's in
     if load.status == "invoiced" or load.payment_status in BILLED_PAYMENT:
         kind, stamp = "awaiting", load.billed_at
-        warn, urgent = (AWAITING_DAYS_DIRECT if load.company.factor == "None"
-                        else AWAITING_DAYS_FACTORED)
+        warn, urgent = (AWAITING_DAYS_FACTORED if load.pays_fast
+                        else AWAITING_DAYS_DIRECT)
     elif load.status == "delivered":
         kind, stamp = "ready", load.delivered_at
         warn, urgent = READY_DAYS
@@ -556,7 +563,7 @@ def _billing_status(load):
         "destination": load.destination, "rate": load.rate, "days": days,
         "severity": _billing_severity(days, warn, urgent),
         "since": stamp or load.delivery_date,
-        "terms": "net-30" if load.company.factor == "None" else "factoring",
+        "terms": load.payment_method or ("factoring" if load.pays_fast else "net-30"),
         "warn_at": warn, "urgent_at": urgent,
     }
 
@@ -4250,7 +4257,8 @@ def app_load_new(request):
                 co_driver=Driver.objects.filter(pk=request.POST.get("co_driver"), company__in=cs).first() if request.POST.get("co_driver") else None,
                 vehicle=Vehicle.objects.filter(pk=request.POST.get("vehicle"), company__in=cs).first(),
                 status=request.POST.get("status", "booked"),
-                payment_status=request.POST.get("payment_status", "unpaid"))
+                payment_status=request.POST.get("payment_status", "unpaid"),
+                payment_method=_pay_method_choice(request.POST.get("payment_method", "")))
             for field in ("rate_confirmation", "bill_of_lading", "proof_of_delivery"):
                 if request.FILES.get(field):
                     setattr(load, field, request.FILES[field])
@@ -4286,7 +4294,8 @@ def app_load_new(request):
                    "brokers": Broker.objects.all().order_by("name"),
                    "agents": BrokerAgent.objects.select_related("broker").order_by("name"),
                    "status_choices": Load.STATUS_CHOICES,
-                   "payment_choices": Load.PAYMENT_CHOICES})
+                   "payment_choices": Load.PAYMENT_CHOICES,
+                   "pay_method_choices": Load.PAYMENT_METHOD_CHOICES})
 
 
 # ================= Phase 2: Driver Qualification File (DQF) checklist =================
